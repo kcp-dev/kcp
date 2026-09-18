@@ -48,6 +48,10 @@ func (c *ApisV1alpha2ClusterClient) APIExports() kcpapisv1alpha2.APIExportCluste
 	return newFakeAPIExportClusterClient(c)
 }
 
+func (c *ApisV1alpha2ClusterClient) APIExportHistories() kcpapisv1alpha2.APIExportHistoryClusterInterface {
+	return newFakeAPIExportHistoryClusterClient(c)
+}
+
 type ApisV1alpha2Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
@@ -59,6 +63,10 @@ func (c *ApisV1alpha2Client) APIBindings() apisv1alpha2.APIBindingInterface {
 
 func (c *ApisV1alpha2Client) APIExports() apisv1alpha2.APIExportInterface {
 	return newFakeAPIExportClient(c.Fake, c.ClusterPath)
+}
+
+func (c *ApisV1alpha2Client) APIExportHistories() apisv1alpha2.APIExportHistoryInterface {
+	return newFakeAPIExportHistoryClient(c.Fake, c.ClusterPath)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

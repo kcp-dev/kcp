@@ -33,3 +33,11 @@ type APIExportClusterListerExpansion interface{}
 // APIExportListerExpansion allows custom methods to be added to
 // APIExportLister.
 type APIExportListerExpansion interface{}
+
+// APIExportHistoryClusterListerExpansion allows custom methods to be added to
+// APIExportHistoryClusterLister.
+type APIExportHistoryClusterListerExpansion interface{}
+
+// APIExportHistoryListerExpansion allows custom methods to be added to
+// APIExportHistoryLister.
+type APIExportHistoryListerExpansion interface{}

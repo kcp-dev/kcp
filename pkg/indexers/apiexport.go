@@ -46,6 +46,10 @@ const (
 	// APIExportByAPIResourceSchema is the indexer name for retrieving APIExports by the
 	// cluster-aware key of one of their APIResourceSchemas (Spec.Resources[].Schema).
 	APIExportByAPIResourceSchema = "apiExportsByAPIResourceSchema"
+
+	// APIExportHistoryByAPIExport is the indexer name for retrieving scope histories
+	// by the cluster-aware key of their APIExport.
+	APIExportHistoryByAPIExport = "apiExportHistoriesByAPIExport"
 )
 
 // IndexAPIExportByAPIResourceSchema is an index function that maps an APIExport to the
@@ -138,4 +142,15 @@ func IndexAPIExportByVirtualResourceFingerprint(obj interface{}) ([]string, erro
 	}
 
 	return sets.List(keys), nil
+}
+
+// IndexAPIExportHistoryByAPIExport maps a scope history to the cluster-aware key of
+// the APIExport it was recorded for.
+func IndexAPIExportHistoryByAPIExport(obj interface{}) ([]string, error) {
+	history, ok := obj.(*apisv1alpha2.APIExportHistory)
+	if !ok {
+		return []string{}, fmt.Errorf("obj %T is not an APIExportHistory", obj)
+	}
+	cluster := logicalcluster.NewPath(history.Spec.APIExport.Cluster)
+	return []string{sdkclient.ToClusterAwareKey(cluster, history.Spec.APIExport.Name)}, nil
 }

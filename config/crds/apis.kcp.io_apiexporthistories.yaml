@@ -1,0 +1,130 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.3
+  name: apiexporthistories.apis.kcp.io
+spec:
+  group: apis.kcp.io
+  names:
+    categories:
+    - kcp
+    kind: APIExportHistory
+    listKind: APIExportHistoryList
+    plural: apiexporthistories
+    singular: apiexporthistory
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.apiExport.name
+      name: Export
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: |-
+          APIExportHistory records what an APIExport has served in the past, so that a schema
+          cannot be swapped for one that changes a property of an already existing group
+          resource. Today only the resource scope is recorded.
+
+          Its name is the UID of the APIExport it belongs to and it is maintained by kcp
+          in the system:bound-crds logical cluster. It is not meant to be created or edited
+          by users.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: APIExportHistorySpec defines the desired state of APIExportHistory.
+            properties:
+              apiExport:
+                description: APIExportHistoryRef identifies the APIExport a history
+                  was recorded for.
+                properties:
+                  cluster:
+                    description: Cluster is the logical cluster (cluster ID) the APIExport
+                      lives in.
+                    minLength: 1
+                    type: string
+                  name:
+                    description: Name is the name of the APIExport.
+                    minLength: 1
+                    type: string
+                required:
+                - cluster
+                - name
+                type: object
+            required:
+            - apiExport
+            type: object
+          status:
+            description: APIExportHistoryStatus communicates the observed state of
+              APIExportHistory.
+            properties:
+              resources:
+                description: |-
+                  Resources lists every group resource ever served by the APIExport, together
+                  with the properties it was first served with.
+                items:
+                  description: ResourceHistory records what a single group resource
+                    has been served with.
+                  properties:
+                    group:
+                      description: Group is the API group of the recorded resource.
+                        Empty string means the core group.
+                      type: string
+                    recordedAt:
+                      description: RecordedAt is the time the scope was recorded.
+                      format: date-time
+                      type: string
+                    resource:
+                      description: Resource is the plural name of the recorded resource.
+                      minLength: 1
+                      type: string
+                    schema:
+                      description: Schema is the name of the APIResourceSchema the
+                        scope was recorded from.
+                      type: string
+                    scope:
+                      description: Scope is the resource scope this group resource
+                        was first served with.
+                      enum:
+                      - Cluster
+                      - Namespaced
+                      type: string
+                  required:
+                  - group
+                  - resource
+                  - scope
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - group
+                - resource
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

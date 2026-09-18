@@ -27,6 +27,8 @@ type ClusterInterface interface {
 	APIBindings() APIBindingClusterInformer
 	// APIExports returns a APIExportClusterInformer.
 	APIExports() APIExportClusterInformer
+	// APIExportHistories returns a APIExportHistoryClusterInformer.
+	APIExportHistories() APIExportHistoryClusterInformer
 }
 
 type version struct {
@@ -49,11 +51,18 @@ func (v *version) APIExports() APIExportClusterInformer {
 	return &aPIExportClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// APIExportHistories returns a APIExportHistoryClusterInformer.
+func (v *version) APIExportHistories() APIExportHistoryClusterInformer {
+	return &aPIExportHistoryClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 type Interface interface {
 	// APIBindings returns a APIBindingInformer.
 	APIBindings() APIBindingInformer
 	// APIExports returns a APIExportInformer.
 	APIExports() APIExportInformer
+	// APIExportHistories returns a APIExportHistoryInformer.
+	APIExportHistories() APIExportHistoryInformer
 }
 
 type scopedVersion struct {
@@ -75,4 +84,9 @@ func (v *scopedVersion) APIBindings() APIBindingInformer {
 // APIExports returns a APIExportInformer.
 func (v *scopedVersion) APIExports() APIExportInformer {
 	return &aPIExportScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// APIExportHistories returns a APIExportHistoryInformer.
+func (v *scopedVersion) APIExportHistories() APIExportHistoryInformer {
+	return &aPIExportHistoryScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

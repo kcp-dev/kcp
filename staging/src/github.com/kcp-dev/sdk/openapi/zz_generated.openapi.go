@@ -81,6 +81,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha2.APIBindingSpec{}.OpenAPIModelName():                                  schema_sdk_apis_apis_v1alpha2_APIBindingSpec(ref),
 		v1alpha2.APIBindingStatus{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_APIBindingStatus(ref),
 		v1alpha2.APIExport{}.OpenAPIModelName():                                       schema_sdk_apis_apis_v1alpha2_APIExport(ref),
+		v1alpha2.APIExportHistory{}.OpenAPIModelName():                                schema_sdk_apis_apis_v1alpha2_APIExportHistory(ref),
+		v1alpha2.APIExportHistoryList{}.OpenAPIModelName():                            schema_sdk_apis_apis_v1alpha2_APIExportHistoryList(ref),
+		v1alpha2.APIExportHistoryRef{}.OpenAPIModelName():                             schema_sdk_apis_apis_v1alpha2_APIExportHistoryRef(ref),
+		v1alpha2.APIExportHistorySpec{}.OpenAPIModelName():                            schema_sdk_apis_apis_v1alpha2_APIExportHistorySpec(ref),
+		v1alpha2.APIExportHistoryStatus{}.OpenAPIModelName():                          schema_sdk_apis_apis_v1alpha2_APIExportHistoryStatus(ref),
 		v1alpha2.APIExportList{}.OpenAPIModelName():                                   schema_sdk_apis_apis_v1alpha2_APIExportList(ref),
 		v1alpha2.APIExportSpec{}.OpenAPIModelName():                                   schema_sdk_apis_apis_v1alpha2_APIExportSpec(ref),
 		v1alpha2.APIExportStatus{}.OpenAPIModelName():                                 schema_sdk_apis_apis_v1alpha2_APIExportStatus(ref),
@@ -95,6 +100,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha2.MaximalPermissionPolicy{}.OpenAPIModelName():                         schema_sdk_apis_apis_v1alpha2_MaximalPermissionPolicy(ref),
 		v1alpha2.PermissionClaim{}.OpenAPIModelName():                                 schema_sdk_apis_apis_v1alpha2_PermissionClaim(ref),
 		v1alpha2.PermissionClaimSelector{}.OpenAPIModelName():                         schema_sdk_apis_apis_v1alpha2_PermissionClaimSelector(ref),
+		v1alpha2.ResourceHistory{}.OpenAPIModelName():                                 schema_sdk_apis_apis_v1alpha2_ResourceHistory(ref),
 		v1alpha2.ResourceSchema{}.OpenAPIModelName():                                  schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref),
 		v1alpha2.ResourceSchemaStorage{}.OpenAPIModelName():                           schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref),
 		v1alpha2.ResourceSchemaStorageCRD{}.OpenAPIModelName():                        schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorageCRD(ref),
@@ -2183,6 +2189,193 @@ func schema_sdk_apis_apis_v1alpha2_APIExport(ref common.ReferenceCallback) commo
 	}
 }
 
+func schema_sdk_apis_apis_v1alpha2_APIExportHistory(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportHistory records what an APIExport has served in the past, so that a schema cannot be swapped for one that changes a property of an already existing group resource. Today only the resource scope is recorded.\n\nIts name is the UID of the APIExport it belongs to and it is maintained by kcp in the system:bound-crds logical cluster. It is not meant to be created or edited by users.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1alpha2.APIExportHistorySpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1alpha2.APIExportHistoryStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha2.APIExportHistorySpec{}.OpenAPIModelName(), v1alpha2.APIExportHistoryStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_APIExportHistoryList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportHistoryList is a list of APIExportHistory resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha2.APIExportHistory{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha2.APIExportHistory{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_APIExportHistoryRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportHistoryRef identifies the APIExport a history was recorded for.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cluster": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cluster is the logical cluster (cluster ID) the APIExport lives in.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the APIExport.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"cluster", "name"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_APIExportHistorySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportHistorySpec defines the desired state of APIExportHistory.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"apiExport": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1alpha2.APIExportHistoryRef{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"apiExport"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha2.APIExportHistoryRef{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_APIExportHistoryStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "APIExportHistoryStatus communicates the observed state of APIExportHistory.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resources": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"group",
+									"resource",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources lists every group resource ever served by the APIExport, together with the properties it was first served with.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha2.ResourceHistory{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1alpha2.ResourceHistory{}.OpenAPIModelName()},
+	}
+}
+
 func schema_sdk_apis_apis_v1alpha2_APIExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2779,6 +2972,59 @@ func schema_sdk_apis_apis_v1alpha2_PermissionClaimSelector(ref common.ReferenceC
 		},
 		Dependencies: []string{
 			v1.LabelSelectorRequirement{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_ResourceHistory(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourceHistory records what a single group resource has been served with.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"group": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Group is the API group of the recorded resource. Empty string means the core group.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource is the plural name of the recorded resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scope": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scope is the resource scope this group resource was first served with.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"schema": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Schema is the name of the APIResourceSchema the scope was recorded from.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"recordedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RecordedAt is the time the scope was recorded.",
+							Ref:         ref(v1.Time{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"group", "resource", "scope"},
+			},
+		},
+		Dependencies: []string{
+			v1.Time{}.OpenAPIModelName()},
 	}
 }
 
