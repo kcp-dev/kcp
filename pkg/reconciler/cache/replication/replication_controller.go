@@ -230,11 +230,13 @@ type ReplicatedGVR struct {
 	// for this resource, e.g. to replicate objects living in a system logical
 	// cluster.
 	EventFilter func(obj interface{}) bool
-	// CacheOwnedAnnotations lists annotation keys owned by the cache copy:
-	// they carry admin intent written through the Admin workspace and are
-	// applied cache -> local instead of being overwritten local -> cache.
-	CacheOwnedAnnotations []string
-	Global, Local         cache.SharedIndexInformer
+	// CacheOwnedFields lists field paths owned by the cache copy: they carry
+	// admin intent written through the Admin workspace and are applied
+	// cache -> local instead of being overwritten local -> cache. Each path is
+	// a slice of literal field names, so keys that themselves contain dots -
+	// annotation keys - address correctly.
+	CacheOwnedFields [][]string
+	Global, Local    cache.SharedIndexInformer
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
@@ -296,10 +298,14 @@ func InstallIndexers(
 		},
 		corev1alpha1.SchemeGroupVersion.WithResource("shards"): {
 			Kind: "Shard",
-			// admin intent (cordoning) written through the Admin workspace
-			// lands on the cache copy and flows cache -> local.
-			CacheOwnedAnnotations: []string{corev1alpha1.ShardUnschedulableAnnotationKey},
-			EventFilter:           isNoSystemClusterNameExceptSystemShard,
+			// admin intent - cordoning and scheduling limits - written through
+			// the Admin workspace lands on the cache copy and flows
+			// cache -> local.
+			CacheOwnedFields: [][]string{
+				{"metadata", "annotations", corev1alpha1.ShardUnschedulableAnnotationKey},
+				{"spec", "resourceLimits"},
+			},
+			EventFilter: isNoSystemClusterNameExceptSystemShard,
 			// read-only representations mirrored into the root workspace are
 			// themselves sourced from the cache; replicating them back would
 			// present every shard twice to global informer consumers.

@@ -26,6 +26,7 @@ import (
 	"path"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -287,7 +288,44 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 		}
 	}
 
-	if len(validShards) == 0 {
+	// Partition the valid shards by their workspace limits: shards under their
+	// soft limit are preferred, shards at or over their soft limit are used
+	// only as a fallback, and shards at or over their hard limit refuse new
+	// workspaces entirely. The workspace count of a shard is self-reported by
+	// each shard in status.used.
+	preferredShards := make([]*corev1alpha1.Shard, 0, len(validShards))
+	softLimitedShards := make([]*corev1alpha1.Shard, 0, len(validShards))
+	for _, shard := range validShards {
+		softLimit := shardResourceLimit(shard, corev1alpha1.ResourceWorkspaces, false)
+		hardLimit := shardResourceLimit(shard, corev1alpha1.ResourceWorkspaces, true)
+		count := shardUsed(shard, corev1alpha1.ResourceWorkspaces)
+		switch {
+		case hardLimit > 0 && count >= hardLimit:
+			logger.V(4).Info("Skipping a shard because it reached its hard workspace limit", "shard", shard.Name, "workspaces", count, "hardLimit", hardLimit)
+			invalidShards[shard.Name] = struct {
+				reason, message string
+			}{
+				reason:  "WorkspaceLimitReached",
+				message: fmt.Sprintf("shard holds %d workspaces, at or over its hard limit of %d", count, hardLimit),
+			}
+		case softLimit > 0 && count >= softLimit:
+			softLimitedShards = append(softLimitedShards, shard)
+		default:
+			preferredShards = append(preferredShards, shard)
+		}
+	}
+
+	candidates := preferredShards
+	if len(candidates) == 0 && len(softLimitedShards) > 0 {
+		names := make([]string, 0, len(softLimitedShards))
+		for _, shard := range softLimitedShards {
+			names = append(names, shard.Name)
+		}
+		logger.Info("all schedulable shards are at or over their soft workspace limit, scheduling anyway; consider adding shards or raising limits", "shards", names)
+		candidates = softLimitedShards
+	}
+
+	if len(candidates) == 0 {
 		failures := make([]error, 0, len(invalidShards))
 		for name, x := range invalidShards {
 			failures = append(failures, fmt.Errorf("  %s: reason %q, message %q", name, x.reason, x.message))
@@ -295,8 +333,38 @@ func (r *schedulingReconciler) chooseShardAndMarkCondition(logger klog.Logger, w
 		logger.Error(utilerrors.NewAggregate(failures), "no valid shards found for workspace, skipping")
 		return nil, "No available shards to schedule the workspace", nil // retry is automatic when new shards show up
 	}
-	targetShard := validShards[mathrand.Intn(len(validShards))]
+	targetShard := candidates[mathrand.Intn(len(candidates))]
 	return targetShard, "", nil
+}
+
+// shardResourceLimit returns the shard's configured soft or hard limit for the
+// given resource, or 0 if the limit is absent or non-positive (disabled).
+func shardResourceLimit(shard *corev1alpha1.Shard, resource corev1.ResourceName, hard bool) int64 {
+	if shard.Spec.ResourceLimits == nil {
+		return 0
+	}
+	list := shard.Spec.ResourceLimits.Soft
+	if hard {
+		list = shard.Spec.ResourceLimits.Hard
+	}
+	quantity, ok := list[resource]
+	if !ok {
+		return 0
+	}
+	if value := quantity.Value(); value > 0 {
+		return value
+	}
+	return 0
+}
+
+// shardUsed returns the shard's self-reported usage of the given resource from
+// status.used, or 0 if it has not been reported.
+func shardUsed(shard *corev1alpha1.Shard, resource corev1.ResourceName) int64 {
+	quantity, ok := shard.Status.Used[resource]
+	if !ok {
+		return 0
+	}
+	return quantity.Value()
 }
 
 func (r *schedulingReconciler) createLogicalCluster(ctx context.Context, shard *corev1alpha1.Shard, cluster logicalcluster.Path, canonicalPath logicalcluster.Path, workspace *tenancyv1alpha1.Workspace) error {

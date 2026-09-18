@@ -350,9 +350,34 @@ func (o *TreeOptions) populateInteractiveNodeBubble(ctx context.Context, node *t
 				node.hasChildren = true
 				continue
 			}
+			// Not scheduled onto a shard yet, so there is nothing to enter: show
+			// it with its phase and move on rather than failing the whole tree.
+			// This can persist, e.g. while every shard is at its hard workspace
+			// limit.
+			if ws.Spec.URL == "" {
+				childName := ws.Name
+				if o.Full {
+					childName = workspaceName + ":" + childName
+				}
+				phase := string(ws.Status.Phase)
+				if phase == "" {
+					phase = "Unknown"
+				}
+				node.children = append(node.children, &treeNode{
+					name:           fmt.Sprintf("%s [%s]", childName, phase),
+					info:           &workspaceInfo{Type: ws.Spec.Type, Cluster: ws.Spec.Cluster},
+					selectable:     false,
+					parent:         node,
+					childrenLoaded: true,
+					apiInfoLoaded:  false,
+					hasChildren:    false,
+				})
+				node.hasChildren = true
+				continue
+			}
 			_, childPath, err := pluginhelpers.ParseClusterURL(ws.Spec.URL)
 			if err != nil {
-				return fmt.Errorf("workspace URL %q does not point to valid workspace", ws.Spec.URL)
+				return fmt.Errorf("workspace %q has URL %q, which does not point to a valid workspace", ws.Name, ws.Spec.URL)
 			}
 
 			childName := ws.Name
@@ -442,9 +467,25 @@ func (o *TreeOptions) populateBranch(ctx context.Context, tree treeprint.Tree, p
 			tree.AddBranch(name + " [m]")
 			continue
 		}
+		// A workspace that has not been scheduled onto a shard yet has no URL
+		// and no content to recurse into - it may stay that way indefinitely,
+		// e.g. while every shard is at its hard workspace limit. Render it as a
+		// leaf instead of failing the whole tree.
+		if workspace.Spec.URL == "" {
+			name := workspace.Name
+			if o.Full {
+				name = parentName + ":" + name
+			}
+			phase := string(workspace.Status.Phase)
+			if phase == "" {
+				phase = "Unknown"
+			}
+			tree.AddBranch(fmt.Sprintf("%s [%s]", name, phase))
+			continue
+		}
 		_, current, err := pluginhelpers.ParseClusterURL(workspace.Spec.URL)
 		if err != nil {
-			return fmt.Errorf("current config context URL %q does not point to workspace", workspace.Spec.URL)
+			return fmt.Errorf("workspace %q has URL %q, which does not point to a workspace", workspace.Name, workspace.Spec.URL)
 		}
 		// NOTE(hasheddan): the cluster URL from the Workspace does not use the
 		// friendly name, so we use the Workspace name instead.

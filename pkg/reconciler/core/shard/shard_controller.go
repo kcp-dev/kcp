@@ -16,18 +16,23 @@ limitations under the License.
 
 // Package shard runs on every shard and maintains the status of the shard's
 // own authoritative Shard object in the local system:shard logical cluster.
-// It mimics a Kubernetes node reporting its state: currently it keeps the
-// Schedulable condition in sync with the unschedulable (cordon) annotation,
-// acknowledging that the shard observed and applied the signal. The status
-// replicates to the cache server and is mirrored onto the shard's
+// It mimics a Kubernetes node reporting its state: it keeps the Schedulable
+// condition in sync with the unschedulable (cordon) annotation and reports the
+// scheduling limits it enforces through the ResourceLimitsApplied condition,
+// acknowledging what was written through the Admin workspace.
+// The status replicates to the cache server and is mirrored onto the shard's
 // representation in the root workspace, where admins can see the ack.
 package shard
 
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -83,8 +88,9 @@ func NewController(
 }
 
 // Controller maintains the status of this shard's own authoritative Shard
-// object in the local system:shard logical cluster, e.g. the Schedulable
-// condition acknowledging cordon/uncordon signals.
+// object in the local system:shard logical cluster: the Schedulable condition
+// acknowledging cordon/uncordon signals, and the ResourceLimitsApplied
+// condition acknowledging the scheduling limits.
 type Controller struct {
 	queue workqueue.TypedRateLimitingInterface[string]
 
@@ -206,8 +212,9 @@ func (c *Controller) process(ctx context.Context, key string) error {
 	return utilerrors.NewAggregate(errs)
 }
 
-// reconcile keeps the Schedulable condition in sync with the cordon
-// annotation, acknowledging that this shard observed and applied the signal.
+// reconcile acknowledges the operational configuration written through the
+// Admin workspace: it keeps the Schedulable condition in sync with the cordon
+// annotation and reports the scheduling limits this shard enforces.
 func (c *Controller) reconcile(_ context.Context, shard *corev1alpha1.Shard) error {
 	if _, cordoned := shard.Annotations[corev1alpha1.ShardUnschedulableAnnotationKey]; cordoned {
 		conditions.MarkFalse(
@@ -221,5 +228,100 @@ func (c *Controller) reconcile(_ context.Context, shard *corev1alpha1.Shard) err
 	} else {
 		conditions.MarkTrue(shard, corev1alpha1.ShardSchedulable)
 	}
+
+	reconcileResourceLimits(shard)
 	return nil
+}
+
+// noResourceLimitsMessage is the ResourceLimitsApplied message when the shard
+// enforces no limits at all.
+const noResourceLimitsMessage = "no limits configured"
+
+// reconcileResourceLimits reports the scheduling limits this shard is actually
+// enforcing through the ResourceLimitsApplied condition. Limits are written
+// through the Admin workspace and reach the owning shard indirectly, so this
+// condition - whose message spells out the values in force - is what confirms
+// the round trip completed.
+func reconcileResourceLimits(shard *corev1alpha1.Shard) {
+	applied := formatResourceLimits(shard.Spec.ResourceLimits)
+
+	if unusable := unusableResourceLimits(shard.Spec.ResourceLimits); len(unusable) > 0 {
+		conditions.MarkFalse(
+			shard,
+			corev1alpha1.ShardResourceLimitsApplied,
+			corev1alpha1.ShardReasonInvalidResourceLimits,
+			conditionsv1alpha1.ConditionSeverityWarning,
+			"%s; %s", applied, strings.Join(unusable, "; "),
+		)
+		return
+	}
+
+	// MarkTrue carries no message, and the message is the point here.
+	condition := conditions.TrueCondition(corev1alpha1.ShardResourceLimitsApplied)
+	condition.Message = applied
+	conditions.Set(shard, condition)
+}
+
+// formatResourceLimits renders the limits in force as a compact, parsable
+// "soft/hard: <resource>=<soft>/<hard>" list sorted by resource name, using "-"
+// for a tier that is not configured, e.g. "soft/hard: workspaces=10/20". The
+// rendered values are the ones the shard enforces, so comparing them against
+// spec.resourceLimits confirms the shard applied what was requested.
+func formatResourceLimits(limits *corev1alpha1.ShardResourceLimits) string {
+	if limits == nil || (len(limits.Soft) == 0 && len(limits.Hard) == 0) {
+		return noResourceLimitsMessage
+	}
+
+	names := map[corev1.ResourceName]struct{}{}
+	for name := range limits.Soft {
+		names[name] = struct{}{}
+	}
+	for name := range limits.Hard {
+		names[name] = struct{}{}
+	}
+
+	pairs := make([]string, 0, len(names))
+	for _, name := range slices.Sorted(maps.Keys(names)) {
+		pairs = append(pairs, fmt.Sprintf("%s=%s/%s", name, quantityOrDash(limits.Soft, name), quantityOrDash(limits.Hard, name)))
+	}
+	return "soft/hard: " + strings.Join(pairs, ", ")
+}
+
+// quantityOrDash renders a configured limit, or "-" when the tier does not set
+// one for this resource.
+func quantityOrDash(list corev1.ResourceList, name corev1.ResourceName) string {
+	quantity, ok := list[name]
+	if !ok {
+		return "-"
+	}
+	return quantity.String()
+}
+
+// unusableResourceLimits describes the configured limits that do not take
+// effect as written. A negative limit is treated as disabled by the scheduler,
+// and a soft limit at or above the hard limit can never deprioritize the shard
+// before the hard limit refuses it outright. Absent and zero limits are
+// disabled by design and are not reported here.
+func unusableResourceLimits(limits *corev1alpha1.ShardResourceLimits) []string {
+	if limits == nil {
+		return nil
+	}
+	var unusable []string
+	for _, tier := range []struct {
+		name string
+		list corev1.ResourceList
+	}{{"soft", limits.Soft}, {"hard", limits.Hard}} {
+		for _, resource := range slices.Sorted(maps.Keys(tier.list)) {
+			if quantity := tier.list[resource]; quantity.Sign() < 0 {
+				unusable = append(unusable, fmt.Sprintf("%s %s=%s is negative and is treated as disabled", tier.name, resource, quantity.String()))
+			}
+		}
+	}
+	for _, resource := range slices.Sorted(maps.Keys(limits.Soft)) {
+		soft, hard := limits.Soft[resource], limits.Hard[resource]
+		if soft.Sign() > 0 && hard.Sign() > 0 && soft.Cmp(hard) >= 0 {
+			unusable = append(unusable, fmt.Sprintf("soft %s=%s is not below hard %s=%s, so the shard is never deprioritized before it refuses new workspaces", resource, soft.String(), resource, hard.String()))
+		}
+	}
+	return unusable
 }

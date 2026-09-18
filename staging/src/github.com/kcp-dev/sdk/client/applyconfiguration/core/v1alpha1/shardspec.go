@@ -46,6 +46,9 @@ type ShardSpecApplyConfiguration struct {
 	//
 	// This will be defaulted to the value of the baseURL.
 	VirtualWorkspaceURL *string `json:"virtualWorkspaceURL,omitempty"`
+	// resourceLimits constrains how many of certain resources this shard will
+	// accept during scheduling.
+	ResourceLimits *ShardResourceLimitsApplyConfiguration `json:"resourceLimits,omitempty"`
 }
 
 // ShardSpecApplyConfiguration constructs a declarative configuration of the ShardSpec type for use with
@@ -75,5 +78,13 @@ func (b *ShardSpecApplyConfiguration) WithExternalURL(value string) *ShardSpecAp
 // If called multiple times, the VirtualWorkspaceURL field is set to the value of the last call.
 func (b *ShardSpecApplyConfiguration) WithVirtualWorkspaceURL(value string) *ShardSpecApplyConfiguration {
 	b.VirtualWorkspaceURL = &value
+	return b
+}
+
+// WithResourceLimits sets the ResourceLimits field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the ResourceLimits field is set to the value of the last call.
+func (b *ShardSpecApplyConfiguration) WithResourceLimits(value *ShardResourceLimitsApplyConfiguration) *ShardSpecApplyConfiguration {
+	b.ResourceLimits = value
 	return b
 }
