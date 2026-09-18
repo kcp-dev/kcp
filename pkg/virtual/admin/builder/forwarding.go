@@ -98,7 +98,7 @@ func shardsRestProvider(ctx context.Context, dynamicClusterClientFunc forwarding
 			[]apiextensionsv1.SelectableField{},
 		)
 
-		storage, _ := forwardingregistry.NewStorage(
+		storage, _, _ := forwardingregistry.NewStorage(
 			ctx,
 			resource,
 			"",
