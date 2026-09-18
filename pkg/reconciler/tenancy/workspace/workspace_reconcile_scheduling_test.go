@@ -19,6 +19,7 @@ package workspace
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -28,10 +29,12 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog/v2"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -418,6 +421,137 @@ func TestReconcileScheduling(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestChooseShardWithLimits(t *testing.T) {
+	t.Parallel()
+	scenarios := []struct {
+		name string
+		// shardName -> soft, hard, current workspace count
+		shards         map[string][3]int64
+		expectedShards []string // nil means unschedulable
+	}{
+		{
+			name: "no limits configured, all shards eligible",
+			shards: map[string][3]int64{
+				"alpha": {0, 0, 1000},
+				"beta":  {0, 0, 1000},
+			},
+			expectedShards: []string{"alpha", "beta"},
+		},
+		{
+			name: "shards under their soft limit are preferred",
+			shards: map[string][3]int64{
+				"full":  {10, 20, 15},
+				"free":  {10, 20, 5},
+				"free2": {0, 0, 1000},
+			},
+			expectedShards: []string{"free", "free2"},
+		},
+		{
+			name: "shards at or over their hard limit are refused",
+			shards: map[string][3]int64{
+				"full": {10, 20, 20},
+				"free": {10, 20, 15},
+			},
+			expectedShards: []string{"free"},
+		},
+		{
+			name: "soft-limited shards are used when no shard is under its soft limit",
+			shards: map[string][3]int64{
+				"over":  {10, 20, 15},
+				"over2": {10, 20, 12},
+			},
+			expectedShards: []string{"over", "over2"},
+		},
+		{
+			name: "unschedulable when all shards are at their hard limit",
+			shards: map[string][3]int64{
+				"full":  {10, 20, 20},
+				"full2": {10, 20, 25},
+			},
+			expectedShards: nil,
+		},
+		{
+			name: "soft limit alone never blocks scheduling",
+			shards: map[string][3]int64{
+				"only": {10, 0, 1000},
+			},
+			expectedShards: []string{"only"},
+		},
+		{
+			name: "hard limit without soft limit",
+			shards: map[string][3]int64{
+				"full": {0, 20, 20},
+				"free": {0, 20, 19},
+			},
+			expectedShards: []string{"free"},
+		},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
+			shards := make([]*corev1alpha1.Shard, 0, len(scenario.shards))
+			for name, x := range scenario.shards {
+				shards = append(shards, shardWithLimits(name, x[0], x[1], x[2]))
+			}
+			target := schedulingReconciler{
+				listShards: func(selector labels.Selector) ([]*corev1alpha1.Shard, error) {
+					return shards, nil
+				},
+			}
+
+			// the choice is random among eligible shards, so sample repeatedly
+			// to verify only expected shards are ever chosen.
+			chosen := map[string]int{}
+			for range 50 {
+				shard, reason, err := target.chooseShardAndMarkCondition(klog.Background(), workspace("foo"))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if scenario.expectedShards == nil {
+					if shard != nil {
+						t.Fatalf("expected workspace to be unschedulable, but shard %q was chosen", shard.Name)
+					}
+					if reason == "" {
+						t.Fatal("expected a reason when unschedulable")
+					}
+					return
+				}
+				if shard == nil {
+					t.Fatalf("expected a shard to be chosen, got unschedulable with reason %q", reason)
+				}
+				chosen[shard.Name]++
+			}
+			for name := range chosen {
+				if !slices.Contains(scenario.expectedShards, name) {
+					t.Errorf("shard %q was chosen but is not among expected shards %v", name, scenario.expectedShards)
+				}
+			}
+		})
+	}
+}
+
+func shardWithLimits(name string, soft, hard, used int64) *corev1alpha1.Shard {
+	s := shard(name)
+	s.Status.Used = corev1.ResourceList{
+		corev1alpha1.ResourceWorkspaces: *resource.NewQuantity(used, resource.DecimalSI),
+	}
+	if soft == 0 && hard == 0 {
+		return s
+	}
+	s.Spec.ResourceLimits = &corev1alpha1.ShardResourceLimits{}
+	if soft > 0 {
+		s.Spec.ResourceLimits.Soft = corev1.ResourceList{
+			corev1alpha1.ResourceWorkspaces: *resource.NewQuantity(soft, resource.DecimalSI),
+		}
+	}
+	if hard > 0 {
+		s.Spec.ResourceLimits.Hard = corev1.ResourceList{
+			corev1alpha1.ResourceWorkspaces: *resource.NewQuantity(hard, resource.DecimalSI),
+		}
+	}
+	return s
 }
 
 func workspace(name string) *tenancyv1alpha1.Workspace {

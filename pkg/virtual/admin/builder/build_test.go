@@ -20,12 +20,15 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 )
 
 func TestDigestURL(t *testing.T) {
@@ -223,4 +226,113 @@ func TestFixupWatchPassesBookmarksThrough(t *testing.T) {
 	require.Len(t, got, 1, "expected the bookmark to be forwarded unchanged: %v", got)
 	require.Equal(t, watch.Bookmark, got[0].Type, "expected the bookmark to be forwarded unchanged")
 	require.Empty(t, w.copies, "bookmark was folded into the shard state")
+}
+
+func TestMutableFieldUpdate(t *testing.T) {
+	t.Parallel()
+
+	const cordonKey = corev1alpha1.ShardUnschedulableAnnotationKey
+
+	shard := func(mutate func(obj map[string]any)) *unstructured.Unstructured {
+		obj := map[string]any{
+			"apiVersion": "core.kcp.io/v1alpha1",
+			"kind":       "Shard",
+			"metadata": map[string]any{
+				"name":        "shard-1",
+				"annotations": map[string]any{"kcp.io/cluster": "system:shard"},
+			},
+			"spec": map[string]any{"baseURL": "https://shard-1"},
+		}
+		if mutate != nil {
+			mutate(obj)
+		}
+		return &unstructured.Unstructured{Object: obj}
+	}
+	limits := map[string]any{"hard": map[string]any{"workspaces": "10"}}
+
+	scenarios := []struct {
+		name        string
+		desired     *unstructured.Unstructured
+		wantErr     bool
+		wantValues  []any
+		wantPresent []bool
+	}{
+		{
+			name:        "no change",
+			desired:     shard(nil),
+			wantValues:  []any{nil, nil},
+			wantPresent: []bool{false, false},
+		},
+		{
+			name: "cordoning is allowed",
+			desired: shard(func(obj map[string]any) {
+				obj["metadata"].(map[string]any)["annotations"].(map[string]any)[cordonKey] = "true"
+			}),
+			wantValues:  []any{"true", nil},
+			wantPresent: []bool{true, false},
+		},
+		{
+			name: "setting resourceLimits is allowed",
+			desired: shard(func(obj map[string]any) {
+				obj["spec"].(map[string]any)["resourceLimits"] = limits
+			}),
+			wantValues:  []any{nil, limits},
+			wantPresent: []bool{false, true},
+		},
+		{
+			name: "cordoning and resourceLimits together are allowed",
+			desired: shard(func(obj map[string]any) {
+				obj["metadata"].(map[string]any)["annotations"].(map[string]any)[cordonKey] = "true"
+				obj["spec"].(map[string]any)["resourceLimits"] = limits
+			}),
+			wantValues:  []any{"true", limits},
+			wantPresent: []bool{true, true},
+		},
+		{
+			name: "changing a shard-owned spec field is forbidden",
+			desired: shard(func(obj map[string]any) {
+				obj["spec"].(map[string]any)["baseURL"] = "https://hijacked"
+			}),
+			wantErr: true,
+		},
+		{
+			name: "changing an unrelated annotation is forbidden",
+			desired: shard(func(obj map[string]any) {
+				obj["metadata"].(map[string]any)["annotations"].(map[string]any)["evil"] = "yes"
+			}),
+			wantErr: true,
+		},
+		{
+			name: "changing status is forbidden",
+			desired: shard(func(obj map[string]any) {
+				obj["status"] = map[string]any{"used": map[string]any{"workspaces": "0"}}
+			}),
+			wantErr: true,
+		},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			t.Parallel()
+			values, present, err := mutableFieldUpdate("shard-1", shard(nil), scenario.desired)
+			if scenario.wantErr {
+				if err == nil {
+					t.Fatal("expected an error, got none")
+				}
+				if !apierrors.IsForbidden(err) {
+					t.Fatalf("expected a Forbidden error, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if diff := cmp.Diff(scenario.wantValues, values); diff != "" {
+				t.Errorf("unexpected values (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(scenario.wantPresent, present); diff != "" {
+				t.Errorf("unexpected presence (-want +got):\n%s", diff)
+			}
+		})
+	}
 }

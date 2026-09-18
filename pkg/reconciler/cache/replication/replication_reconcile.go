@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	genericrequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -51,8 +53,8 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 	info := c.Gvrs[gvr]
 
 	r := &reconciler{
-		shardName:             c.shardName,
-		cacheOwnedAnnotations: info.CacheOwnedAnnotations,
+		shardName:        c.shardName,
+		cacheOwnedFields: info.CacheOwnedFields,
 		getLocalCopy: func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error) {
 			key := kcpcache.ToClusterAwareKey(cluster.String(), namespace, name)
 			obj, exists, err := info.Local.GetIndexer().GetByKey(key)
@@ -120,8 +122,8 @@ func (c *controller) reconcile(ctx context.Context, gvrKey string) error {
 }
 
 type reconciler struct {
-	shardName             string
-	cacheOwnedAnnotations []string
+	shardName        string
+	cacheOwnedFields [][]string
 
 	getLocalCopy  func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
 	getGlobalCopy func(cluster logicalcluster.Name, namespace, name string) (*unstructured.Unstructured, error)
@@ -204,13 +206,17 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 		return nil
 	}
 
-	// Cache-owned annotations carry admin intent written through the Admin
+	// Cache-owned fields carry admin intent written through the Admin
 	// workspace: they flow cache -> local. Apply them to the local
 	// (authoritative) object first; the update retriggers reconciliation and
 	// the regular local -> cache sync below then sees converged values.
-	if len(r.cacheOwnedAnnotations) > 0 && localCopy.GetDeletionTimestamp().IsZero() {
-		if syncCacheOwnedAnnotations(globalCopy, localCopy, r.cacheOwnedAnnotations) {
-			logger.V(2).Info("applying cache-owned annotations to the local object")
+	if len(r.cacheOwnedFields) > 0 && localCopy.GetDeletionTimestamp().IsZero() {
+		changed, err := syncCacheOwnedFields(globalCopy, localCopy, r.cacheOwnedFields)
+		if err != nil {
+			return err
+		}
+		if changed {
+			logger.V(2).Info("applying cache-owned fields to the local object")
 			if _, err := r.updateLocalObject(ctx, clusterName, localCopy); err != nil {
 				return err
 			}
@@ -237,29 +243,30 @@ func (r *reconciler) reconcile(ctx context.Context, key string) error {
 	return err
 }
 
-// syncCacheOwnedAnnotations copies the given annotation keys from the cache
-// copy onto the local copy (absence meaning removal) and reports whether the
-// local copy changed.
-func syncCacheOwnedAnnotations(globalCopy, localCopy *unstructured.Unstructured, keys []string) bool {
+// syncCacheOwnedFields copies the given field paths from the cache copy onto
+// the local copy (absence meaning removal) and reports whether the local copy
+// changed.
+func syncCacheOwnedFields(globalCopy, localCopy *unstructured.Unstructured, paths [][]string) (bool, error) {
 	changed := false
-	annotations := localCopy.GetAnnotations()
-	for _, key := range keys {
-		globalValue, globalOK := globalCopy.GetAnnotations()[key]
-		localValue, localOK := annotations[key]
+	for _, path := range paths {
+		globalValue, globalOK, err := unstructured.NestedFieldNoCopy(globalCopy.Object, path...)
+		if err != nil {
+			return false, err
+		}
+		localValue, localOK, err := unstructured.NestedFieldNoCopy(localCopy.Object, path...)
+		if err != nil {
+			return false, err
+		}
 		switch {
-		case globalOK && (!localOK || localValue != globalValue):
-			if annotations == nil {
-				annotations = map[string]string{}
+		case globalOK && (!localOK || !equality.Semantic.DeepEqual(localValue, globalValue)):
+			if err := unstructured.SetNestedField(localCopy.Object, runtime.DeepCopyJSONValue(globalValue), path...); err != nil {
+				return false, err
 			}
-			annotations[key] = globalValue
 			changed = true
 		case !globalOK && localOK:
-			delete(annotations, key)
+			unstructured.RemoveNestedField(localCopy.Object, path...)
 			changed = true
 		}
 	}
-	if changed {
-		localCopy.SetAnnotations(annotations)
-	}
-	return changed
+	return changed, nil
 }

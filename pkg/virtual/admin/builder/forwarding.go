@@ -19,6 +19,7 @@ package builder
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -174,20 +175,22 @@ func fixupShard(obj *unstructured.Unstructured) {
 	obj.SetAnnotations(annotations)
 }
 
-// stripAnnotation removes the given annotation key from the object, dropping
-// the annotations map entirely when it ends up empty so that comparisons of
-// normalized objects converge.
-func stripAnnotation(obj *unstructured.Unstructured, key string) {
-	annotations := obj.GetAnnotations()
-	if annotations == nil {
-		return
+// stripField removes the field at the given path from the object, pruning
+// parent maps that end up empty so that comparisons of normalized objects
+// converge.
+func stripField(obj *unstructured.Unstructured, path []string) {
+	unstructured.RemoveNestedField(obj.Object, path...)
+	for i := len(path) - 1; i > 0; i-- {
+		parent, found, err := unstructured.NestedFieldNoCopy(obj.Object, path[:i]...)
+		if err != nil || !found {
+			return
+		}
+		asMap, ok := parent.(map[string]any)
+		if !ok || len(asMap) > 0 {
+			return
+		}
+		unstructured.RemoveNestedField(obj.Object, path[:i]...)
 	}
-	delete(annotations, key)
-	if len(annotations) == 0 {
-		unstructured.RemoveNestedField(obj.Object, "metadata", "annotations")
-		return
-	}
-	obj.SetAnnotations(annotations)
 }
 
 // dedupeShards keeps one object per Shard name. During mixed-version
@@ -214,10 +217,55 @@ func dedupeShards(items []unstructured.Unstructured) []unstructured.Unstructured
 	return result
 }
 
-// MutableAnnotations are the annotations that may be changed on a Shard
-// through the Admin workspace. Everything else on a Shard is read-only:
-// shards register themselves and own their configuration.
-var MutableAnnotations = []string{corev1alpha1.ShardUnschedulableAnnotationKey}
+// MutableFields are the field paths that may be changed on a Shard through
+// the Admin workspace: the cordon annotation and the scheduling limits.
+// Everything else on a Shard is read-only: shards register themselves and own
+// their configuration. Each path is a slice of literal field names, so keys
+// that themselves contain dots - annotation keys - address correctly. The
+// replication controller carries exactly these paths back cache -> local as
+// its cache-owned fields.
+var MutableFields = [][]string{
+	{"metadata", "annotations", corev1alpha1.ShardUnschedulableAnnotationKey},
+	{"spec", "resourceLimits"},
+}
+
+// mutableFieldNames renders MutableFields for error messages.
+func mutableFieldNames() []string {
+	names := make([]string, 0, len(MutableFields))
+	for _, path := range MutableFields {
+		names = append(names, strings.Join(path, "."))
+	}
+	return names
+}
+
+// mutableFieldUpdate checks that desired differs from current in MutableFields
+// only, and returns the desired value of each mutable field along with whether
+// it is present at all - an absent field means the admin cleared it. Any other
+// difference is rejected as forbidden: shards own the rest of their object.
+func mutableFieldUpdate(name string, current, desired *unstructured.Unstructured) ([]any, []bool, error) {
+	values := make([]any, len(MutableFields))
+	present := make([]bool, len(MutableFields))
+	normalizedDesired := desired.DeepCopy()
+	normalizedCurrent := current.DeepCopy()
+	for i, path := range MutableFields {
+		value, found, err := unstructured.NestedFieldNoCopy(desired.Object, path...)
+		if err != nil {
+			return nil, nil, apierrors.NewBadRequest(fmt.Sprintf("invalid %s: %v", strings.Join(path, "."), err))
+		}
+		values[i], present[i] = value, found
+		stripField(normalizedDesired, path)
+		stripField(normalizedCurrent, path)
+	}
+	// managedFields bookkeeping is stamped by the request's field manager and
+	// is not a user-intended change.
+	unstructured.RemoveNestedField(normalizedDesired.Object, "metadata", "managedFields")
+	unstructured.RemoveNestedField(normalizedCurrent.Object, "metadata", "managedFields")
+	if !equality.Semantic.DeepEqual(normalizedDesired.Object, normalizedCurrent.Object) {
+		return nil, nil, apierrors.NewForbidden(corev1alpha1.Resource("shards"), name,
+			fmt.Errorf("only %v may be changed through the Admin workspace; Shard objects are owned by the shards themselves", mutableFieldNames()))
+	}
+	return values, present, nil
+}
 
 // withShardsView decorates the StoreFuncs so that every read is served from
 // the cache server across all shards, presented as one flat collection, and
@@ -268,39 +316,23 @@ func withShardsView(cacheDynamicClusterClient kcpdynamic.ClusterInterface) forwa
 				}
 			}
 
-			// everything except the mutable annotations must be unchanged.
-			values := map[string]*string{}
-			normalizedDesired := desired.DeepCopy()
-			normalizedCurrent := current.DeepCopy()
-			for _, key := range MutableAnnotations {
-				if v, ok := desired.GetAnnotations()[key]; ok {
-					value := v
-					values[key] = &value
-				} else {
-					values[key] = nil
-				}
-				stripAnnotation(normalizedDesired, key)
-				stripAnnotation(normalizedCurrent, key)
-			}
-			// managedFields bookkeeping is stamped by the request's field
-			// manager and is not a user-intended change.
-			unstructured.RemoveNestedField(normalizedDesired.Object, "metadata", "managedFields")
-			unstructured.RemoveNestedField(normalizedCurrent.Object, "metadata", "managedFields")
-			if !equality.Semantic.DeepEqual(normalizedDesired.Object, normalizedCurrent.Object) {
-				return nil, false, apierrors.NewForbidden(corev1alpha1.Resource("shards"), name,
-					fmt.Errorf("only the %v annotations may be changed through the Admin workspace; Shard objects are owned by the shards themselves", MutableAnnotations))
+			values, present, err := mutableFieldUpdate(name, current, desired)
+			if err != nil {
+				return nil, false, err
 			}
 
-			// apply the change to the cache copy of the target shard.
-			annotations := raw.GetAnnotations()
-			for key, value := range values {
-				if value == nil {
-					delete(annotations, key)
-				} else {
-					annotations[key] = *value
+			// apply the change to the cache copy of the target shard. Parent
+			// maps are left in place: the cache bookkeeping annotations below
+			// route the write to the owning shard.
+			for i, path := range MutableFields {
+				if !present[i] {
+					unstructured.RemoveNestedField(raw.Object, path...)
+					continue
+				}
+				if err := unstructured.SetNestedField(raw.Object, runtime.DeepCopyJSONValue(values[i]), path...); err != nil {
+					return nil, false, err
 				}
 			}
-			raw.SetAnnotations(annotations)
 
 			targetCtx := cacheclient.WithShardInContext(ctx, shard.Name(raw.GetAnnotations()[shard.AnnotationKey]))
 			result, err := cacheDynamicClusterClient.Cluster(logicalcluster.From(raw).Path()).

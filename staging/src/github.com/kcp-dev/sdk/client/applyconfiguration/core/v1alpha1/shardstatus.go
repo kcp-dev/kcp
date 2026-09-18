@@ -31,6 +31,11 @@ import (
 type ShardStatusApplyConfiguration struct {
 	// Set of integer resources that logical clusters can be scheduled into
 	Capacity *v1.ResourceList `json:"capacity,omitempty"`
+	// used is the observed number of resources of each kind currently on this
+	// shard, e.g. the number of workspaces (logical clusters) scheduled to it.
+	// It mirrors a ResourceQuota's status.used and is compared against
+	// spec.resourceLimits during workspace scheduling.
+	Used *v1.ResourceList `json:"used,omitempty"`
 	// Current processing state of the Shard.
 	Conditions *conditionsv1alpha1.Conditions `json:"conditions,omitempty"`
 }
@@ -46,6 +51,14 @@ func ShardStatus() *ShardStatusApplyConfiguration {
 // If called multiple times, the Capacity field is set to the value of the last call.
 func (b *ShardStatusApplyConfiguration) WithCapacity(value v1.ResourceList) *ShardStatusApplyConfiguration {
 	b.Capacity = &value
+	return b
+}
+
+// WithUsed sets the Used field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Used field is set to the value of the last call.
+func (b *ShardStatusApplyConfiguration) WithUsed(value v1.ResourceList) *ShardStatusApplyConfiguration {
+	b.Used = &value
 	return b
 }
 
