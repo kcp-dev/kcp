@@ -18,6 +18,7 @@ package options
 
 var (
 	namedFlagSetOrder = []string{
+		"admission",
 		"auditing",
 		"authentication",
 		"etcd",
