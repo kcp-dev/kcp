@@ -89,6 +89,16 @@ func NewBoundAPIAuthorizer(delegate authorizer.Authorizer, apiBindingInformer ap
 	}
 }
 
+// exportClaimsResource reports whether the APIExport claims group/resource for identityHash.
+func exportClaimsResource(export *apisv1alpha2.APIExport, group, resource, identityHash string) bool {
+	for _, claim := range export.Spec.PermissionClaims {
+		if claim.Group == group && claim.Resource == resource && claim.IdentityHash == identityHash {
+			return true
+		}
+	}
+	return false
+}
+
 func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	targetCluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
@@ -131,33 +141,54 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 	// check if a resource claim for this resource has been accepted and has correct verbs.
 	// normalize the requested group/resource to handle the events.k8s.io ↔ core/v1 equivalence.
 	normalizedGR := permissionclaim.NormalizeEventGroupResource(schema.GroupResource{Group: attr.GetAPIGroup(), Resource: attr.GetResource()})
+	sub := attr.GetSubresource()
+	claimedResource := normalizedGR.Resource
+	if sub != "" {
+		// subresources must be claimed explicitly, except status which
+		// may inherit the parent resource claim
+		claimedResource = normalizedGR.Resource + "/" + sub
+	}
 	for _, permissionClaim := range apiBinding.Spec.PermissionClaims {
 		if permissionClaim.State != apisv1alpha2.ClaimAccepted {
 			// if the claim is not accepted it cannot be used.
 			continue
 		}
 
-		if permissionClaim.Group == normalizedGR.Group && permissionClaim.Resource == normalizedGR.Resource {
-			apiBindingVerbs := sets.New(permissionClaim.Verbs...)
-			apiExportVerbs := sets.New[string]()
+		if permissionClaim.Group != normalizedGR.Group {
+			continue
+		}
 
-			for _, exportPermpermissionClaim := range apiExport.Spec.PermissionClaims {
-				if exportPermpermissionClaim.EqualGRI(permissionClaim.PermissionClaim) {
-					apiExportVerbs.Insert(exportPermpermissionClaim.Verbs...)
-
-					break
-				}
-			}
-
-			allowedVerbs := apiBindingVerbs.Intersection(apiExportVerbs)
-
-			if !allowedVerbs.HasAny(attr.GetVerb(), wildcardVerb) {
-				// if the requested verb is not found, the claim cannot be used.
+		switch {
+		case permissionClaim.Resource == claimedResource:
+			// claim for the requested resource/subresource
+		case sub == "status" && permissionClaim.Resource == normalizedGR.Resource:
+			// status inherits the parent claim unless the export
+			// claims status for the same identity
+			if exportClaimsResource(apiExport, normalizedGR.Group, claimedResource, permissionClaim.IdentityHash) {
 				continue
 			}
-
-			return a.delegate.Authorize(ctx, attr)
+		default:
+			continue
 		}
+
+		apiBindingVerbs := sets.New(permissionClaim.Verbs...)
+
+		apiExportVerbs := sets.New[string]()
+		for _, exportPermpermissionClaim := range apiExport.Spec.PermissionClaims {
+			if exportPermpermissionClaim.EqualGRI(permissionClaim.PermissionClaim) {
+				apiExportVerbs.Insert(exportPermpermissionClaim.Verbs...)
+				break
+			}
+		}
+
+		allowedVerbs := apiBindingVerbs.Intersection(apiExportVerbs)
+
+		if !allowedVerbs.HasAny(attr.GetVerb(), wildcardVerb) {
+			// if the requested verb is not found, the claim cannot be used.
+			continue
+		}
+
+		return a.delegate.Authorize(ctx, attr)
 	}
 
 	// special case: APIBindings are always available from an APIExport VW,

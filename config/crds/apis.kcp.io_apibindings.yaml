@@ -84,9 +84,12 @@ spec:
                     resource:
                       description: |-
                         resource is the name of the resource.
+                        A subresource may be claimed as "resource/subresource",
+                        e.g. "serviceaccounts/token", in the style of RBAC rules.
                         Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
                         not provided by an api export.
-                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      maxLength: 127
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
                     resourceSelector:
                       description: resourceSelector is a list of claimed resource
@@ -198,9 +201,12 @@ spec:
                     resource:
                       description: |-
                         resource is the name of the resource.
+                        A subresource may be claimed as "resource/subresource",
+                        e.g. "serviceaccounts/token", in the style of RBAC rules.
                         Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
                         not provided by an api export.
-                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      maxLength: 127
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
                     resourceSelector:
                       description: resourceSelector is a list of claimed resource
@@ -378,9 +384,12 @@ spec:
                     resource:
                       description: |-
                         resource is the name of the resource.
+                        A subresource may be claimed as "resource/subresource",
+                        e.g. "serviceaccounts/token", in the style of RBAC rules.
                         Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
                         not provided by an api export.
-                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      maxLength: 127
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
                     resourceSelector:
                       description: resourceSelector is a list of claimed resource
@@ -580,9 +589,12 @@ spec:
                     resource:
                       description: |-
                         resource is the name of the resource.
+                        A subresource may be claimed as "resource/subresource",
+                        e.g. "serviceaccounts/token", in the style of RBAC rules.
                         Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
                         not provided by an api export.
-                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      maxLength: 127
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
                     selector:
                       description: |-
@@ -660,6 +672,13 @@ spec:
                   - state
                   - verbs
                   type: object
+                  x-kubernetes-validations:
+                  - message: for subresource claims the selector is ignored, scope
+                      is inherited from the parent resource claim
+                    rule: '!self.resource.contains(''/'') || (has(self.selector.matchAll)
+                      && self.selector.matchAll)'
+                  - message: defaultSelector is not allowed on subresource claims
+                    rule: '!self.resource.contains(''/'') || !has(self.defaultSelector)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - group
@@ -788,9 +807,12 @@ spec:
                     resource:
                       description: |-
                         resource is the name of the resource.
+                        A subresource may be claimed as "resource/subresource",
+                        e.g. "serviceaccounts/token", in the style of RBAC rules.
                         Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
                         not provided by an api export.
-                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      maxLength: 127
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
                     selector:
                       description: |-
@@ -862,6 +884,13 @@ spec:
                   - selector
                   - verbs
                   type: object
+                  x-kubernetes-validations:
+                  - message: for subresource claims the selector is ignored, scope
+                      is inherited from the parent resource claim
+                    rule: '!self.resource.contains(''/'') || (has(self.selector.matchAll)
+                      && self.selector.matchAll)'
+                  - message: defaultSelector is not allowed on subresource claims
+                    rule: '!self.resource.contains(''/'') || !has(self.defaultSelector)'
                 type: array
                 x-kubernetes-list-map-keys:
                 - group
@@ -1066,9 +1095,12 @@ spec:
                     resource:
                       description: |-
                         resource is the name of the resource.
+                        A subresource may be claimed as "resource/subresource",
+                        e.g. "serviceaccounts/token", in the style of RBAC rules.
                         Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
                         not provided by an api export.
-                      pattern: ^[a-z][-a-z0-9]*[a-z0-9]$
+                      maxLength: 127
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
                       type: string
                     verbs:
                       description: |-
@@ -1084,6 +1116,9 @@ spec:
                   - resource
                   - verbs
                   type: object
+                  x-kubernetes-validations:
+                  - message: defaultSelector is not allowed on subresource claims
+                    rule: '!self.resource.contains(''/'') || !has(self.defaultSelector)'
                 type: array
               phase:
                 description: |-

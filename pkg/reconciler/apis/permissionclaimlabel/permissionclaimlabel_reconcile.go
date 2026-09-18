@@ -117,6 +117,10 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 
 	for _, s := range sets.List[string](allChanges) {
 		claim := claimFromSetKey(s)
+		// the claim references a subresource in rbac-style, the parent label applies
+		if strings.Contains(claim.Resource, "/") {
+			continue
+		}
 		if _, nonPersisted := permissionclaim.NonPersistedResourcesClaimable[schema.GroupResource{Group: claim.Group, Resource: claim.Resource}]; nonPersisted {
 			continue
 		}
@@ -297,11 +301,11 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 }
 
 func setKeyForClaim(claim apisv1alpha2.PermissionClaim) string {
-	return fmt.Sprintf("%s/%s/%s", claim.Resource, claim.Group, claim.IdentityHash)
+	return fmt.Sprintf("%s|%s|%s", claim.Resource, claim.Group, claim.IdentityHash)
 }
 
 func claimFromSetKey(key string) apisv1alpha2.PermissionClaim {
-	parts := strings.SplitN(key, "/", 3)
+	parts := strings.SplitN(key, "|", 3)
 	return apisv1alpha2.PermissionClaim{
 		GroupResource: apisv1alpha2.GroupResource{
 			Group:    parts[1],

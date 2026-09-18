@@ -25,16 +25,21 @@ import (
 	structuralschema "k8s.io/apiextensions-apiserver/pkg/apiserver/schema"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/registry/rest"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/apis/v1alpha2/permissionclaims"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
 	registry "github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
+
+	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 )
 
 func provideAPIExportFilteredRestStorage(ctx context.Context, dynamicClusterClientFunc registry.DynamicClusterClientFunc, clusterName logicalcluster.Name, exportName string) (apiserver.RestProviderFunc, error) {
@@ -59,8 +64,12 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 			statusSpec = &apiextensions.CustomResourceSubresourceStatus{}
 		}
 
+		_, scaleEnabled := subresourcesSchemaValidator["scale"]
+
 		var scaleSpec *apiextensions.CustomResourceSubresourceScale
-		// TODO(sttts): implement scale subresource
+		if scaleEnabled {
+			scaleSpec = &apiextensions.CustomResourceSubresourceScale{}
+		}
 
 		strategy := customresource.NewStrategy(
 			typer,
@@ -75,7 +84,7 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 			[]apiextensionsv1.SelectableField{},
 		)
 
-		storage, statusStorage := registry.NewStorage(
+		storage, statusStorage, scaleStorage := registry.NewStorage(
 			ctx,
 			resource,
 			apiExportIdentityHash,
@@ -117,7 +126,74 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 			}
 		}
 
-		// TODO(sttts): add scale subresource
+		if scaleEnabled {
+			subresourceStorages["scale"] = &struct {
+				registry.FactoryFunc
+				registry.DestroyerFunc
+
+				registry.GetterFunc
+				registry.UpdaterFunc
+				// patch is implicit as we have get + update
+
+				registry.TableConvertorFunc
+				registry.CategoriesProviderFunc
+				registry.ResetFieldsStrategyFunc
+			}{
+				FactoryFunc:   scaleStorage.FactoryFunc,
+				DestroyerFunc: scaleStorage.DestroyerFunc,
+
+				GetterFunc:  scaleStorage.GetterFunc,
+				UpdaterFunc: scaleStorage.UpdaterFunc,
+
+				TableConvertorFunc:      scaleStorage.TableConvertorFunc,
+				CategoriesProviderFunc:  scaleStorage.CategoriesProviderFunc,
+				ResetFieldsStrategyFunc: scaleStorage.ResetFieldsStrategyFunc,
+			}
+		}
+
+		for name, subresourceGVK := range apiexportbuiltin.BuiltInSubresources[resource.GroupResource()] {
+			factory := func() runtime.Object {
+				ret := &unstructured.Unstructured{}
+				ret.SetGroupVersionKind(subresourceGVK)
+				return ret
+			}
+			subresourceStore := registry.DefaultDynamicDelegatedStoreFuncs(
+				factory,
+				nil,
+				func() {},
+				strategy,
+				tableConvertor,
+				resource,
+				apiExportIdentityHash,
+				nil,
+				dynamicClusterClientFunc,
+				[]string{name},
+				retry.DefaultRetry,
+				ctx.Done(),
+			)
+
+			// get the parent resource for the subresource so the parents' permissions are validated.
+			// prevents e.g. accessing the subresource of an unclaimed parent resource.
+			delegateCreate := subresourceStore.NamedCreaterFunc
+			subresourceStore.NamedCreaterFunc = func(ctx context.Context, name string, obj runtime.Object, createValidation rest.ValidateObjectFunc, options *metav1.CreateOptions) (runtime.Object, error) {
+				if _, err := storage.GetterFunc.Get(ctx, name, &metav1.GetOptions{}); err != nil {
+					return nil, err
+				}
+				return delegateCreate(ctx, name, obj, createValidation, options)
+			}
+
+			subresourceStorages[name] = &struct {
+				registry.FactoryFunc
+				registry.DestroyerFunc
+
+				registry.NamedCreaterFunc
+			}{
+				FactoryFunc:   subresourceStore.FactoryFunc,
+				DestroyerFunc: subresourceStore.DestroyerFunc,
+
+				NamedCreaterFunc: subresourceStore.NamedCreaterFunc,
+			}
+		}
 
 		return &struct {
 			registry.FactoryFunc

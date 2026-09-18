@@ -97,6 +97,12 @@ func filteredLogicalClusterStatusWriteOnly(
 			statusSpec = &apiextensions.CustomResourceSubresourceStatus{}
 		}
 
+		_, scaleEnabled := subresourcesSchemaValidator["scale"]
+		var scaleSpec *apiextensions.CustomResourceSubresourceScale
+		if scaleEnabled {
+			scaleSpec = &apiextensions.CustomResourceSubresourceScale{}
+		}
+
 		strategy := customresource.NewStrategy(
 			typer,
 			namespaceScoped,
@@ -106,11 +112,11 @@ func filteredLogicalClusterStatusWriteOnly(
 			statusSchemaValidate,
 			structuralSchema,
 			statusSpec,
-			nil, // no scale subresource needed
+			scaleSpec,
 			[]apiextensionsv1.SelectableField{},
 		)
 
-		storage, statusStorage := registry.NewStorage(
+		storage, statusStorage, scaleStorage := registry.NewStorage(
 			ctx,
 			resource,
 			"", // no hash, as this is not backed by an APIExport
@@ -153,6 +159,31 @@ func filteredLogicalClusterStatusWriteOnly(
 				TableConvertorFunc:      statusStorage.TableConvertorFunc,
 				CategoriesProviderFunc:  statusStorage.CategoriesProviderFunc,
 				ResetFieldsStrategyFunc: statusStorage.ResetFieldsStrategyFunc,
+			}
+		}
+
+		if scaleEnabled {
+			subresourceStorages["scale"] = &struct {
+				registry.FactoryFunc
+				registry.DestroyerFunc
+
+				registry.GetterFunc
+				registry.UpdaterFunc
+				// patch is implicit as we have get + update
+
+				registry.TableConvertorFunc
+				registry.CategoriesProviderFunc
+				registry.ResetFieldsStrategyFunc
+			}{
+				FactoryFunc:   scaleStorage.FactoryFunc,
+				DestroyerFunc: scaleStorage.DestroyerFunc,
+
+				GetterFunc:  scaleStorage.GetterFunc,
+				UpdaterFunc: scaleStorage.UpdaterFunc,
+
+				TableConvertorFunc:      scaleStorage.TableConvertorFunc,
+				CategoriesProviderFunc:  scaleStorage.CategoriesProviderFunc,
+				ResetFieldsStrategyFunc: scaleStorage.ResetFieldsStrategyFunc,
 			}
 		}
 

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/managedfields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/registry/rest"
+	"k8s.io/client-go/scale/scheme/autoscalingv1"
 	"k8s.io/client-go/util/retry"
 
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
@@ -72,7 +73,7 @@ func NewStorage(
 	dynamicClusterClientFunc DynamicClusterClientFunc,
 	patchConflictRetryBackoff *wait.Backoff,
 	wrapper StorageWrapper,
-) (mainStorage, statusStorage *StoreFuncs) {
+) (mainStorage, statusStorage, scaleStorage *StoreFuncs) {
 	if patchConflictRetryBackoff == nil {
 		patchConflictRetryBackoff = &retry.DefaultRetry
 	}
@@ -119,7 +120,45 @@ func NewStorage(
 	if wrapper != nil {
 		wrapper.Decorate(resource.GroupResource(), statusStore)
 	}
-	return store, statusStore
+
+	scaleFactory := func() runtime.Object {
+		ret := &unstructured.Unstructured{}
+		ret.SetGroupVersionKind(autoscalingv1.SchemeGroupVersion.WithKind("Scale"))
+		return ret
+	}
+
+	scaleStore := DefaultDynamicDelegatedStoreFuncs(
+		scaleFactory,
+		nil,
+		func() {},
+		strategy,
+		tableConvertor,
+		resource,
+		apiExportIdentityHash,
+		nil,
+		dynamicClusterClientFunc,
+		[]string{"scale"},
+		*patchConflictRetryBackoff,
+		ctx.Done(),
+	)
+
+	delegateScaleGet := scaleStore.GetterFunc
+	scaleStore.GetterFunc = func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
+		if _, err := store.GetterFunc.Get(ctx, name, &metav1.GetOptions{}); err != nil {
+			return nil, err
+		}
+		return delegateScaleGet(ctx, name, options)
+	}
+
+	delegateScaleUpdate := scaleStore.UpdaterFunc
+	scaleStore.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
+		if _, err := store.GetterFunc.Get(ctx, name, &metav1.GetOptions{}); err != nil {
+			return nil, false, err
+		}
+		return delegateScaleUpdate(ctx, name, objInfo, createValidation, updateValidation, forceAllowCreate, options)
+	}
+
+	return store, statusStore, scaleStore
 }
 
 // ProvideReadOnlyRestStorage returns a commonly used REST storage that forwards calls to a dynamic client,
@@ -151,7 +190,7 @@ func ProvideReadOnlyRestStorage(ctx context.Context, dynamicClusterClientFunc Dy
 			[]apiextensionsv1.SelectableField{},
 		)
 
-		storage, _ := NewStorage(
+		storage, _, _ := NewStorage(
 			ctx,
 			resource,
 			identities[resource.GroupResource()],
