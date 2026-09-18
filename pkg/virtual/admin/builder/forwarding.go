@@ -17,7 +17,9 @@ limitations under the License.
 package builder
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -33,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	utiljson "k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/watch"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
@@ -217,17 +221,40 @@ func dedupeShards(items []unstructured.Unstructured) []unstructured.Unstructured
 	return result
 }
 
-// MutableFields are the field paths that may be changed on a Shard through
-// the Admin workspace: the cordon annotation and the scheduling limits.
-// Everything else on a Shard is read-only: shards register themselves and own
-// their configuration. Each path is a slice of literal field names, so keys
-// that themselves contain dots - annotation keys - address correctly. The
-// replication controller carries exactly these paths back cache -> local as
-// its cache-owned fields.
-var MutableFields = [][]string{
-	{"metadata", "annotations", corev1alpha1.ShardUnschedulableAnnotationKey},
-	{"spec", "resourceLimits"},
+// mutableField is a field that may be changed on a Shard through the Admin
+// workspace, together with the Go type its value must decode into.
+type mutableField struct {
+	// path is a slice of literal field names, so keys that themselves contain
+	// dots - annotation keys - address correctly.
+	path []string
+	// newValue returns a pointer to a zero value of the field's type.
+	newValue func() any
 }
+
+// mutableFields are the fields that may be changed on a Shard through the
+// Admin workspace: the cordon annotation and the scheduling limits. Everything
+// else on a Shard is read-only: shards register themselves and own their
+// configuration.
+var mutableFields = []mutableField{
+	{
+		path:     []string{"metadata", "annotations", corev1alpha1.ShardUnschedulableAnnotationKey},
+		newValue: func() any { return new(string) },
+	},
+	{
+		path:     []string{"spec", "resourceLimits"},
+		newValue: func() any { return new(corev1alpha1.ShardResourceLimits) },
+	},
+}
+
+// MutableFields are the paths of mutableFields. The replication controller
+// carries exactly these paths back cache -> local as its cache-owned fields.
+var MutableFields = func() [][]string {
+	paths := make([][]string, 0, len(mutableFields))
+	for _, f := range mutableFields {
+		paths = append(paths, f.path)
+	}
+	return paths
+}()
 
 // mutableFieldNames renders MutableFields for error messages.
 func mutableFieldNames() []string {
@@ -238,19 +265,57 @@ func mutableFieldNames() []string {
 	return names
 }
 
-// mutableFieldUpdate checks that desired differs from current in MutableFields
-// only, and returns the desired value of each mutable field along with whether
-// it is present at all - an absent field means the admin cleared it. Any other
-// difference is rejected as forbidden: shards own the rest of their object.
+// typedValue decodes a desired value of the field into its Go type and returns
+// it re-encoded. The write is forwarded to the cache server, which stores
+// whatever it is given, and from there it reaches the owning shard's apiserver,
+// which validates against the Shard schema. Decoding here rejects up front -
+// with the same strictness as that schema, plus unknown fields - what would
+// otherwise be persisted in the cache and then fail to sync, and the
+// re-encoding stores the value in the form the type serializes to.
+func (f mutableField) typedValue(value any) (any, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	typed := f.newValue()
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(typed); err != nil {
+		return nil, err
+	}
+	if raw, err = json.Marshal(typed); err != nil {
+		return nil, err
+	}
+	var canonical any
+	if err := utiljson.Unmarshal(raw, &canonical); err != nil {
+		return nil, err
+	}
+	return canonical, nil
+}
+
+// mutableFieldUpdate checks that desired differs from current in mutableFields
+// only, and returns the desired value of each mutable field - decoded through
+// its Go type - along with whether it is present at all: an absent field means
+// the admin cleared it. A value that does not fit its type is rejected as
+// invalid; any other difference is rejected as forbidden, as shards own the
+// rest of their object.
 func mutableFieldUpdate(name string, current, desired *unstructured.Unstructured) ([]any, []bool, error) {
-	values := make([]any, len(MutableFields))
-	present := make([]bool, len(MutableFields))
+	values := make([]any, len(mutableFields))
+	present := make([]bool, len(mutableFields))
 	normalizedDesired := desired.DeepCopy()
 	normalizedCurrent := current.DeepCopy()
-	for i, path := range MutableFields {
+	for i, f := range mutableFields {
+		path := f.path
 		value, found, err := unstructured.NestedFieldNoCopy(desired.Object, path...)
 		if err != nil {
 			return nil, nil, apierrors.NewBadRequest(fmt.Sprintf("invalid %s: %v", strings.Join(path, "."), err))
+		}
+		if found {
+			if value, err = f.typedValue(value); err != nil {
+				return nil, nil, apierrors.NewInvalid(corev1alpha1.Kind("Shard"), name, field.ErrorList{
+					field.Invalid(field.NewPath(path[0], path[1:]...), value, err.Error()),
+				})
+			}
 		}
 		values[i], present[i] = value, found
 		stripField(normalizedDesired, path)
@@ -269,9 +334,9 @@ func mutableFieldUpdate(name string, current, desired *unstructured.Unstructured
 
 // withShardsView decorates the StoreFuncs so that every read is served from
 // the cache server across all shards, presented as one flat collection, and
-// updates - restricted to MutableAnnotations - are applied to the cache copy
-// of the target shard, from where the shard hosting the authoritative object
-// picks them up.
+// updates - restricted to mutableFields, each decoded through its Go type -
+// are applied to the cache copy of the target shard, from where the shard
+// hosting the authoritative object picks them up.
 func withShardsView(cacheDynamicClusterClient kcpdynamic.ClusterInterface) forwardingregistry.StorageWrapper {
 	return forwardingregistry.StorageWrapperFunc(func(resource schema.GroupResource, storage *forwardingregistry.StoreFuncs) {
 		delegateList := storage.ListerFunc
@@ -321,9 +386,9 @@ func withShardsView(cacheDynamicClusterClient kcpdynamic.ClusterInterface) forwa
 				return nil, false, err
 			}
 
-			// apply the change to the cache copy of the target shard. Parent
-			// maps are left in place: the cache bookkeeping annotations below
-			// route the write to the owning shard.
+			// apply the typed values to the cache copy of the target shard.
+			// Parent maps are left in place: the cache bookkeeping annotations
+			// below route the write to the owning shard.
 			for i, path := range MutableFields {
 				if !present[i] {
 					unstructured.RemoveNestedField(raw.Object, path...)

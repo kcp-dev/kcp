@@ -251,11 +251,12 @@ func TestMutableFieldUpdate(t *testing.T) {
 	limits := map[string]any{"hard": map[string]any{"workspaces": "10"}}
 
 	scenarios := []struct {
-		name        string
-		desired     *unstructured.Unstructured
-		wantErr     bool
-		wantValues  []any
-		wantPresent []bool
+		name          string
+		desired       *unstructured.Unstructured
+		wantForbidden bool
+		wantInvalid   bool
+		wantValues    []any
+		wantPresent   []bool
 	}{
 		{
 			name:        "no change",
@@ -293,21 +294,70 @@ func TestMutableFieldUpdate(t *testing.T) {
 			desired: shard(func(obj map[string]any) {
 				obj["spec"].(map[string]any)["baseURL"] = "https://hijacked"
 			}),
-			wantErr: true,
+			wantForbidden: true,
 		},
 		{
 			name: "changing an unrelated annotation is forbidden",
 			desired: shard(func(obj map[string]any) {
 				obj["metadata"].(map[string]any)["annotations"].(map[string]any)["evil"] = "yes"
 			}),
-			wantErr: true,
+			wantForbidden: true,
 		},
 		{
 			name: "changing status is forbidden",
 			desired: shard(func(obj map[string]any) {
 				obj["status"] = map[string]any{"used": map[string]any{"workspaces": "0"}}
 			}),
-			wantErr: true,
+			wantForbidden: true,
+		},
+		{
+			name: "resourceLimits are stored in the form the type serializes to",
+			desired: shard(func(obj map[string]any) {
+				obj["spec"].(map[string]any)["resourceLimits"] = map[string]any{
+					"soft": map[string]any{"workspaces": int64(5)},
+					"hard": map[string]any{"workspaces": "1e1"},
+				}
+			}),
+			wantValues: []any{nil, map[string]any{
+				"soft": map[string]any{"workspaces": "5"},
+				"hard": map[string]any{"workspaces": "10"},
+			}},
+			wantPresent: []bool{false, true},
+		},
+		{
+			name: "resourceLimits that are not an object are invalid",
+			desired: shard(func(obj map[string]any) {
+				obj["spec"].(map[string]any)["resourceLimits"] = "garbage"
+			}),
+			wantInvalid: true,
+		},
+		{
+			name: "resourceLimits with a malformed quantity are invalid",
+			desired: shard(func(obj map[string]any) {
+				obj["spec"].(map[string]any)["resourceLimits"] = map[string]any{"hard": map[string]any{"workspaces": "ten"}}
+			}),
+			wantInvalid: true,
+		},
+		{
+			name: "resourceLimits with a tier that is not a map are invalid",
+			desired: shard(func(obj map[string]any) {
+				obj["spec"].(map[string]any)["resourceLimits"] = map[string]any{"hard": []any{"10"}}
+			}),
+			wantInvalid: true,
+		},
+		{
+			name: "resourceLimits with an unknown field are invalid",
+			desired: shard(func(obj map[string]any) {
+				obj["spec"].(map[string]any)["resourceLimits"] = map[string]any{"medium": map[string]any{"workspaces": "10"}}
+			}),
+			wantInvalid: true,
+		},
+		{
+			name: "a cordon annotation that is not a string is invalid",
+			desired: shard(func(obj map[string]any) {
+				obj["metadata"].(map[string]any)["annotations"].(map[string]any)[cordonKey] = true
+			}),
+			wantInvalid: true,
 		},
 	}
 
@@ -315,12 +365,15 @@ func TestMutableFieldUpdate(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			t.Parallel()
 			values, present, err := mutableFieldUpdate("shard-1", shard(nil), scenario.desired)
-			if scenario.wantErr {
+			if scenario.wantForbidden || scenario.wantInvalid {
 				if err == nil {
 					t.Fatal("expected an error, got none")
 				}
-				if !apierrors.IsForbidden(err) {
+				if scenario.wantForbidden && !apierrors.IsForbidden(err) {
 					t.Fatalf("expected a Forbidden error, got %v", err)
+				}
+				if scenario.wantInvalid && !apierrors.IsInvalid(err) {
+					t.Fatalf("expected an Invalid error, got %v", err)
 				}
 				return
 			}
