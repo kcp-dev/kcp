@@ -1,11 +1,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: system:kcp:apiexport:shards:bind
+  name: system:kcp:apiexport:shards:get
 rules:
 - apiGroups: ["apis.kcp.io"]
   resources:
   - "apiexports"
   resourceNames:
   - "shards.core.kcp.io"
-  verbs: ["get", "bind"]
+  verbs: ["get"]

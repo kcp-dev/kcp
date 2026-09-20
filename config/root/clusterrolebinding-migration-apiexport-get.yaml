@@ -1,11 +1,11 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: system:kcp:authenticated:apiexport:migration:bind
+  name: system:kcp:authenticated:apiexport:migration:get
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: system:kcp:apiexport:migration:bind
+  name: system:kcp:apiexport:migration:get
 subjects:
 - apiGroup: rbac.authorization.k8s.io
   kind: Group
