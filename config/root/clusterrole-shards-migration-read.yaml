@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:kcp:shards-migration:read
+rules:
+- apiGroups: ["core.kcp.io"]
+  resources:
+  - "shards"
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["migration.kcp.io"]
+  resources:
+  - "logicalclustermigrations"
+  verbs: ["get", "list", "watch"]
