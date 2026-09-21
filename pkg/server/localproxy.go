@@ -28,6 +28,8 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
@@ -101,11 +103,16 @@ func newLocalClusterIndex(
 // WithLocalProxy returns a handler with a local-only mini-front-proxy. It is
 // able to translate logical clusters with the data on the local shard. This is
 // mainly interesting for standalone mode, without a real front-proxy in-front.
+//
+// mountAuthenticator is used to authenticate requests for mounted workspaces
+// before they are forwarded, as this handler runs in front of the shard's
+// authentication filter.
 func WithLocalProxy(
 	handler http.Handler,
 	shardName, additionalMappingsFile string,
 	clusterIndex *index.State,
 	mountProxyTransport http.RoundTripper,
+	mountAuthenticator authenticator.Request,
 ) (http.Handler, error) {
 	defaultHandlerFunc := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
@@ -189,6 +196,7 @@ func WithLocalProxy(
 				}
 			}
 
+			setMountProxyAuthHeaders(req, mountAuthenticator)
 			proxy.ServeHTTP(w, req)
 			return
 		}
@@ -324,6 +332,34 @@ func newInsecureTransport() (*http.Transport, error) {
 		InsecureSkipVerify: true,
 	}
 	return transport, nil
+}
+
+// setMountProxyAuthHeaders replaces any inbound identity headers on a request
+// for a mounted workspace with the identity the shard itself authenticated.
+//
+// The mount branch of WithLocalProxy runs before the shard's authentication
+// filter, so inbound X-Remote-* headers are attacker-controlled until proven
+// otherwise. Forwarding them verbatim over the requestheader-CA-signed mount
+// transport would let a client that reaches the shard directly assert any
+// identity (including a forged warrant) to the front-proxy. Identity headers
+// forwarded by the front-proxy itself survive, because the shard's
+// requestheader authenticator verifies the front-proxy's client certificate.
+//
+// Anonymous and unauthenticated requests are forwarded without identity
+// headers, so that credentials only the mount target can verify (e.g. a
+// bearer token) are still evaluated there.
+func setMountProxyAuthHeaders(req *http.Request, authn authenticator.Request) {
+	if authn != nil {
+		// Authenticate a clone: authenticators mutate the request (e.g. the bearer
+		// token authenticator deletes the Authorization header on success), but the
+		// mount target may need those credentials to authenticate the request itself.
+		resp, ok, err := authn.AuthenticateRequest(req.Clone(req.Context()))
+		if err == nil && ok && resp.User != nil && resp.User.GetName() != user.Anonymous {
+			authheaders.SetAuthHeaders(req.Header, resp.User, authheaders.DefaultUserHeader, authheaders.DefaultGroupHeader, authheaders.DefaultExtraHeaderPrefix)
+			return
+		}
+	}
+	authheaders.ClearAuthHeaders(req.Header, authheaders.DefaultUserHeader, authheaders.DefaultGroupHeader, authheaders.DefaultExtraHeaderPrefix)
 }
 
 // withProxyAuthHeaders does client cert termination by extracting the user and groups and
