@@ -350,7 +350,10 @@ func newInsecureTransport() (*http.Transport, error) {
 // bearer token) are still evaluated there.
 func setMountProxyAuthHeaders(req *http.Request, authn authenticator.Request) {
 	if authn != nil {
-		resp, ok, err := authn.AuthenticateRequest(req)
+		// Authenticate a clone: authenticators mutate the request (e.g. the bearer
+		// token authenticator deletes the Authorization header on success), but the
+		// mount target may need those credentials to authenticate the request itself.
+		resp, ok, err := authn.AuthenticateRequest(req.Clone(req.Context()))
 		if err == nil && ok && resp.User != nil && resp.User.GetName() != user.Anonymous {
 			authheaders.SetAuthHeaders(req.Header, resp.User, authheaders.DefaultUserHeader, authheaders.DefaultGroupHeader, authheaders.DefaultExtraHeaderPrefix)
 			return

@@ -253,6 +253,18 @@ func TestWithLocalProxy_MountStripsForgedIdentityHeaders(t *testing.T) {
 			wantUser:   []string{"alice"},
 			wantGroups: []string{userinfo.AllAuthenticated},
 		},
+		{
+			// Like the bearer token authenticator, which deletes the Authorization
+			// header on success. Without a trusted mount transport the target relies
+			// on those credentials.
+			name: "authenticator mutating the request does not strip credentials",
+			authn: authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
+				req.Header.Del("Authorization")
+				return &authenticator.Response{User: &userinfo.DefaultInfo{Name: "alice", Groups: []string{userinfo.AllAuthenticated}}}, true, nil
+			}),
+			wantUser:   []string{"alice"},
+			wantGroups: []string{userinfo.AllAuthenticated},
+		},
 	}
 
 	for _, tc := range tests {
