@@ -196,7 +196,7 @@ func WithLocalProxy(
 				}
 			}
 
-			_ = setMountProxyAuthHeaders
+			setMountProxyAuthHeaders(req, mountAuthenticator)
 			proxy.ServeHTTP(w, req)
 			return
 		}
@@ -336,6 +336,18 @@ func newInsecureTransport() (*http.Transport, error) {
 
 // setMountProxyAuthHeaders replaces any inbound identity headers on a request
 // for a mounted workspace with the identity the shard itself authenticated.
+//
+// The mount branch of WithLocalProxy runs before the shard's authentication
+// filter, so inbound X-Remote-* headers are attacker-controlled until proven
+// otherwise. Forwarding them verbatim over the requestheader-CA-signed mount
+// transport would let a client that reaches the shard directly assert any
+// identity (including a forged warrant) to the front-proxy. Identity headers
+// forwarded by the front-proxy itself survive, because the shard's
+// requestheader authenticator verifies the front-proxy's client certificate.
+//
+// Anonymous and unauthenticated requests are forwarded without identity
+// headers, so that credentials only the mount target can verify (e.g. a
+// bearer token) are still evaluated there.
 func setMountProxyAuthHeaders(req *http.Request, authn authenticator.Request) {
 	if authn != nil {
 		resp, ok, err := authn.AuthenticateRequest(req)
