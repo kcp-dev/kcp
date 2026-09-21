@@ -17,14 +17,21 @@ limitations under the License.
 package server
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
+
+	"github.com/kcp-dev/logicalcluster/v3"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/index"
 )
@@ -60,7 +67,7 @@ func TestWithLocalProxy_UnresolvablePathIsRejected(t *testing.T) {
 	// that the original bug exploited.
 	emptyIndex := index.New(nil)
 
-	h, err := WithLocalProxy(downstream, "test-shard", "", emptyIndex, nil)
+	h, err := WithLocalProxy(downstream, "test-shard", "", emptyIndex, nil, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequestWithContext(t.Context(),
@@ -90,7 +97,7 @@ func TestWithLocalProxy_BareNameIsForwarded(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	h, err := WithLocalProxy(downstream, "test-shard", "", index.New(nil), nil)
+	h, err := WithLocalProxy(downstream, "test-shard", "", index.New(nil), nil, nil)
 	require.NoError(t, err)
 
 	req := httptest.NewRequestWithContext(t.Context(),
@@ -188,6 +195,110 @@ func TestWithProxyAuthHeaders_StripsForgedIdentityHeaders(t *testing.T) {
 			for _, h := range tc.forbiddenHeaders {
 				require.Empty(t, forwarded.Values(h), "forged header %q must not leak to backend", h)
 			}
+		})
+	}
+}
+
+// TestWithLocalProxy_MountStripsForgedIdentityHeaders is testing
+// header cleaning for the local-proxy's mounted-workspace branch.
+func TestWithLocalProxy_MountStripsForgedIdentityHeaders(t *testing.T) {
+	t.Parallel()
+	const (
+		userHeader    = "X-Remote-User"
+		groupHeader   = "X-Remote-Group"
+		warrantHeader = "X-Remote-Extra-Authorization.kcp.io%2fwarrant"
+	)
+	forgedHeaders := http.Header{
+		userHeader:      {"admin"},
+		groupHeader:     {"system:masters", "system:kcp:external-logical-cluster-admin"},
+		warrantHeader:   {`{"user":"attacker","groups":["system:masters"]}`},
+		"Authorization": {"Bearer some-token"},
+	}
+
+	authenticated := func(u userinfo.Info) authenticator.Request {
+		return authenticator.RequestFunc(func(*http.Request) (*authenticator.Response, bool, error) {
+			return &authenticator.Response{User: u}, true, nil
+		})
+	}
+
+	tests := []struct {
+		name       string
+		authn      authenticator.Request
+		wantUser   []string
+		wantGroups []string
+	}{
+		{
+			name:  "no authenticator",
+			authn: nil,
+		},
+		{
+			name: "unauthenticated",
+			authn: authenticator.RequestFunc(func(*http.Request) (*authenticator.Response, bool, error) {
+				return nil, false, nil
+			}),
+		},
+		{
+			name: "authentication error",
+			authn: authenticator.RequestFunc(func(*http.Request) (*authenticator.Response, bool, error) {
+				return nil, false, errors.New("boom")
+			}),
+		},
+		{
+			name:  "anonymous",
+			authn: authenticated(&userinfo.DefaultInfo{Name: userinfo.Anonymous, Groups: []string{userinfo.AllUnauthenticated}}),
+		},
+		{
+			name:       "authenticated user replaces forged identity",
+			authn:      authenticated(&userinfo.DefaultInfo{Name: "alice", Groups: []string{userinfo.AllAuthenticated}}),
+			wantUser:   []string{"alice"},
+			wantGroups: []string{userinfo.AllAuthenticated},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			forwarded := make(chan http.Header, 1)
+			backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				forwarded <- r.Header.Clone()
+			}))
+			t.Cleanup(backend.Close)
+
+			idx := index.New(nil)
+			idx.UpsertLogicalCluster("test-shard", &corev1alpha1.LogicalCluster{
+				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
+			})
+			idx.UpsertWorkspace("test-shard", &tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{Name: "mnt", Annotations: map[string]string{logicalcluster.AnnotationKey: "root"}},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:   backend.URL,
+					Mount: &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{Name: "ref"}},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+			})
+
+			downstream := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				t.Error("request for a mounted workspace must not reach the shard handler chain")
+			})
+			h, err := WithLocalProxy(downstream, "test-shard", "", idx, nil, tc.authn)
+			require.NoError(t, err)
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/root:mnt/api/v1/secrets", http.NoBody)
+			for k, vs := range forgedHeaders {
+				for _, v := range vs {
+					req.Header.Add(k, v)
+				}
+			}
+			rr := httptest.NewRecorder()
+			h.ServeHTTP(rr, req)
+			require.Equal(t, http.StatusOK, rr.Code, "body=%s", rr.Body.String())
+
+			got := <-forwarded
+			require.Equal(t, tc.wantUser, got.Values(userHeader), "user header")
+			require.Equal(t, tc.wantGroups, got.Values(groupHeader), "group header")
+			require.Empty(t, got.Values(warrantHeader), "forged warrant must not be forwarded")
+			require.Equal(t, "Bearer some-token", got.Get("Authorization"), "credentials must still reach the mount target")
 		})
 	}
 }

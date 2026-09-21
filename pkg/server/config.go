@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
 	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/informerfactoryhack"
@@ -669,7 +670,19 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// whether shard-wide URLs like /metrics may be served. Workspace-scoped
 		// requests are 501'd; top-level requests are evaluated against root RBAC.
 		apiHandler = kcpfilters.WithShardLevelPaths(apiHandler)
-		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile, clusterIndex, mountProxyTransport)
+		// The local proxy forwards requests for mounted workspaces before the
+		// authentication filter runs, so it authenticates those itself and only
+		// forwards the resulting identity, never the inbound identity headers.
+		mountAuthenticator := authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
+			if genericConfig.Authentication.Authenticator == nil {
+				return nil, false, nil
+			}
+			if auds := genericConfig.Authentication.APIAudiences; len(auds) > 0 {
+				req = req.WithContext(authenticator.WithAudiences(req.Context(), auds))
+			}
+			return genericConfig.Authentication.Authenticator.AuthenticateRequest(req)
+		})
+		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile, clusterIndex, mountProxyTransport, mountAuthenticator)
 		if err != nil {
 			panic(err) // shouldn't happen due to flag validation
 		}

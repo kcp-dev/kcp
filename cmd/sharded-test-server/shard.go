@@ -107,6 +107,7 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		"--requestheader-username-headers=X-Remote-User",
 		"--requestheader-group-headers=X-Remote-Group",
 		"--requestheader-extra-headers-prefix=X-Remote-Extra-",
+		"--requestheader-allowed-names=kcp-front-proxy",
 		fmt.Sprintf("--service-account-key-file=%s", filepath.Join(kcpDir, "service-account.crt")),
 		fmt.Sprintf("--service-account-private-key-file=%s", filepath.Join(kcpDir, "service-account.key")),
 		fmt.Sprintf("--service-account-signing-key-file=%s", filepath.Join(kcpDir, "service-account.key")),
