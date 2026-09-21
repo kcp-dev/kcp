@@ -30,6 +30,15 @@ import (
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 )
 
+const (
+	// DefaultUserHeader is the default request-header user name header.
+	DefaultUserHeader = "X-Remote-User"
+	// DefaultGroupHeader is the default request-header group header.
+	DefaultGroupHeader = "X-Remote-Group"
+	// DefaultExtraHeaderPrefix is the default request-header extra header prefix.
+	DefaultExtraHeaderPrefix = "X-Remote-Extra-"
+)
+
 // ClearAuthHeaders deletes any inbound copies of the request-header identity
 // headers.
 func ClearAuthHeaders(header http.Header, userHeader, groupHeader, extraHeaderPrefix string) {
