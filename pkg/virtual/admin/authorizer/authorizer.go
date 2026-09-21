@@ -25,15 +25,15 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
-// adminAuthorizer authorizes access to the Admin workspace. Access is
-// granted only to members of the system:kcp:admin group, keeping the serving
-// path free of any dependency on the root shard. What can actually be
+// adminAuthorizer authorizes access to the Admin workspace, keeping the
+// serving path free of any dependency on the root shard. What can actually be
 // written is further restricted by the storage (e.g. only allow-listed Shard
 // annotations).
 type adminAuthorizer struct{}
 
-// NewAdminAuthorizer creates an authorizer for the Admin workspace. Access
-// is allowed only to members of the system:kcp:admin group.
+// NewAdminAuthorizer creates an authorizer for the Admin workspace. Access is
+// allowed to the external administrator group system:kcp:admin and to the
+// internal system:masters group.
 func NewAdminAuthorizer() authorizer.Authorizer {
 	return &adminAuthorizer{}
 }
@@ -45,9 +45,12 @@ func (a *adminAuthorizer) Authorize(_ context.Context, attr authorizer.Attribute
 		return authorizer.DecisionDeny, "verb not supported by the admin workspace", nil
 	}
 
-	if slices.Contains(attr.GetUser().GetGroups(), bootstrap.SystemKcpAdminGroup) {
-		return authorizer.DecisionAllow, "user is a member of the " + bootstrap.SystemKcpAdminGroup + " group", nil
+	groups := attr.GetUser().GetGroups()
+	for _, g := range []string{bootstrap.SystemKcpAdminGroup, bootstrap.SystemMastersGroup} {
+		if slices.Contains(groups, g) {
+			return authorizer.DecisionAllow, "user is a member of the " + g + " group", nil
+		}
 	}
 
-	return authorizer.DecisionDeny, "access to the admin workspace requires membership in the " + bootstrap.SystemKcpAdminGroup + " group", nil
+	return authorizer.DecisionDeny, "access to the admin workspace requires membership in the " + bootstrap.SystemKcpAdminGroup + " or " + bootstrap.SystemMastersGroup + " group", nil
 }
