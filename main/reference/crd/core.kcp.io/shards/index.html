@@ -4304,6 +4304,66 @@ that share a common external URL.</p>
 
 <div class="property depth-1">
 <div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.resourceLimits">.spec.resourceLimits</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>resourceLimits constrains how many of certain resources this shard will
+accept during scheduling.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-2">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.resourceLimits.hard">.spec.resourceLimits.hard</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>hard holds per-resource thresholds above which this shard refuses new
+resources of that kind. An absent or non-positive value disables the
+limit for that resource.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-2">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.spec.resourceLimits.soft">.spec.resourceLimits.soft</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>soft holds per-resource thresholds above which this shard is
+deprioritized during scheduling: shards under all their soft limits are
+preferred. An absent or non-positive value disables the limit for that
+resource.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-1">
+<div class="property-header">
 <h3 class="property-path" id="v1alpha1-.spec.virtualWorkspaceURL">.spec.virtualWorkspaceURL</h3>
 </div>
 <div class="property-body">
@@ -4507,6 +4567,27 @@ The Severity field MUST be set only when Status=False.</p>
 <p>Type of condition in CamelCase or in foo.example.com/CamelCase.
 Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
 can be useful (see .node.status.conditions), the ability to deconflict is important.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-1">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha1-.status.used">.status.used</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">object</span>
+
+</div>
+
+<div class="property-description">
+<p>used is the observed number of resources of each kind currently on this
+shard, e.g. the number of workspaces (logical clusters) scheduled to it.
+It mirrors a ResourceQuota&rsquo;s status.used and is compared against
+spec.resourceLimits during workspace scheduling.</p>
 
 </div>
 

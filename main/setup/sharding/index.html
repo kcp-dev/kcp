@@ -4249,6 +4249,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#workspace-limits-per-shard" class="md-nav__link">
+    <span class="md-ellipsis">
+      Workspace Limits per Shard
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#geo-distributed-deployments" class="md-nav__link">
     <span class="md-ellipsis">
       Geo-Distributed Deployments
@@ -4555,12 +4564,89 @@ enabling continued operation even when the provider's home shard is unavailable.
 <li><strong>Health-aware routing</strong>: If multiple provider endpoints exist, operators can route around unhealthy endpoints</li>
 </ul>
 <p>This approach requires custom engineering in your operators but provides the most flexibility.</p>
+<h2 id="workspace-limits-per-shard">Workspace Limits per Shard<a class="headerlink" href="#workspace-limits-per-shard" title="Permanent link">&para;</a></h2>
+<p>A shard becomes slow and eventually unusable when it holds too many workspaces. To protect against
+this, each <code>Shard</code> can declare scheduling limits for workspaces in <code>spec.resourceLimits</code>, using the
+familiar Kubernetes resource-list shape:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">core.kcp.io/v1alpha1</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Shard</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nt">metadata</span><span class="p">:</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alpha</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nt">spec</span><span class="p">:</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="nt">baseURL</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://alpha.kcp.example.com</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="nt">resourceLimits</span><span class="p">:</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">    </span><span class="nt">soft</span><span class="p">:</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">      </span><span class="nt">workspaces</span><span class="p">:</span><span class="w"> </span><span class="s">"450"</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">    </span><span class="nt">hard</span><span class="p">:</span>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">      </span><span class="nt">workspaces</span><span class="p">:</span><span class="w"> </span><span class="s">"500"</span>
+</code></pre></div>
+<p>Limits are set through the <a href="../../concepts/sharding/shards/#the-admin-workspace-admin">Admin workspace</a>,
+the same operational surface used for cordoning — shards own the rest of their object, so direct
+writes elsewhere are denied by admission:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>ws<span class="w"> </span>use<span class="w"> </span>:admin
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>Current<span class="w"> </span>workspace<span class="w"> </span>is<span class="w"> </span><span class="s1">':admin'</span><span class="w"> </span><span class="o">(</span>aggregated<span class="w"> </span>view<span class="w"> </span>of<span class="w"> </span>all<span class="w"> </span>shards<span class="o">)</span>.
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>$<span class="w"> </span>kubectl<span class="w"> </span>patch<span class="w"> </span>shard<span class="w"> </span>alpha<span class="w"> </span>--type<span class="o">=</span>merge<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span>-p<span class="w"> </span><span class="s1">'{"spec":{"resourceLimits":{"soft":{"workspaces":"450"},"hard":{"workspaces":"500"}}}}'</span>
+</code></pre></div>
+<p>The write lands on the cache copy and flows from there to the shard hosting the authoritative
+object, so limits can be set for a shard that is temporarily unreachable: the intent parks in the
+cache until the shard reconnects.</p>
+<p>Because the limits travel that way, <code>spec.resourceLimits</code> on its own only reflects what was
+<em>requested</em> — it is the value the admin just wrote. The owning shard acknowledges the limits it is
+actually enforcing through the <code>ResourceLimitsApplied</code> condition, whose message spells them out.
+Conditions are shard-owned and travel the other way, so reading that message back confirms the
+round trip completed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>shard<span class="w"> </span>alpha<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions[?(@.type=="ResourceLimitsApplied")].message}{"\n"}'</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>soft/hard:<span class="w"> </span><span class="nv">workspaces</span><span class="o">=</span><span class="m">450</span>/500
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>$<span class="w"> </span>kubectl<span class="w"> </span><span class="nb">wait</span><span class="w"> </span>--for<span class="o">=</span><span class="nv">condition</span><span class="o">=</span>ResourceLimitsApplied<span class="w"> </span>shard/alpha
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>shard.core.kcp.io/alpha<span class="w"> </span>condition<span class="w"> </span>met
+</code></pre></div>
+<p>The message is stable and parsable — <code>soft/hard: &lt;resource&gt;=&lt;soft&gt;/&lt;hard&gt;</code>, one entry per resource
+sorted by name, <code>-</code> for a tier that is not configured (<code>workspaces=-/500</code>), and
+<code>no limits configured</code> when none are set. Until the shard has caught up, or while it is
+unreachable, the message still names the <em>previous</em> limits, which is what tells you the new ones
+have not landed yet.</p>
+<p>The condition goes <code>False</code> with reason <code>InvalidResourceLimits</code> when part of the configuration does
+not take effect as written — a negative value, or a soft limit that is not below the hard limit and
+so can never deprioritize the shard before it starts refusing workspaces. The message then keeps
+the same prefix and appends what is wrong:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>soft/hard: workspaces=500/500; soft workspaces=500 is not below hard workspaces=500, so the shard
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>is never deprioritized before it refuses new workspaces
+</code></pre></div>
+<ul>
+<li><strong>Soft limit</strong>: once a shard holds this many workspaces, it is deprioritized — new workspaces are
+  scheduled to shards still under their soft limit. If every schedulable shard is at or over its
+  soft limit, scheduling proceeds anyway and a warning is logged.</li>
+<li><strong>Hard limit</strong>: once a shard holds this many workspaces, it refuses new workspaces entirely. If
+  all shards are at their hard limit, new workspaces stay in the <code>Scheduling</code> phase with a
+  <code>WorkspaceScheduled: False</code> condition (reason <code>Unschedulable</code>) and are scheduled automatically
+  once capacity becomes available (a limit is raised or a shard is added).</li>
+</ul>
+<p>A limit that is absent or set to <code>0</code> is disabled. Both limits are disabled by default, which also
+allows stress testing a setup without artificial caps.</p>
+<p>The observed number of workspaces per shard is published to <code>status.used</code> (mirroring a
+ResourceQuota's <code>status.used</code>) and shown by <code>kubectl get shards</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="nt">status</span><span class="p">:</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">used</span><span class="p">:</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">    </span><span class="nt">workspaces</span><span class="p">:</span><span class="w"> </span><span class="s">"312"</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>shards
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>NAME<span class="w">    </span>REGION<span class="w">   </span>URL<span class="w">                              </span>EXTERNAL<span class="w"> </span>URL<span class="w">                     </span>WORKSPACES<span class="w">   </span>AGE
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>alpha<span class="w">            </span>https://alpha.kcp.example.com<span class="w">    </span>https://alpha.kcp.example.com<span class="w">    </span><span class="m">312</span><span class="w">          </span>12d
+</code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Each shard counts its own workspaces and reports them to <code>status.used</code> with a small
+debounce (a few seconds), so a burst of concurrent workspace creations can overshoot
+the hard limit by a small number of workspaces. The limits are a guardrail against
+shard exhaustion, not an exact quota.</p>
+</div>
 <h2 id="geo-distributed-deployments">Geo-Distributed Deployments<a class="headerlink" href="#geo-distributed-deployments" title="Permanent link">&para;</a></h2>
 <p>When deploying kcp across multiple regions or data centers, the sharding considerations become even more critical:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>Region US-East (Shard: us-east)     Region EU-West (Shard: eu-west)
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>├── root:provider                   ├── root:consumer-eu-1
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>├── root:consumer-us-1              └── root:consumer-eu-2
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>└── root:consumer-us-2
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>Region US-East (Shard: us-east)     Region EU-West (Shard: eu-west)
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>├── root:provider                   ├── root:consumer-eu-1
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>├── root:consumer-us-1              └── root:consumer-eu-2
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>└── root:consumer-us-2
 </code></pre></div>
 <p>In this topology:
 - Cross-region latency affects API binding operations
