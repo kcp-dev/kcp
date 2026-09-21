@@ -97,6 +97,7 @@ import (
 	corereplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/core/replicateclusterrolebinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/shard"
 	"github.com/kcp-dev/kcp/pkg/reconciler/core/shardrepresentation"
+	"github.com/kcp-dev/kcp/pkg/reconciler/core/shardstatus"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/garbagecollector"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
@@ -625,6 +626,36 @@ func (s *Server) installWorkspaceScheduler(ctx context.Context, config *rest.Con
 		}); err != nil {
 			return err
 		}
+	}
+
+	shardStatusConfig := rest.CopyConfig(config)
+	shardStatusConfig = rest.AddUserAgent(shardStatusConfig, shardstatus.ControllerName)
+	kcpClusterClient, err = kcpclientset.NewForConfig(shardStatusConfig)
+	if err != nil {
+		return err
+	}
+
+	// runs on every shard: self-reports the number of logical clusters hosted
+	// here into status.used of this shard's own authoritative Shard object, from
+	// where replication carries it to the cache server that the workspace
+	// scheduler reads.
+	shardStatusController := shardstatus.NewController(
+		s.Options.Extra.ShardName,
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+	)
+	if err := s.registerController(&controllerWrapper{
+		Name: shardstatus.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			shardStatusController.Start(ctx, 1)
+		},
+	}); err != nil {
+		return err
 	}
 
 	workspaceTypeConfig := rest.CopyConfig(config)

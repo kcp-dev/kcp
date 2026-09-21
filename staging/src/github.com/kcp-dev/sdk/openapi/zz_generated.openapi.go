@@ -125,6 +125,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1alpha1.OwnerUserInfo{}.OpenAPIModelName():                               schema_sdk_apis_core_v1alpha1_OwnerUserInfo(ref),
 		corev1alpha1.Shard{}.OpenAPIModelName():                                       schema_sdk_apis_core_v1alpha1_Shard(ref),
 		corev1alpha1.ShardList{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardList(ref),
+		corev1alpha1.ShardResourceLimits{}.OpenAPIModelName():                         schema_sdk_apis_core_v1alpha1_ShardResourceLimits(ref),
 		corev1alpha1.ShardSpec{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
 		corev1alpha1.ShardStatus{}.OpenAPIModelName():                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
 		migrationv1alpha1.EtcdEntry{}.OpenAPIModelName():                              schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref),
@@ -4072,6 +4073,49 @@ func schema_sdk_apis_core_v1alpha1_ShardList(ref common.ReferenceCallback) commo
 	}
 }
 
+func schema_sdk_apis_core_v1alpha1_ShardResourceLimits(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ShardResourceLimits holds per-resource scheduling limits for a shard, mirroring the Kubernetes ResourceQuota/ResourceRequirements shape: maps of resource name to quantity.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"soft": {
+						SchemaProps: spec.SchemaProps{
+							Description: "soft holds per-resource thresholds above which this shard is deprioritized during scheduling: shards under all their soft limits are preferred. An absent or non-positive value disables the limit for that resource.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
+					"hard": {
+						SchemaProps: spec.SchemaProps{
+							Description: "hard holds per-resource thresholds above which this shard refuses new resources of that kind. An absent or non-positive value disables the limit for that resource.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
 func schema_sdk_apis_core_v1alpha1_ShardSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4101,10 +4145,18 @@ func schema_sdk_apis_core_v1alpha1_ShardSpec(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
+					"resourceLimits": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resourceLimits constrains how many of certain resources this shard will accept during scheduling.",
+							Ref:         ref(corev1alpha1.ShardResourceLimits{}.OpenAPIModelName()),
+						},
+					},
 				},
 				Required: []string{"baseURL"},
 			},
 		},
+		Dependencies: []string{
+			corev1alpha1.ShardResourceLimits{}.OpenAPIModelName()},
 	}
 }
 
@@ -4118,6 +4170,20 @@ func schema_sdk_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) com
 					"capacity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Set of integer resources that logical clusters can be scheduled into",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+									},
+								},
+							},
+						},
+					},
+					"used": {
+						SchemaProps: spec.SchemaProps{
+							Description: "used is the observed number of resources of each kind currently on this shard, e.g. the number of workspaces (logical clusters) scheduled to it. It mirrors a ResourceQuota's status.used and is compared against spec.resourceLimits during workspace scheduling.",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,

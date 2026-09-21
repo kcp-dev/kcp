@@ -81,13 +81,20 @@ watches with the same resource version. Over time the Admin workspace is the
 home for further installation-wide admin surfaces.
 
 The view is writable for exactly one purpose: the allow-listed operational
-annotations (currently `experimental.core.kcp.io/unschedulable` for
-cordoning). Such a write is validated, applied to the cache copy of the
-target shard, and flows from the cache to the shard hosting the
-authoritative object, which applies it - no component ever connects to
-another shard directly, and intent for a temporarily unavailable shard
-parks in the cache until it reconnects. Everything else on a `Shard` is
-read-only through the Admin workspace.
+fields, currently the `experimental.core.kcp.io/unschedulable` annotation
+for cordoning and `spec.resourceLimits` for scheduling limits. Such a write
+is validated, applied to the cache copy of the target shard, and flows from
+the cache to the shard hosting the authoritative object, which applies it -
+no component ever connects to another shard directly, and intent for a
+temporarily unavailable shard parks in the cache until it reconnects.
+Everything else on a `Shard` is read-only through the Admin workspace:
+shards register themselves and own the rest of their configuration.
+
+Because such a write only records intent, the owning shard acknowledges it
+in status, which travels the other way (shard -> cache) and is therefore
+proof that the round trip completed: the `Schedulable` condition for
+cordoning, and the `ResourceLimitsApplied` condition - whose message names
+the limits in force - for the scheduling limits.
 
 The kcp workspace plugin exposes it as the reserved pseudo-workspace
 `:admin`:
@@ -120,15 +127,15 @@ root workspace runs a controller that mirrors the cache server's Shard
 objects into `root` as representations, so `kubectl get shards` in `root`
 continues to work. The representations are eventually consistent and
 informational; the Admin workspace remains the authoritative surface and the
-only place operational writes (cordoning) are accepted.
+only place operational writes (cordoning, scheduling limits) are accepted.
 
 `Shard` objects in the `root` workspace are protected by admission: shards
 register themselves and own their objects, so all direct writes (create,
 update including annotations, delete) by non-system users are denied with a
 pointer at the Admin workspace. Shard configuration changes go through the
-shard's own flags/deployment; operational actions (e.g. cordoning via the
-`experimental.core.kcp.io/unschedulable` annotation) are reserved for system
-components until they are exposed through the Admin workspace.
+shard's own flags/deployment; operational actions - cordoning via the
+`experimental.core.kcp.io/unschedulable` annotation and scheduling limits via
+`spec.resourceLimits` - go through the Admin workspace.
 
 ## Consistency Domain
 

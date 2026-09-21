@@ -72,6 +72,11 @@ func (in ShardList) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ShardResourceLimits) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.ShardResourceLimits"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ShardSpec) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.core.v1alpha1.ShardSpec"
 }

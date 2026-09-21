@@ -200,6 +200,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationcorev1alpha1.OwnerUserInfoApplyConfiguration{}
 	case corev1alpha1.SchemeGroupVersion.WithKind("Shard"):
 		return &applyconfigurationcorev1alpha1.ShardApplyConfiguration{}
+	case corev1alpha1.SchemeGroupVersion.WithKind("ShardResourceLimits"):
+		return &applyconfigurationcorev1alpha1.ShardResourceLimitsApplyConfiguration{}
 	case corev1alpha1.SchemeGroupVersion.WithKind("ShardSpec"):
 		return &applyconfigurationcorev1alpha1.ShardSpecApplyConfiguration{}
 	case corev1alpha1.SchemeGroupVersion.WithKind("ShardStatus"):

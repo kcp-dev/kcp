@@ -265,6 +265,102 @@ Operators can be designed to be more resilient to provider unavailability:
 
 This approach requires custom engineering in your operators but provides the most flexibility.
 
+## Workspace Limits per Shard
+
+A shard becomes slow and eventually unusable when it holds too many workspaces. To protect against
+this, each `Shard` can declare scheduling limits for workspaces in `spec.resourceLimits`, using the
+familiar Kubernetes resource-list shape:
+
+```yaml
+apiVersion: core.kcp.io/v1alpha1
+kind: Shard
+metadata:
+  name: alpha
+spec:
+  baseURL: https://alpha.kcp.example.com
+  resourceLimits:
+    soft:
+      workspaces: "450"
+    hard:
+      workspaces: "500"
+```
+
+Limits are set through the [Admin workspace](../concepts/sharding/shards.md#the-admin-workspace-admin),
+the same operational surface used for cordoning — shards own the rest of their object, so direct
+writes elsewhere are denied by admission:
+
+```sh
+$ kubectl ws use :admin
+Current workspace is ':admin' (aggregated view of all shards).
+$ kubectl patch shard alpha --type=merge \
+    -p '{"spec":{"resourceLimits":{"soft":{"workspaces":"450"},"hard":{"workspaces":"500"}}}}'
+```
+
+The write lands on the cache copy and flows from there to the shard hosting the authoritative
+object, so limits can be set for a shard that is temporarily unreachable: the intent parks in the
+cache until the shard reconnects.
+
+Because the limits travel that way, `spec.resourceLimits` on its own only reflects what was
+*requested* — it is the value the admin just wrote. The owning shard acknowledges the limits it is
+actually enforcing through the `ResourceLimitsApplied` condition, whose message spells them out.
+Conditions are shard-owned and travel the other way, so reading that message back confirms the
+round trip completed:
+
+```sh
+$ kubectl get shard alpha -o jsonpath='{.status.conditions[?(@.type=="ResourceLimitsApplied")].message}{"\n"}'
+soft/hard: workspaces=450/500
+$ kubectl wait --for=condition=ResourceLimitsApplied shard/alpha
+shard.core.kcp.io/alpha condition met
+```
+
+The message is stable and parsable — `soft/hard: <resource>=<soft>/<hard>`, one entry per resource
+sorted by name, `-` for a tier that is not configured (`workspaces=-/500`), and
+`no limits configured` when none are set. Until the shard has caught up, or while it is
+unreachable, the message still names the *previous* limits, which is what tells you the new ones
+have not landed yet.
+
+The condition goes `False` with reason `InvalidResourceLimits` when part of the configuration does
+not take effect as written — a negative value, or a soft limit that is not below the hard limit and
+so can never deprioritize the shard before it starts refusing workspaces. The message then keeps
+the same prefix and appends what is wrong:
+
+```
+soft/hard: workspaces=500/500; soft workspaces=500 is not below hard workspaces=500, so the shard
+is never deprioritized before it refuses new workspaces
+```
+
+- **Soft limit**: once a shard holds this many workspaces, it is deprioritized — new workspaces are
+  scheduled to shards still under their soft limit. If every schedulable shard is at or over its
+  soft limit, scheduling proceeds anyway and a warning is logged.
+- **Hard limit**: once a shard holds this many workspaces, it refuses new workspaces entirely. If
+  all shards are at their hard limit, new workspaces stay in the `Scheduling` phase with a
+  `WorkspaceScheduled: False` condition (reason `Unschedulable`) and are scheduled automatically
+  once capacity becomes available (a limit is raised or a shard is added).
+
+A limit that is absent or set to `0` is disabled. Both limits are disabled by default, which also
+allows stress testing a setup without artificial caps.
+
+The observed number of workspaces per shard is published to `status.used` (mirroring a
+ResourceQuota's `status.used`) and shown by `kubectl get shards`:
+
+```yaml
+status:
+  used:
+    workspaces: "312"
+```
+
+```sh
+$ kubectl get shards
+NAME    REGION   URL                              EXTERNAL URL                     WORKSPACES   AGE
+alpha            https://alpha.kcp.example.com    https://alpha.kcp.example.com    312          12d
+```
+
+!!! note
+    Each shard counts its own workspaces and reports them to `status.used` with a small
+    debounce (a few seconds), so a burst of concurrent workspace creations can overshoot
+    the hard limit by a small number of workspaces. The limits are a guardrail against
+    shard exhaustion, not an exact quota.
+
 ## Geo-Distributed Deployments
 
 When deploying kcp across multiple regions or data centers, the sharding considerations become even more critical:
