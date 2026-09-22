@@ -242,6 +242,7 @@ func (v *VirtualWorkspace) start(ctx context.Context) error {
 		"--requestheader-username-headers=X-Remote-User",
 		"--requestheader-group-headers=X-Remote-Group",
 		fmt.Sprintf("--requestheader-client-ca-file=%s", filepath.Join(v.workDirPath, ".kcp", "requestheader-ca.crt")),
+		"--requestheader-allowed-names=kcp-front-proxy",
 		"--v=4",
 		"--audit-log-path", auditFilePath,
 	)

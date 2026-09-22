@@ -20,6 +20,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
@@ -28,15 +29,18 @@ import (
 
 	crdhelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/util/retry"
 
 	kcpapiextensionsv1client "github.com/kcp-dev/client-go/apiextensions/client/typed/apiextensions/v1"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -45,6 +49,7 @@ import (
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
@@ -77,7 +82,7 @@ func TestMountsMachinery(t *testing.T) {
 	//
 	rootOrg, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 
-	sourcePath, _ := kcptesting.NewWorkspaceFixture(t, server, rootOrg,
+	sourcePath, sourceWorkspaceObj := kcptesting.NewWorkspaceFixture(t, server, rootOrg,
 		kcptesting.WithName("source"))
 	_, destinationWorkspaceObj := kcptesting.NewWorkspaceFixture(t, server, rootOrg,
 		kcptesting.WithName("destination"))
@@ -190,6 +195,9 @@ func TestMountsMachinery(t *testing.T) {
 		return err == nil, fmt.Sprintf("err = %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace access to work")
 
+	t.Log("Identity headers injected directly at a shard must not be relayed through the mount")
+	requireMountIgnoresInjectedIdentity(t, server, logicalcluster.NewPath(sourceWorkspaceObj.Spec.Cluster).Join(mountWorkspaceName))
+
 	t.Log("Set mount to not ready")
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		current, err := dynamicClusterClient.Cluster(sourcePath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
@@ -214,6 +222,63 @@ func TestMountsMachinery(t *testing.T) {
 		return err != nil, fmt.Sprintf("err = %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace access to fail")
 }
+
+// requireMountIgnoresInjectedIdentity tests that a mount does not relay identity headers
+// injected directly at a shard.
+func requireMountIgnoresInjectedIdentity(t *testing.T, server kcptestingserver.RunningServer, mountPath logicalcluster.Path) {
+	t.Helper()
+
+	forged := map[string][]string{
+		"X-Remote-User":  {"admin"},
+		"X-Remote-Group": {"system:masters", "system:kcp:external-logical-cluster-admin"},
+		"X-Remote-Extra-Authorization.kcp.io%2fwarrant": {`{"user":"admin","groups":["system:masters"]}`},
+	}
+
+	probe := func(cfg *rest.Config) error {
+		client, err := kcpkubernetesclientset.NewForConfig(cfg)
+		require.NoError(t, err)
+		_, err = client.Cluster(mountPath).CoreV1().Secrets("default").List(t.Context(), metav1.ListOptions{})
+		return err
+	}
+
+	// The mount is resolved by the shard hosting the parent workspace only, so
+	// probe all of them. None may grant access; the one resolving the mount must
+	// forward the real (low-privilege) identity and get Forbidden.
+	var sawForbidden bool
+	for _, shard := range server.ShardNames() {
+		base := framework.StaticTokenUserConfig("user-1", server.ShardSystemMasterBaseConfig(t, shard))
+
+		err := probe(withInjectedHeaders(base, forged))
+		require.Errorf(t, err, "shard %q relayed an injected identity through the mount", shard)
+		if apierrors.IsForbidden(err) {
+			require.Truef(t, apierrors.IsForbidden(probe(base)),
+				"precondition: user-1 must be forbidden listing secrets in the mount target via shard %q", shard)
+			sawForbidden = true
+		}
+	}
+	require.True(t, sawForbidden, "no shard resolved mount %q", mountPath)
+}
+
+// withInjectedHeaders returns a copy of cfg whose transport adds the given
+// headers to every request.
+func withInjectedHeaders(cfg *rest.Config, headers map[string][]string) *rest.Config {
+	cfg = rest.CopyConfig(cfg)
+	cfg.Wrap(func(rt http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			for k, vs := range headers {
+				for _, v := range vs {
+					req.Header.Add(k, v)
+				}
+			}
+			return rt.RoundTrip(req)
+		})
+	})
+	return cfg
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
 func yamlMarshal(t *testing.T, obj interface{}) string {
 	data, err := yaml.Marshal(obj)
