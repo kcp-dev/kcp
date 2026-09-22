@@ -94,6 +94,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	if err != nil {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}
+	fmt.Printf("### proxy/server.go: Shards informer PeersConfig.Host=%q cluster=%v\n", s.CompletedConfig.PeersConfig.Host, core.RootCluster.Path())
 	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
 
 	// Feed every discovered shard into the peer failover set: the configured
