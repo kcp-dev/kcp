@@ -34,6 +34,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/ptr"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	dynamicextension "github.com/kcp-dev/virtual-workspace-framework/pkg/client/dynamic"
@@ -316,6 +317,17 @@ func DefaultDynamicDelegatedStoreFuncs(
 
 		w, err := delegate.Watch(watchCtx, v1ListOptions)
 		if apierrors.IsNotFound(err) {
+			if ptr.Deref(v1ListOptions.SendInitialEvents, false) {
+				// A WatchList client treats the stream as its initial list and
+				// waits for the server to close that list with an
+				// "initial-events-end" bookmark before it considers its store
+				// synced. An empty watch sends no such bookmark, and never
+				// errors either, so there is nothing to make the client relist:
+				// it waits forever. Surface the NotFound instead, which the
+				// client retries, picking the resource up once this shard
+				// serves it.
+				return nil, err
+			}
 			// See ListerFunc: the resource is not served on this shard. Return a
 			// watch that yields no events and stays open until the (request- or
 			// stop-bounded) context is done, instead of surfacing a 404. Objects

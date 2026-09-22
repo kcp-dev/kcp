@@ -45,6 +45,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/generic/registry"
 	"k8s.io/apiserver/pkg/registry/rest"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/ptr"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpfakedynamic "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/dynamic/fake"
@@ -544,4 +545,64 @@ func TestPatch(t *testing.T) {
 		}
 	}
 	require.Equalf(t, backoff.Steps, updates, "Should have tried calling client.Update %d times to overcome resourceVersion conflicts, before finally returning a Conflict error.", backoff.Steps)
+}
+
+func TestWatchNotFoundOnShard(t *testing.T) {
+	t.Parallel()
+
+	// The delegate answers NotFound: this shard does not serve the resource,
+	// which happens for a claimed resource whose APIExport nothing has bound
+	// here yet.
+	notFound := func(kcptesting.Action) (bool, watch.Interface, error) {
+		return true, nil, errors.NewNotFound(noxusGVR.GroupResource(), "")
+	}
+
+	for _, tc := range []struct {
+		name              string
+		sendInitialEvents *bool
+		wantErr           bool
+	}{
+		{
+			// A plain watch gets an empty, open watch rather than a 404, so a
+			// wildcard consumer aggregating across shards is not wedged by a
+			// shard that simply holds none of these objects.
+			name:              "plain watch is served an empty watch",
+			sendInitialEvents: nil,
+			wantErr:           false,
+		},
+		{
+			// A WatchList client treats the stream as its initial list and waits
+			// for an "initial-events-end" bookmark before it considers itself
+			// synced. An empty watch never sends one and never errors, so the
+			// client would wait forever; the error is what makes it retry.
+			name:              "watchlist is given the error to retry on",
+			sendInitialEvents: ptr.To(true),
+			wantErr:           true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			fakeClient := kcpfakedynamic.NewSimpleDynamicClient(runtime.NewScheme())
+			fakeClient.PrependWatchReactor("noxus", notFound)
+			storage, _, _ := newStorage(t, fakeClient, "", nil)
+			ctx := request.WithNamespace(context.Background(), "default")
+			ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
+
+			w, err := storage.(rest.Watcher).Watch(ctx, &internalversion.ListOptions{
+				SendInitialEvents: tc.sendInitialEvents,
+			})
+			if tc.wantErr {
+				require.True(t, errors.IsNotFound(err), "expected a NotFound, got %v", err)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, w)
+			t.Cleanup(w.Stop)
+			select {
+			case ev, ok := <-w.ResultChan():
+				require.False(t, ok, "expected no events, got %v", ev)
+			case <-time.After(100 * time.Millisecond):
+			}
+		})
+	}
 }
