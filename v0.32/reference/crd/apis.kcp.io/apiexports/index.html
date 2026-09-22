@@ -4430,6 +4430,8 @@ Note that one must look this up for a particular kcp instance.</p>
 
 <div class="property-description">
 <p>resource is the name of the resource.
+A subresource may be claimed as &ldquo;resource/subresource&rdquo;,
+e.g. &ldquo;serviceaccounts/token&rdquo;, in the style of RBAC rules.
 Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
 not provided by an api export.</p>
 
@@ -5241,6 +5243,8 @@ Note that one must look this up for a particular kcp instance.</p>
 
 <div class="property-description">
 <p>resource is the name of the resource.
+A subresource may be claimed as &ldquo;resource/subresource&rdquo;,
+e.g. &ldquo;serviceaccounts/token&rdquo;, in the style of RBAC rules.
 Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
 not provided by an api export.</p>
 
@@ -5433,24 +5437,6 @@ custom resources.</p>
 <p>Virtual storage defines that this APIResourceSchema is exposed as
 a projection of the referenced resource inside the workspaces that
 bind to the APIExport.</p>
-
-</div>
-
-</div>
-</div>
-
-<div class="property depth-5">
-<div class="property-header">
-<h3 class="property-path" id="v1alpha2-.spec.resources[*].storage.virtual.identityHash">.spec.resources[*].storage.virtual.identityHash</h3>
-</div>
-<div class="property-body">
-<div class="property-meta">
-<span class="property-type">string</span>
-<span class="property-required">Required</span>
-</div>
-
-<div class="property-description">
-<p>IdentityHash is the identity of the virtual resource.</p>
 
 </div>
 
