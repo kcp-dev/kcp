@@ -135,7 +135,7 @@ func (c *GVRController) Start(ctx context.Context) {
 			c.handleCacheAdd(ctx, obj)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.handleCacheDel(obj)
+			c.handleCacheDel(ctx, obj)
 		},
 	})
 	if err != nil {
@@ -145,6 +145,8 @@ func (c *GVRController) Start(ctx context.Context) {
 	c.cacheReg = reg
 
 	// Step 2: Start peer informers for all peers already in peerClients.
+	peerNames := c.peerClients.Names()
+	fmt.Printf("### gvr_controller.go Start: gvr=%v ownName=%q peerClients=%v\n", c.gvr, c.ownName, peerNames)
 	for _, peerName := range c.peerClients.Names() {
 		c.startPeerInformer(ctx, peerName)
 		c.queue.Add(peerName)
@@ -222,6 +224,10 @@ func (c *GVRController) handleCacheAdd(ctx context.Context, obj interface{}) {
 	if cacheObj.Name == c.ownName || cacheObj.Spec.BaseURL == "" {
 		return
 	}
+
+	logger := klog.FromContext(ctx)
+	logger.Info("### discovered peer", "peer", cacheObj.Name, "url", cacheObj.Spec.BaseURL)
+
 	peerCfg := buildPeerConfig(cacheObj.Spec.BaseURL, c.peerTLSConfig)
 	c.peerClients.Add(cacheObj.Name, peerCfg)
 	c.startPeerInformer(ctx, cacheObj.Name)
@@ -230,7 +236,7 @@ func (c *GVRController) handleCacheAdd(ctx context.Context, obj interface{}) {
 
 // handleCacheDel reacts to a deleted Cache object (peer gone): stops the peer
 // informer and removes the peer from peerClients.
-func (c *GVRController) handleCacheDel(obj interface{}) {
+func (c *GVRController) handleCacheDel(ctx context.Context, obj interface{}) {
 	cacheObj, ok := obj.(*corev1alpha1.Cache)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -242,6 +248,10 @@ func (c *GVRController) handleCacheDel(obj interface{}) {
 			return
 		}
 	}
+
+	logger := klog.FromContext(ctx)
+	logger.Info("### removing peer", "peer", cacheObj.Name)
+
 	c.removePeerInformer(cacheObj.Name)
 	c.peerClients.Delete(cacheObj.Name)
 }
@@ -369,6 +379,7 @@ func (c *GVRController) reconcile(ctx context.Context, peerName string) error {
 	if err != nil {
 		return fmt.Errorf("listing shards: %w", err)
 	}
+	fmt.Printf("### gvr_controller.go reconcile: gvr=%v ownName=%q peer=%q authShards=%v totalSourceObjects=%d\n", c.gvr, c.ownName, peerName, authShards, len(c.sourceInformer.GetIndexer().List()))
 	if len(authShards) == 0 {
 		logger.V(4).Info("no authoritative shards; nothing to replicate")
 		return nil
@@ -381,7 +392,9 @@ func (c *GVRController) reconcile(ctx context.Context, peerName string) error {
 		if !ok {
 			continue
 		}
-		if !authShards[u.GetAnnotations()[clientshard.AnnotationKey]] {
+		shardAnnot := u.GetAnnotations()[clientshard.AnnotationKey]
+		if !authShards[shardAnnot] {
+			fmt.Printf("### gvr_controller.go reconcile: SKIP source gvr=%v name=%s/%s shardAnnot=%q not in authShards=%v\n", c.gvr, u.GetNamespace(), u.GetName(), shardAnnot, authShards)
 			continue
 		}
 		key, err := kcpcache.MetaClusterNamespaceKeyFunc(u)
@@ -415,7 +428,7 @@ func (c *GVRController) reconcile(ctx context.Context, peerName string) error {
 		if _, exists := peerMap[key]; exists {
 			continue
 		}
-		logger.V(2).Info("creating object on peer", "peer", peerName, "key", key)
+		logger. /*V(2).*/ Info("XXX creating object on peer", "peer", peerName, "key", key)
 		if err := c.createOnPeer(ctx, handle, src); err != nil {
 			return fmt.Errorf("create %q on peer %q: %w", key, peerName, err)
 		}
@@ -430,7 +443,7 @@ func (c *GVRController) reconcile(ctx context.Context, peerName string) error {
 		if !objectNeedsUpdate(src, peer) {
 			continue
 		}
-		logger.V(2).Info("updating object on peer", "peer", peerName, "key", key)
+		logger. /*V(2).*/ Info("XXX updating object on peer", "peer", peerName, "key", key)
 		if err := c.updateOnPeer(ctx, handle, src, peer); err != nil {
 			return fmt.Errorf("update %q on peer %q: %w", key, peerName, err)
 		}
@@ -441,7 +454,7 @@ func (c *GVRController) reconcile(ctx context.Context, peerName string) error {
 		if _, exists := sourceMap[key]; exists {
 			continue
 		}
-		logger.V(2).Info("deleting object from peer", "peer", peerName, "key", key)
+		logger. /*V(2).*/ Info("XXX deleting object from peer", "peer", peerName, "key", key)
 		if err := c.deleteFromPeer(ctx, handle, peer); err != nil {
 			return fmt.Errorf("delete %q from peer %q: %w", key, peerName, err)
 		}

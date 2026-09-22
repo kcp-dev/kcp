@@ -49,7 +49,6 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/embeddedetcd"
-	"github.com/kcp-dev/logicalcluster/v3"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
@@ -63,8 +62,6 @@ import (
 )
 
 const resyncPeriod = 10 * time.Hour
-
-var SystemCacheCluster = logicalcluster.Name("system:cache")
 
 type Config struct {
 	Options       *cacheserveroptions.CompletedOptions

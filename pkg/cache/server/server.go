@@ -22,7 +22,6 @@ import (
 	"time"
 
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -30,6 +29,7 @@ import (
 
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 
+	kcpcache "github.com/kcp-dev/kcp/pkg/cache"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
 )
@@ -98,7 +98,7 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 		}
 		logger.Info("finished starting CRD and ClusterCachedResource informers")
 
-		cache := &corev1alpha1.Cache{
+		thisCache := &corev1alpha1.Cache{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: s.Options.Extra.CacheName,
 				Labels: map[string]string{
@@ -115,28 +115,40 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 		logger.Info("Creating or updating Cache", "cache", s.Options.Extra.CacheName)
 		hookContext.Context = cacheclient.WithShardInContext(hookContext, bootstrap.SystemCacheServerShard)
 		if err := wait.PollUntilContextCancel(hookContext, time.Second, true, func(ctx context.Context) (bool, error) {
-			existingCache, err := s.KcpClusterClient.Cluster(SystemCacheCluster.Path()).CoreV1alpha1().Caches().Get(ctx, cache.Name, metav1.GetOptions{})
-			if err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "failed getting Cache", "cluster", SystemCacheCluster, SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
-				return false, nil
-			} else if apierrors.IsNotFound(err) {
-				if _, err := s.KcpClusterClient.Cluster(SystemCacheCluster.Path()).CoreV1alpha1().Caches().Create(ctx, cache, metav1.CreateOptions{}); err != nil {
-					logger.Error(err, "failed creating Cache", "cluster", SystemCacheCluster, SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
+			// TODO: ensure there is exactly one Cache obj - this one.
+			cacheServers, err := s.KcpClusterClient.Cluster(kcpcache.SystemCacheCluster.Path()).CoreV1alpha1().Caches().List(ctx, metav1.ListOptions{})
+			var localCacheServerRegistration *corev1alpha1.Cache
+			for _, cacheServer := range cacheServers.Items {
+				if cacheServer.Name == thisCache.Name {
+					localCacheServerRegistration = &cacheServer
+					continue
+				}
+				if err = s.KcpClusterClient.Cluster(kcpcache.SystemCacheCluster.Path()).CoreV1alpha1().Caches().Delete(ctx, cacheServer.Name, metav1.DeleteOptions{}); err != nil {
+					logger.Error(err, "failed to clean up un-used local cache-server registration %q", cacheServer.Name)
 					return false, nil
 				}
-				logger.Info("Created Cache", "cache", s.Options.Extra.CacheName, "cluster", SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
+			}
+			if localCacheServerRegistration == nil {
+				localCacheServerRegistration = thisCache.DeepCopy()
+				localCacheServerRegistration.ResourceVersion = ""
+				if _, err = s.KcpClusterClient.Cluster(kcpcache.SystemCacheCluster.Path()).CoreV1alpha1().Caches().Create(ctx, localCacheServerRegistration, metav1.CreateOptions{}); err != nil {
+					logger.Error(err, "failed to create local cache-server registration", "cache", localCacheServerRegistration.Name)
+					return false, nil
+				}
+				logger.Info("Created local cache-server registration", "cache", localCacheServerRegistration.Name)
 				return true, nil
 			}
-			existingCache.Labels = cache.Labels
-			existingCache.Spec.BaseURL = cache.Spec.BaseURL
-			if _, err := s.KcpClusterClient.Cluster(SystemCacheCluster.Path()).CoreV1alpha1().Caches().Update(ctx, existingCache, metav1.UpdateOptions{}); err != nil {
-				logger.Error(err, "failed updating Cache", "cluster", SystemCacheCluster, SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
+			localCacheServerRegistration.Annotations = thisCache.Annotations
+			localCacheServerRegistration.Labels = thisCache.Labels
+			localCacheServerRegistration.Spec = thisCache.Spec
+			if _, err = s.KcpClusterClient.Cluster(kcpcache.SystemCacheCluster.Path()).CoreV1alpha1().Caches().Update(ctx, localCacheServerRegistration, metav1.UpdateOptions{}); err != nil {
+				logger.Error(err, "failed to update local cache-server registration", "cache", localCacheServerRegistration.Name)
 				return false, nil
 			}
-			logger.Info("Updated Cache", "cache", s.Options.Extra.CacheName, "cluster", SystemCacheCluster, SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
+			logger.Info("Updated local cache-server registration", "cache", localCacheServerRegistration.Name)
 			return true, nil
 		}); err != nil {
-			logger.Error(err, "failed reconciling Cache resource", "cluster", SystemCacheCluster, SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
+			logger.Error(err, "failed reconciling Cache resource", "cluster", kcpcache.SystemCacheCluster, kcpcache.SystemCacheCluster, "shard", bootstrap.SystemCacheServerShard)
 			return nil // don't klog.Fatal. This only happens when context is cancelled.
 		}
 

@@ -127,7 +127,10 @@ func New(rewriters []PathRewriter) *State {
 }
 
 func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
+	fmt.Printf("### State.UpsertWorkspace shard=%q ws=%q cluster=%q 1\n", shard, ws.Name, ws.Spec.Cluster)
+
 	if ws.Status.Phase == corev1alpha1.LogicalClusterPhaseScheduling {
+		fmt.Printf("### State.UpsertWorkspace shard=%q ws=%q cluster=%q 2\n", shard, ws.Name, ws.Spec.Cluster)
 		return
 	}
 
@@ -185,11 +188,14 @@ func (c *State) UpsertWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		}
 	}
 
+	fmt.Printf("### State.UpsertWorkspace shard=%q ws=%q cluster=%q 3\n", shard, ws.Name, ws.Spec.Cluster)
 	clustersOnShard.WithLabelValues(shard).Set(float64(len(c.shardClusterWorkspaceName[shard])))
 }
 
 func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	clusterName := logicalcluster.From(ws)
+
+	fmt.Printf("### State.DeleteWorkspace shard=%q ws=%q cluster=%q 1\n", shard, ws.Name, ws.Spec.Cluster)
 
 	c.lock.RLock()
 	_, foundCluster := c.shardClusterWorkspaceNameCluster[shard][clusterName][ws.Name]
@@ -197,6 +203,7 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 	c.lock.RUnlock()
 
 	if !foundCluster && !foundMount {
+		fmt.Printf("### State.DeleteWorkspace shard=%q ws=%q cluster=%q 2\n", shard, ws.Name, ws.Spec.Cluster)
 		return
 	}
 
@@ -243,10 +250,14 @@ func (c *State) DeleteWorkspace(shard string, ws *tenancyv1alpha1.Workspace) {
 		}
 	}
 
+	fmt.Printf("### State.DeleteWorkspace shard=%q ws=%q cluster=%q 3\n", shard, ws.Name, ws.Spec.Cluster)
+
 	clustersOnShard.WithLabelValues(shard).Set(float64(len(c.shardClusterWorkspaceName[shard])))
 }
 
 func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.LogicalCluster) {
+	fmt.Printf("### State.UpsertLogicalCluster shard=%q logicalCluster=%q 1\n", shard, logicalcluster.From(logicalCluster))
+
 	clusterName := logicalcluster.From(logicalCluster)
 
 	c.lock.RLock()
@@ -254,6 +265,7 @@ func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	c.lock.RUnlock()
 
 	if got == shard {
+		fmt.Printf("### State.UpsertLogicalCluster shard=%q logicalCluster=%q 2\n", shard, logicalcluster.From(logicalCluster))
 		return
 	}
 
@@ -263,6 +275,7 @@ func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	// Re-read under write lock, a concurrent upsert may have won the race.
 	got = c.clusterShards[clusterName]
 	if got == shard {
+		fmt.Printf("### State.UpsertLogicalCluster shard=%q logicalCluster=%q 3\n", shard, logicalcluster.From(logicalCluster))
 		return
 	}
 
@@ -274,6 +287,7 @@ func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	// has been removed from the LC.
 	// TODO(ntnn): Make the migrating annotation part of the API.
 	if logicalCluster.Annotations["internal.kcp.io/migrating"] != "" {
+		fmt.Printf("### State.UpsertLogicalCluster shard=%q logicalCluster=%q 4\n", shard, logicalcluster.From(logicalCluster))
 		return
 	}
 
@@ -288,6 +302,7 @@ func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	}
 
 	c.clusterShards[clusterName] = shard
+	fmt.Printf("### State.UpsertLogicalCluster shard=%q logicalCluster=%q 5\n", shard, logicalcluster.From(logicalCluster))
 
 	// LogicalClusters are annotated with "path:name" of their workspace's type.
 	typeIdent := logicalcluster.NewPath(logicalCluster.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey])
@@ -300,6 +315,7 @@ func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	// Use the LC owner to fill the rest of the maps
 	owner := logicalCluster.Spec.Owner
 	if owner == nil || owner.Resource != "workspaces" || owner.Name == "" || owner.Cluster == "" {
+		fmt.Printf("### State.UpsertLogicalCluster shard=%q logicalCluster=%q 6\n", shard, logicalcluster.From(logicalCluster))
 		return
 	}
 
@@ -309,6 +325,7 @@ func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.
 	// If the parent is not known yet the Workspace event will fill the edges.
 	parentShard, found := c.clusterShards[parentCluster]
 	if !found {
+		fmt.Printf("### State.UpsertLogicalCluster shard=%q logicalCluster=%q 7\n", shard, logicalcluster.From(logicalCluster))
 		return
 	}
 
@@ -335,16 +352,20 @@ func (c *State) UpsertLogicalCluster(shard string, logicalCluster *corev1alpha1.
 		}
 		c.shardClusterParentCluster[parentShard][clusterName] = parentCluster
 	}
+	fmt.Printf("### State.UpsertLogicalCluster shard=%q logicalCluster=%q 8\n", shard, logicalcluster.From(logicalCluster))
 }
 
 func (c *State) DeleteLogicalCluster(shard string, logicalCluster *corev1alpha1.LogicalCluster) {
 	clusterName := logicalcluster.From(logicalCluster)
+
+	fmt.Printf("### State.DeleteLogicalCluster shard=%q logicalCluster=%q 1\n", shard, clusterName)
 
 	c.lock.RLock()
 	got := c.clusterShards[clusterName]
 	c.lock.RUnlock()
 
 	if got != shard {
+		fmt.Printf("### State.DeleteLogicalCluster shard=%q logicalCluster=%q 2\n", shard, clusterName)
 		return
 	}
 
@@ -356,11 +377,13 @@ func (c *State) DeleteLogicalCluster(shard string, logicalCluster *corev1alpha1.
 		// The shard in the mapping changed between the read- and
 		// write-locked read, all related changes in the other maps are
 		// already updated.
+		fmt.Printf("### State.DeleteLogicalCluster shard=%q logicalCluster=%q 3\n", shard, clusterName)
 		return
 	}
 
 	// delete LC from shard->LC map
 	delete(c.clusterShards, clusterName)
+	fmt.Printf("### State.DeleteLogicalCluster shard=%q logicalCluster=%q 4\n", shard, clusterName)
 	c.clusterContexts.Delete(clusterName, fmt.Errorf("logical cluster %s deleted from shard %s", clusterName, shard))
 
 	// This LC keyed as the cluster being addressed.
@@ -446,22 +469,29 @@ func (c *State) UpsertShard(shardName, baseURL string) {
 	got := c.shardBaseURLs[shardName]
 	c.lock.RUnlock()
 
+	fmt.Printf("### State.UpsertShard shard=%q baseURL=%q 1\n", shardName, baseURL)
+
 	if got != baseURL {
 		c.lock.Lock()
 		defer c.lock.Unlock()
 
 		// Re-read under write lock, a concurrent upsert may have won the race.
 		if c.shardBaseURLs[shardName] == baseURL {
+			fmt.Printf("### State.UpsertShard shard=%q baseURL=%q 2\n", shardName, baseURL)
 			return
 		}
 
 		c.shardBaseURLs[shardName] = baseURL
+		fmt.Printf("### State.UpsertShard shard=%q baseURL=%q 3\n", shardName, baseURL)
 	}
+	fmt.Printf("### State.UpsertShard shard=%q baseURL=%q 4\n", shardName, baseURL)
 }
 
 func (c *State) DeleteShard(shardName string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
+
+	fmt.Printf("### State.DeleteShard shard=%q 1\n", shardName)
 
 	maps.DeleteFunc(c.clusterShards, func(_ logicalcluster.Name, shard string) bool {
 		return shardName == shard
@@ -485,6 +515,8 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 		segments = rewriter(segments)
 	}
 
+	fmt.Printf("### State.Lookup path=%q 1\n", path)
+
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
@@ -501,6 +533,7 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 			var found bool
 			shard, found = c.clusterShards[logicalcluster.Name(s)]
 			if !found {
+				fmt.Printf("### State.Lookup path=%q clusterShards=%#v 2\n", path, c.clusterShards)
 				return Result{}, false
 			}
 			cluster = logicalcluster.Name(s)
@@ -522,21 +555,25 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 				if wsSpec.Mount != nil && wsSpec.URL != "" {
 					u, err := url.Parse(wsSpec.URL)
 					if err == nil {
+						fmt.Printf("### State.Lookup path=%q 3\n", path)
 						return Result{URL: u.String(), ErrorCode: errorCode}, true
 					}
 				}
 			}
+			fmt.Printf("### State.Lookup path=%q 4\n", path)
 			return Result{}, false
 		}
 
 		shard, found = c.clusterShards[cluster]
 		if !found {
+			fmt.Printf("### State.Lookup path=%q 5\n", path)
 			return Result{}, false
 		}
 	}
 
 	wsType = c.shardClusterWorkspaceType[shard][cluster]
 
+	fmt.Printf("### State.Lookup path=%q 6\n", path)
 	return Result{
 		Shard:     shard,
 		Cluster:   cluster,
@@ -546,23 +583,30 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 }
 
 func (c *State) LookupURL(path logicalcluster.Path) (Result, bool) {
+	fmt.Printf("### State.LookupURL path=%q 1\n", path)
+
 	result, found := c.Lookup(path)
 	if !found {
+		fmt.Printf("### State.LookupURL path=%q 2\n", path)
 		return Result{}, false
 	}
 	if result.ErrorCode != 0 {
+		fmt.Printf("### State.LookupURL path=%q 3\n", path)
 		return result, true
 	}
 
 	if result.URL != "" && result.Shard == "" && result.Cluster == "" {
+		fmt.Printf("### State.LookupURL path=%q 4\n", path)
 		return result, true
 	}
 
 	baseURL, found := c.shardBaseURLs[result.Shard]
 	if !found {
+		fmt.Printf("### State.LookupURL path=%q 5\n", path)
 		return Result{}, false
 	}
 
+	fmt.Printf("### State.LookupURL path=%q 6\n", path)
 	return Result{
 		Shard:   result.Shard,
 		Cluster: result.Cluster,

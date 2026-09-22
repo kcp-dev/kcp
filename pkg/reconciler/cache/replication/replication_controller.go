@@ -315,6 +315,12 @@ func InstallIndexers(
 			Local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
 			Global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
 		},
+		corev1alpha1.SchemeGroupVersion.WithResource("caches"): {
+			Kind:        "Cache",
+			EventFilter: isNoSystemClusterNameExceptSystemShard,
+			Local:       localKcpInformers.Core().V1alpha1().Caches().Informer(),
+			Global:      globalKcpInformers.Core().V1alpha1().Caches().Informer(),
+		},
 		corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
 			Kind: "LogicalCluster",
 			Filter: func(u *unstructured.Unstructured) bool {

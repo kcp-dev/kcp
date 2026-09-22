@@ -25,17 +25,20 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	kcpapiextensionsinformers "github.com/kcp-dev/client-go/apiextensions/informers"
+	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
-	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
+	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
-	configshard "github.com/kcp-dev/kcp/config/shard"
+	kcpcache "github.com/kcp-dev/kcp/pkg/cache"
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
+	cachebootstrap "github.com/kcp-dev/kcp/pkg/cache/server/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -83,8 +86,9 @@ func NewRootController(
 	sourceConfig *rest.Config,
 	peerTLSConfig rest.TLSClientConfig,
 	initialPeerURLs []string,
-	kcpFactory kcpinformers.SharedInformerFactory,
-	apiExtFactory kcpapiextensionsinformers.SharedInformerFactory,
+	cacheServerInformer corev1alpha1informers.CacheClusterInformer,
+	shardLister corev1alpha1listers.ShardClusterLister,
+	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 ) (*RootController, error) {
 	return &RootController{
 		ownName:         ownName,
@@ -92,9 +96,9 @@ func NewRootController(
 		initialPeerURLs: initialPeerURLs,
 		sourceConfig:    sourceConfig,
 		peerClients:     newPeerClientMap(),
-		cacheInformer:   kcpFactory.Core().V1alpha1().Caches().Informer(),
-		crdInformer:     apiExtFactory.Apiextensions().V1().CustomResourceDefinitions().Informer(),
-		shardLister:     kcpFactory.Core().V1alpha1().Shards().Lister(),
+		cacheInformer:   cacheServerInformer.Informer(),
+		crdInformer:     crdInformer.Informer(),
+		shardLister:     shardLister,
 		gvrControllers:  make(map[schema.GroupVersionResource]*GVRController),
 	}, nil
 }
@@ -110,6 +114,7 @@ func (c *RootController) Start(ctx context.Context) {
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(ctx, logger)
 
+	fmt.Printf("### root_controller.go Start: ownName=%q initialPeerURLs=%v\n", c.ownName, c.initialPeerURLs)
 	logger.Info("seeding initial peers")
 	c.seedInitialPeers(ctx)
 
@@ -227,40 +232,64 @@ func (c *RootController) stopGVRController(gvr schema.GroupVersionResource) {
 	}
 }
 
-// seedInitialPeers contacts each URL in initialPeerURLs and adds discovered peers
-// to PeerClientMap. Errors for individual URLs are logged and skipped.
+// seedInitialPeers launches one background goroutine per initial peer URL.
+// Each goroutine polls the peer (5 s interval) until at least one Cache object is
+// returned, registers all found peers, then exits. The goroutines are bounded by ctx.
 func (c *RootController) seedInitialPeers(ctx context.Context) {
-	logger := klog.FromContext(ctx)
 	for _, url := range c.initialPeerURLs {
-		peerCtx, cancel := context.WithTimeout(ctx, initialPeerTimeout)
-		if err := c.seedPeersFromURL(peerCtx, url); err != nil {
-			logger.Error(err, "failed to seed peers from initial URL", "url", url)
-		}
-		cancel()
+		url := url
+		go func() {
+			logger := klog.FromContext(ctx).WithValues("url", url)
+			_ = wait.PollUntilContextCancel(ctx, 5*time.Second, true, func(ctx context.Context) (bool, error) {
+				reqCtx, cancel := context.WithTimeout(ctx, initialPeerTimeout)
+				defer cancel()
+				found, err := c.seedPeersFromURL(reqCtx, url)
+				if err != nil {
+					logger.V(4).Info("initial peer not yet reachable, retrying", "err", err)
+					return false, nil
+				}
+				if !found {
+					logger.V(4).Info("initial peer reachable but no Cache objects yet, retrying")
+					return false, nil
+				}
+				logger.Info("initial peer seeded successfully")
+				return true, nil
+			})
+		}()
 	}
 }
 
 // seedPeersFromURL contacts one peer URL, lists all Cache objects visible on that
 // peer's system:shard cluster, and registers each discovered peer in PeerClientMap.
-func (c *RootController) seedPeersFromURL(ctx context.Context, url string) error {
-	peerCfg := c.buildPeerConfigForSelf(url)
+// Returns true if at least one Cache object was present in the response.
+func (c *RootController) seedPeersFromURL(ctx context.Context, url string) (bool, error) {
+	peerCfg := buildPeerConfig(url, c.peerTLSConfig)
 	peerClient, err := kcpclientset.NewForConfig(peerCfg)
 	if err != nil {
-		return fmt.Errorf("build client for %s: %w", url, err)
+		return false, fmt.Errorf("build client for %s: %w", url, err)
 	}
 
-	// With WithDefaultShardRoundTripper(Wildcard) applied, requests go to all shards.
-	// Scoping the cluster to system:shard limits results to Cache objects that shards
-	// have pulled into their local copies.
-	cacheList, err := peerClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1alpha1().Caches().List(ctx, metav1.ListOptions{})
+	// Enqueue only the peer itself. Its own discovered peers will trickle down during steady-state reconciles.
+	ctx = cacheclient.WithShardInContext(ctx, cachebootstrap.SystemCacheServerShard)
+	cacheList, err := peerClient.Cluster(kcpcache.SystemCacheCluster.Path()).CoreV1alpha1().Caches().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("list Cache objects from %s: %w", url, err)
+		return false, fmt.Errorf("list Cache objects from %s: %w", url, err)
+	}
+	names := make([]string, len(cacheList.Items))
+	for i := range cacheList.Items {
+		names[i] = cacheList.Items[i].Name
+	}
+	fmt.Printf("### seedPeersFromURL: got %v from %q\n", names, url)
+	if len(cacheList.Items) != 1 {
+		// TODO: before signaling ready, cache-server should ensure the CacheServer obj in
+		// system:cache:server/system:shard is the one identifying that cache, otherwise
+		// we could register something that doesn't exist and never reconcile.
+		return false, nil
 	}
 
-	for i := range cacheList.Items {
-		c.registerPeer(ctx, &cacheList.Items[i])
-	}
-	return nil
+	c.registerPeer(ctx, &cacheList.Items[0])
+
+	return true, nil
 }
 
 // registerPeer validates a Cache object and, if it represents a valid remote peer,
@@ -274,14 +303,8 @@ func (c *RootController) registerPeer(ctx context.Context, obj *corev1alpha1.Cac
 		logger.V(4).Info("skipping Cache object with empty BaseURL", "name", obj.Name)
 		return
 	}
-	c.peerClients.Add(obj.Name, c.buildPeerConfigForSelf(obj.Spec.BaseURL))
-	logger.V(4).Info("registered peer", "peer", obj.Name, "url", obj.Spec.BaseURL)
-}
-
-// buildPeerConfigForSelf is a convenience wrapper around the package-level buildPeerConfig
-// that uses this controller's TLS config.
-func (c *RootController) buildPeerConfigForSelf(host string) *rest.Config {
-	return buildPeerConfig(host, c.peerTLSConfig)
+	c.peerClients.Add(obj.Name, buildPeerConfig(obj.Spec.BaseURL, c.peerTLSConfig))
+	logger. /*V(4).*/ Info("registered peer", "peer", obj.Name, "url", obj.Spec.BaseURL)
 }
 
 // gvrFromCRD extracts the GroupVersionResource from a CRD, using the storage version.

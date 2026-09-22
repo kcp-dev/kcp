@@ -451,6 +451,8 @@ func withShardsView(cacheDynamicClusterClient kcpdynamic.ClusterInterface) forwa
 
 		delegateWatch := storage.WatcherFunc
 		storage.WatcherFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
+			fmt.Printf("### XXX new watch\n")
+
 			w, err := delegateWatch(sourceContext(ctx), options)
 			if err != nil {
 				return nil, err
@@ -551,6 +553,7 @@ func newFixupWatch(ctx context.Context, delegate watch.Interface, seed []unstruc
 			select {
 			case event, ok := <-delegate.ResultChan():
 				if !ok {
+					fmt.Printf("### forwarding.go fixupWatch: delegate ResultChan closed (watch ended)\n")
 					return
 				}
 				out, send := w.process(event)
@@ -605,6 +608,7 @@ func (w *fixupWatch) process(event watch.Event) (watch.Event, bool) {
 	}
 
 	name := obj.GetName()
+	fmt.Printf("### forwarding.go fixupWatch.process: event=%v shard=%q cluster=%q rv=%s\n", event.Type, name, logicalcluster.From(obj), obj.GetResourceVersion())
 	if event.Type == watch.Deleted {
 		if copies, found := w.copies[name]; found {
 			delete(copies, logicalcluster.From(obj))
@@ -625,6 +629,7 @@ func (w *fixupWatch) process(event watch.Event) (watch.Event, bool) {
 		}
 		// Report the object the client was last given: the copy that was
 		// actually removed may never have been published to it.
+		fmt.Printf("### AdminVW: forwarding.go: fixupWatch: shard=%q not alive\n", name)
 		return watch.Event{Type: watch.Deleted, Object: previous}, true
 	case !published:
 		w.emitted[name] = winner

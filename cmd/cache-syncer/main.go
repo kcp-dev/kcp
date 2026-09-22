@@ -37,9 +37,9 @@ func main() {
 		Use:   "cache-syncer",
 		Short: "Syncs resources from a source cache-server to peer cache-servers",
 		Long: help.Doc(`
-			Connects to a source cache-server and replicates annotated resources to
-			peer cache-servers. The source is resolved from the environment (in-cluster
-			config, KUBECONFIG env var, or ~/.kube/config). Peer credentials are
+			Connects to a source cache-server and replicates local shards to peer
+			cache-servers. The source is resolved from the environment (in-cluster
+			config, KUBECONFIG env var, or ~/.kube/config). Peer TLS credentials are
 			provided via --peer-ca-file, --peer-cert-file, and --peer-key-file.
 		`),
 

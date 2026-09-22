@@ -23,7 +23,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
-	cachesync "github.com/kcp-dev/kcp/pkg/cache/syncer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/syncer/replication"
 )
 
@@ -56,19 +55,14 @@ func (s *Server) installCacheSyncerController(ctx context.Context) error {
 		KeyFile:  syncer.PeerKeyFile,
 	}
 
-	if len(syncer.InitialPeerURLs) > 0 {
-		if err := cachesync.BootstrapFromPeer(ctx, s.ApiExtensionsClusterClient, s.SyncerSourceConfig, peerTLSConfig, syncer.InitialPeerURLs); err != nil {
-			return fmt.Errorf("bootstrap cache from peer: %w", err)
-		}
-	}
-
 	ctrl, err := replication.NewRootController(
 		s.Options.Extra.CacheName,
 		s.SyncerSourceConfig,
 		peerTLSConfig,
 		syncer.InitialPeerURLs,
-		s.KcpSharedInformerFactory,
-		s.ApiExtensionsSharedInformerFactory,
+		s.KcpSharedInformerFactory.Core().V1alpha1().Caches(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().Shards().Lister(),
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create cache-syncer root controller: %w", err)
