@@ -336,6 +336,13 @@ func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *
 	logger := klog.FromContext(ctx)
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 	for _, resourceSchema := range apiExport.Spec.Resources {
+		// A custom subresource is a separate entry named "<resource>/<subresource>",
+		// served by the virtual workspace its own storage names rather than by this
+		// APIExport virtual workspace.
+		if resourceSchema.IsSubresource() {
+			continue
+		}
+
 		apiExportClusterName := logicalcluster.From(apiExport)
 		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(resourceSchema.Schema)
 		if err != nil && !apierrors.IsNotFound(err) {

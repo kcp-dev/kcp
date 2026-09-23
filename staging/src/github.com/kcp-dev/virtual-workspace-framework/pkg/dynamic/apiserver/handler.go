@@ -278,6 +278,16 @@ func (r *resourceHandler) serveSubResource(w http.ResponseWriter, req *http.Requ
 	requestScope := apiDef.GetSubResourceRequestScope(requestInfo.Subresource)
 	storage := apiDef.GetSubResourceStorage(requestInfo.Subresource)
 
+	// A Connecter declares the HTTP methods it accepts through ConnectMethods and
+	// validates them itself, so it is dispatched on the storage type rather than on
+	// the verb derived from the method. Dispatching it through the switch below would
+	// mean deciding here which methods a streaming subresource may use, which is the
+	// storage's decision to make (pods/exec accepts GET and POST; pods/portforward
+	// only POST).
+	if connecter, isAble := storage.(rest.Connecter); isAble {
+		return handlers.ConnectResource(connecter, requestScope, r.admission, requestInfo.Subresource, true)
+	}
+
 	switch requestInfo.Verb {
 	case "get":
 		if storage, isAble := storage.(rest.Getter); isAble {

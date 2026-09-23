@@ -213,10 +213,17 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	// The full path is unreliable for this purpose.
 	apiBinding.Status.APIExportClusterName = logicalcluster.From(apiExport).String()
 
+	// A custom subresource is a separate entry named "<resource>/<subresource>". It
+	// has no CustomResourceDefinition of its own -- a virtual workspace serves it --
+	// so every loop below that builds or binds a CRD skips it.
 	// Collect the schemas.
 	schemas := make(map[string]*apisv1alpha1.APIResourceSchema)
 	grs := sets.New[schema.GroupResource]()
 	for _, resourceSchema := range apiExport.Spec.Resources {
+		if resourceSchema.IsSubresource() {
+			continue
+		}
+
 		sch, err := r.getAPIResourceSchema(logicalcluster.From(apiExport), resourceSchema.Schema)
 		if err != nil {
 			logger.Error(err, "error binding")
@@ -333,6 +340,10 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	}
 	var needToWaitForRequeueWhenEstablished []string
 	for _, resourceSchema := range apiExport.Spec.Resources {
+		if resourceSchema.IsSubresource() {
+			continue
+		}
+
 		sch := schemas[resourceSchema.Schema]
 		logger := logging.WithObject(logger, sch)
 
