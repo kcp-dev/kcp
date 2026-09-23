@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	autoscaling "k8s.io/api/autoscaling/v1"
@@ -237,12 +238,16 @@ func apiResourcesForGroupVersion(ctx context.Context, requestedGroup, requestedV
 			StorageVersionHash: storageVersionHash,
 		})
 
+		subresourceVerbs := verbsProvider.subresources()
+
+		// status and scale stay gated on the CRD spec. They describe the object's
+		// shape, so a provider reporting verbs for them does not make them exist.
 		if subresources != nil && subresources.Status != nil {
 			apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
 				Name:       crd.Status.AcceptedNames.Plural + "/status",
 				Namespaced: crd.Spec.Scope == apiextensionsv1.NamespaceScoped,
 				Kind:       crd.Status.AcceptedNames.Kind,
-				Verbs:      verbsProvider.statusSubresource(),
+				Verbs:      subresourceVerbs["status"],
 			})
 		}
 
@@ -253,7 +258,28 @@ func apiResourcesForGroupVersion(ctx context.Context, requestedGroup, requestedV
 				Kind:       "Scale",
 				Name:       crd.Status.AcceptedNames.Plural + "/scale",
 				Namespaced: crd.Spec.Scope == apiextensionsv1.NamespaceScoped,
-				Verbs:      verbsProvider.scaleSubresource(),
+				Verbs:      subresourceVerbs["scale"],
+			})
+		}
+
+		// Everything else the provider reports is a custom subresource. It reaches us
+		// only because an APIExport declared it, so unlike status and scale there is
+		// no CRD field to gate it on.
+		custom := make([]string, 0, len(subresourceVerbs))
+		for name := range subresourceVerbs {
+			if name == "status" || name == "scale" {
+				continue
+			}
+			custom = append(custom, name)
+		}
+		sort.Strings(custom) // keep the discovery document stable across rebuilds
+
+		for _, name := range custom {
+			apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
+				Name:       crd.Status.AcceptedNames.Plural + "/" + name,
+				Namespaced: crd.Spec.Scope == apiextensionsv1.NamespaceScoped,
+				Kind:       crd.Status.AcceptedNames.Kind,
+				Verbs:      subresourceVerbs[name],
 			})
 		}
 	}
