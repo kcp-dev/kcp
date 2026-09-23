@@ -103,6 +103,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=admin.kcp.io, Version=v1alpha1
 	case kcpv1alpha1.SchemeGroupVersion.WithResource("apiidentities"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Admin().V1alpha1().APIIdentities().Informer()}, nil
+	case kcpv1alpha1.SchemeGroupVersion.WithResource("permissionclaimpolicies"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Admin().V1alpha1().PermissionClaimPolicies().Informer()}, nil
 
 		// Group=apis.kcp.io, Version=v1alpha1
 	case kcpapisv1alpha1.SchemeGroupVersion.WithResource("apibindings"):
@@ -164,6 +166,9 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 	// Group=admin.kcp.io, Version=v1alpha1
 	case kcpv1alpha1.SchemeGroupVersion.WithResource("apiidentities"):
 		informer := f.Admin().V1alpha1().APIIdentities().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
+	case kcpv1alpha1.SchemeGroupVersion.WithResource("permissionclaimpolicies"):
+		informer := f.Admin().V1alpha1().PermissionClaimPolicies().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 
 		// Group=apis.kcp.io, Version=v1alpha1

@@ -44,6 +44,10 @@ func (c *AdminV1alpha1ClusterClient) APIIdentities() kcpadminv1alpha1.APIIdentit
 	return newFakeAPIIdentityClusterClient(c)
 }
 
+func (c *AdminV1alpha1ClusterClient) PermissionClaimPolicies() kcpadminv1alpha1.PermissionClaimPolicyClusterInterface {
+	return newFakePermissionClaimPolicyClusterClient(c)
+}
+
 type AdminV1alpha1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
@@ -51,6 +55,10 @@ type AdminV1alpha1Client struct {
 
 func (c *AdminV1alpha1Client) APIIdentities() adminv1alpha1.APIIdentityInterface {
 	return newFakeAPIIdentityClient(c.Fake, c.ClusterPath)
+}
+
+func (c *AdminV1alpha1Client) PermissionClaimPolicies() adminv1alpha1.PermissionClaimPolicyInterface {
+	return newFakePermissionClaimPolicyClient(c.Fake, c.ClusterPath)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

@@ -650,8 +650,12 @@ func (r *permissionClaimMaterialiserReconciler) reconcile(ctx context.Context, a
 		if claim.State != apisv1alpha2.ClaimAccepted {
 			continue
 		}
-		// An empty identity hash means the claim targets a built-in or local resource
-		// (e.g. core configmaps/secrets) whose informer is always available.
+		// An empty identity hash means either a built-in or local resource
+		// (e.g. core configmaps/secrets) whose informer is always available, or
+		// an identity-agnostic claim. The latter resolves through an APIBinding
+		// in this very workspace, and that binding materialises the bound CRD
+		// itself through the BoundResources path above, so there is nothing to
+		// do here either.
 		if claim.IdentityHash == "" {
 			continue
 		}
