@@ -55,7 +55,13 @@ func provideAPIExportFilteredRestStorage(ctx context.Context, dynamicClusterClie
 }
 
 // provideDelegatingRestStorage returns a forwarding storage build function, with an optional storage wrapper e.g. to add label based filtering.
-func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc registry.DynamicClusterClientFunc, apiExportIdentityHash string, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
+//
+// identities returns the identity hashes the resource is stored under on this
+// shard at request time. For the export's own resources and for claims that
+// name an identityHash it is a single fixed hash; for identity-agnostic claims
+// it is the set derived from the consumer APIBindings on the shard, which may
+// change over time without rebuilding the storage.
+func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc registry.DynamicClusterClientFunc, identities registry.IdentityHashesFunc, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator validation.SchemaValidator, subresourcesSchemaValidator map[string]validation.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -84,10 +90,10 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 			[]apiextensionsv1.SelectableField{},
 		)
 
-		storage, statusStorage, scaleStorage := registry.NewStorage(
+		storage, statusStorage, scaleStorage := registry.NewStorageWithIdentities(
 			ctx,
 			resource,
-			apiExportIdentityHash,
+			identities,
 			kind,
 			listKind,
 			strategy,
@@ -157,14 +163,14 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 				ret.SetGroupVersionKind(subresourceGVK)
 				return ret
 			}
-			subresourceStore := registry.DefaultDynamicDelegatedStoreFuncs(
+			subresourceStore := registry.DefaultDynamicDelegatedStoreFuncsWithIdentities(
 				factory,
 				nil,
 				func() {},
 				strategy,
 				tableConvertor,
 				resource,
-				apiExportIdentityHash,
+				identities,
 				nil,
 				dynamicClusterClientFunc,
 				[]string{name},
