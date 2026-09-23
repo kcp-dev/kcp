@@ -36,6 +36,7 @@ import (
 	"github.com/kcp-dev/sdk/apis/apis/v1alpha2/permissionclaims"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -74,9 +75,9 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 	if err != nil {
 		return err
 	}
-	identities := map[schema.GroupResource]string{}
+	identities := map[schema.GroupResource]forwardingregistry.IdentityHashesFunc{}
 	for gr := range apiResourceSchemas {
-		identities[gr] = apiExport.Status.IdentityHash
+		identities[gr] = staticIdentities(apiExport.Status.IdentityHash)
 	}
 
 	clusterName := logicalcluster.From(apiExport)
@@ -137,9 +138,38 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			continue
 		}
 		if pc.IdentityHash == "" {
-			// NOTE(hasheddan): this is checked by admission so we should never
-			// hit this case.
-			logger.Info("permission claim is not internal and does not have an identity hash", "claim", pc)
+			// Identity-agnostic claim (admitted through a PermissionClaimPolicy):
+			// the identity is whatever each consumer workspace's APIBinding for
+			// the claimed resource carries. Serve the resource as soon as one
+			// consumer on this shard has accepted the claim and binds the
+			// resource; the identity set itself is read per request.
+			resolved, err := c.identityResolver.Resolve(apiExport, gr)
+			if err != nil {
+				return err
+			}
+			if len(resolved) == 0 {
+				logger.V(4).Info("identity-agnostic permission claim has no consumer binding the claimed resource on this shard yet", "claim", pc)
+				continue
+			}
+
+			var claimedSchema *apisv1alpha1.APIResourceSchema
+			for _, identity := range resolved {
+				claimedSchema, err = c.findClaimedSchema(klog.NewContext(ctx, logger), identity.IdentityHash, gr)
+				if err != nil {
+					return err
+				}
+				if claimedSchema != nil {
+					break
+				}
+			}
+			if claimedSchema == nil {
+				logger.V(4).Info("no APIResourceSchema found for any identity of the identity-agnostic claim", "claim", pc)
+				continue
+			}
+
+			apiResourceSchemas[gr] = claimedSchema
+			claims[gr] = pc
+			identities[gr] = c.dynamicIdentities(apiExport, gr)
 			continue
 		}
 
@@ -182,7 +212,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				}
 				logger.V(4).Info("got a match!")
 				apiResourceSchemas[gr] = apiResourceSchema
-				identities[gr] = pc.IdentityHash
+				identities[gr] = staticIdentities(pc.IdentityHash)
 				claims[gr] = pc
 			}
 		}

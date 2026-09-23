@@ -28,6 +28,7 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/virtual-workspace-framework/framework"
@@ -160,8 +161,13 @@ func (p *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(_ context.C
 		return p.cached, true, nil
 	}
 
-	apiDef, err := provideShardsRestStorage(p.config, p.cacheDynamicClusterClient)
+	shardsDef, err := provideShardsRestStorage(p.config, p.cacheDynamicClusterClient)
 	if err != nil {
+		return nil, false, err
+	}
+	policiesDef, err := providePermissionClaimPoliciesRestStorage(p.config, p.cacheDynamicClusterClient)
+	if err != nil {
+		shardsDef.TearDown()
 		return nil, false, err
 	}
 
@@ -170,7 +176,12 @@ func (p *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(_ context.C
 			Group:    corev1alpha1.SchemeGroupVersion.Group,
 			Version:  corev1alpha1.SchemeGroupVersion.Version,
 			Resource: "shards",
-		}: apiDef,
+		}: shardsDef,
+		schema.GroupVersionResource{
+			Group:    adminv1alpha1.SchemeGroupVersion.Group,
+			Version:  adminv1alpha1.SchemeGroupVersion.Version,
+			Resource: "permissionclaimpolicies",
+		}: policiesDef,
 	}
 	return p.cached, true, nil
 }
