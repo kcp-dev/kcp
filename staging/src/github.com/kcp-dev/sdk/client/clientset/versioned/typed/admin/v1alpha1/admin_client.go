@@ -30,6 +30,7 @@ import (
 type AdminV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	APIIdentitiesGetter
+	PermissionClaimPoliciesGetter
 }
 
 // AdminV1alpha1Client is used to interact with features provided by the admin.kcp.io group.
@@ -39,6 +40,10 @@ type AdminV1alpha1Client struct {
 
 func (c *AdminV1alpha1Client) APIIdentities() APIIdentityInterface {
 	return newAPIIdentities(c)
+}
+
+func (c *AdminV1alpha1Client) PermissionClaimPolicies() PermissionClaimPolicyInterface {
+	return newPermissionClaimPolicies(c)
 }
 
 // NewForConfig creates a new AdminV1alpha1Client for the given config.

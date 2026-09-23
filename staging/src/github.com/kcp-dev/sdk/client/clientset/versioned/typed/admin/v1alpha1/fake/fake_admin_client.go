@@ -33,6 +33,10 @@ func (c *FakeAdminV1alpha1) APIIdentities() v1alpha1.APIIdentityInterface {
 	return newFakeAPIIdentities(c)
 }
 
+func (c *FakeAdminV1alpha1) PermissionClaimPolicies() v1alpha1.PermissionClaimPolicyInterface {
+	return newFakePermissionClaimPolicies(c)
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeAdminV1alpha1) RESTClient() rest.Interface {

@@ -45,3 +45,28 @@ func (in ExportReference) OpenAPIModelName() string {
 func (in Holder) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.Holder"
 }
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in PermissionClaimPolicy) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.PermissionClaimPolicy"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in PermissionClaimPolicyList) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.PermissionClaimPolicyList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in PermissionClaimPolicySpec) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.PermissionClaimPolicySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in PermissionClaimPolicySubject) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.PermissionClaimPolicySubject"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in PermissionClaimRule) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.PermissionClaimRule"
+}
