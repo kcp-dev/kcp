@@ -161,7 +161,8 @@ func BuildVirtualWorkspace(
 				kcpClusterClient,
 				cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				cachedKcpInformers.Apis().V1alpha2().APIExports(),
-				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
+				kcpInformers.Apis().V1alpha2().APIBindings(),
+				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identities forwardingregistry.IdentityHashesFunc, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
 
 					var wrapper forwardingregistry.StorageWrapper
@@ -171,7 +172,7 @@ func BuildVirtualWorkspace(
 						})
 					}
 
-					storageBuilder := provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identityHash, wrapper)
+					storageBuilder := provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identities, wrapper)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
@@ -298,7 +299,7 @@ func digestUrl(urlPath, rootPathPrefix string) (
 }
 
 func newAuthorizer(kubeClusterClient, deepSARClient kcpkubernetesclientset.ClusterInterface, cachedKcpInformers, kcpInformers kcpinformers.SharedInformerFactory) authorizer.Authorizer {
-	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, cachedKcpInformers.Apis().V1alpha2().APIExports())
+	maximalPermissionAuth := virtualapiexportauth.NewMaximalPermissionAuthorizer(deepSARClient, cachedKcpInformers.Apis().V1alpha2().APIExports(), kcpInformers.Apis().V1alpha2().APIBindings())
 	maximalPermissionAuth = authorization.NewDecorator("virtual.apiexport.maxpermissionpolicy.authorization.kcp.io", maximalPermissionAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	apiExportsContentAuth := virtualapiexportauth.NewAPIExportsContentAuthorizer(maximalPermissionAuth, kubeClusterClient)
