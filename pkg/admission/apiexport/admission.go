@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 
@@ -138,8 +139,17 @@ func (e *APIExportAdmission) validatev1alpha2(_ context.Context, a admission.Att
 		}
 	}
 
+	// A custom subresource entry is only meaningful next to the resource it hangs
+	// off, so collect the exported resources before validating the entries.
+	exported := sets.New[string]()
+	for _, rs := range ae.Spec.Resources {
+		if !rs.IsSubresource() {
+			exported.Insert(rs.Group + "/" + rs.Name)
+		}
+	}
+
 	for i, rs := range ae.Spec.Resources {
-		if err := validateResourceSchema(rs, field.NewPath("spec").Child("resources").Index(i)); err != nil {
+		if err := validateResourceSchema(rs, exported, field.NewPath("spec").Child("resources").Index(i)); err != nil {
 			return admission.NewForbidden(a, err)
 		}
 	}
@@ -147,17 +157,56 @@ func (e *APIExportAdmission) validatev1alpha2(_ context.Context, a admission.Att
 	return nil
 }
 
-func validateResourceSchema(resourceSchema apisv1alpha2.ResourceSchema, path *field.Path) *field.Error {
+func validateResourceSchema(resourceSchema apisv1alpha2.ResourceSchema, exported sets.Set[string], path *field.Path) *field.Error {
 	group := resourceSchema.Group
 	if group == "" {
 		group = "core"
 	}
 
+	resource, subresource := resourceSchema.SplitName()
+
+	// The schema is named after whichever part of the entry it describes: a
+	// subresource entry describes the subresource's own kind, not its parent's.
+	schemaFor := resource
+	if resourceSchema.IsSubresource() {
+		schemaFor = subresource
+	}
+
 	// TODO(mjudeikis): Once v1alpha1 is removed, we can relax this if we chose to.
 	// We should revisit this once we have a better understanding of the APIExport usage patterns.
-	expectedSuffix := fmt.Sprintf(".%s.%s", resourceSchema.Name, group)
+	expectedSuffix := fmt.Sprintf(".%s.%s", schemaFor, group)
 	if !strings.HasSuffix(resourceSchema.Schema, expectedSuffix) {
 		return field.Invalid(path.Child("schema"), resourceSchema.Schema, fmt.Sprintf("must end in %s", expectedSuffix))
+	}
+
+	if !resourceSchema.IsSubresource() {
+		return nil
+	}
+
+	// status and scale belong to the object's shape and are declared on the
+	// APIResourceSchema, served by the parent's own storage. Allowing an export to
+	// redeclare either would mean two different things answering for one path.
+	if subresource == "status" || subresource == "scale" {
+		return field.Invalid(path.Child("name"), resourceSchema.Name,
+			"status and scale are declared on the APIResourceSchema, not as custom subresources")
+	}
+
+	// A subresource is always served remotely: there is no CustomResourceDefinition
+	// for it to live in.
+	if resourceSchema.Storage.CRD != nil || resourceSchema.Storage.Virtual == nil {
+		return field.Invalid(path.Child("storage"), resourceSchema.Storage,
+			"a custom subresource must use virtual storage")
+	}
+	if resourceSchema.Storage.Virtual.Reference.Kind == "" || resourceSchema.Storage.Virtual.Reference.Name == "" {
+		return field.Required(path.Child("storage").Child("virtual").Child("reference"),
+			"a custom subresource must name the object carrying its virtual workspace URL")
+	}
+
+	// Without its parent the entry describes a subresource of nothing, and would
+	// be served under a resource this export does not offer.
+	if !exported.Has(resourceSchema.Group + "/" + resource) {
+		return field.Invalid(path.Child("name"), resourceSchema.Name,
+			fmt.Sprintf("resource %q is not exported by this APIExport", resource))
 	}
 
 	return nil
