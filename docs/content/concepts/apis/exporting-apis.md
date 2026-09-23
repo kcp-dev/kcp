@@ -564,6 +564,8 @@ spec:
 
 An APIExport resource may be defined with `virtual` storage. This means the resource is provided by a [virtual workspace](../workspaces/virtual-workspaces.md), and is projected into APIBinding's workspace.
 
+Virtual storage also backs [custom subresources](./custom-subresources.md): a named action such as `virtualmachines/ssh`, served by a virtual workspace while the object it hangs off stays in etcd.
+
 ```yaml
 apiVersion: apis.kcp.io/v1alpha2
 kind: APIExport
