@@ -132,12 +132,50 @@ func (p *virtualStorageVerbsProvider) resource() []string {
 	return p.resourceVerbs[p.resourceName]
 }
 
-func (p *virtualStorageVerbsProvider) statusSubresource() []string {
-	return p.resourceVerbs[p.resourceName+"/status"]
+// subresources strips the "<resource>/" prefix that discovery uses and returns
+// every sub-resource the virtual workspace advertised. buildVerbsMap already
+// collects them all; until now only status and scale were read back out.
+func (p *virtualStorageVerbsProvider) subresources() map[string][]string {
+	out := map[string][]string{}
+
+	for name, verbs := range p.resourceVerbs {
+		sub, ok := strings.CutPrefix(name, p.resourceName+"/")
+		if !ok || sub == "" {
+			continue
+		}
+		out[sub] = verbs
+	}
+
+	return out
 }
 
-func (p *virtualStorageVerbsProvider) scaleSubresource() []string {
-	return p.resourceVerbs[p.resourceName+"/scale"]
+// compositeVerbsProvider answers for a resource whose parent and sub-resources are
+// served by different things: a CRD-stored parent that carries custom sub-resources
+// backed by a virtual workspace. The parent's verbs come from CRD storage, each
+// sub-resource's from whichever provider serves it.
+type compositeVerbsProvider struct {
+	parent           resourceVerbsProvider
+	subresourceVerbs map[string][]string
+}
+
+func (p *compositeVerbsProvider) resource() []string {
+	return p.parent.resource()
+}
+
+func (p *compositeVerbsProvider) subresources() map[string][]string {
+	out := map[string][]string{}
+
+	// The parent contributes status and scale; the sub-resource providers contribute
+	// the custom ones. A custom sub-resource may not be called status or scale, so
+	// these cannot collide.
+	for name, verbs := range p.parent.subresources() {
+		out[name] = verbs
+	}
+	for name, verbs := range p.subresourceVerbs {
+		out[name] = verbs
+	}
+
+	return out
 }
 
 func buildVerbsMap(apiResources *metav1.APIResourceList, resourceName string) map[string][]string {
@@ -188,4 +226,54 @@ func getVirtualResourceURL(
 	}
 
 	return endpointslice.PickURL(opts.ThisShardVirtualWorkspaceURLGetter(), thisShardLabels(opts), endpoints)
+}
+
+// subresourceVerbsProvider answers for a single custom subresource, which names its
+// own virtual workspace independently of the parent resource's storage.
+type subresourceVerbsProvider struct {
+	subresourceVerbs []string
+}
+
+func newSubresourceVerbsProvider(
+	ctx context.Context,
+
+	vrResource schema.GroupVersionResource,
+	subresource string,
+	virtual *apisv1alpha2.ResourceSchemaStorageVirtual,
+	apiExport *apisv1alpha2.APIExport,
+	opts *virtualStorageClientOptions,
+) (*subresourceVerbsProvider, error) {
+	sliceKind := schema.GroupKind{
+		Group: ptr.Deref(virtual.Reference.APIGroup, ""),
+		Kind:  virtual.Reference.Kind,
+	}
+
+	apiExportShard := shard.Name(apiExport.Annotations[shard.AnnotationKey])
+	if apiExportShard.Empty() {
+		apiExportShard = opts.ThisShardName
+	}
+
+	vrEndpointURL, err := getVirtualResourceURL(ctx, logicalcluster.From(apiExport), apiExportShard, sliceKind, virtual.Reference.Name, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve virtual workspace URL: %w", err)
+	}
+
+	vwCfg := rest.CopyConfig(opts.VWClientConfig)
+	vwCfg.Host = vrEndpointURL
+
+	apiResources, err := opts.APIResourceDiscoveryForResource(ctx, vwCfg, vrResource.GroupVersion())
+	if err != nil {
+		return nil, fmt.Errorf("failed to perform API discovery: %w", err)
+	}
+
+	// Ask the virtual workspace what it serves rather than trusting the declaration:
+	// the APIExport says a subresource exists, the workspace says which verbs reach
+	// it, and advertising a verb the workspace will refuse helps nobody.
+	return &subresourceVerbsProvider{
+		subresourceVerbs: buildVerbsMap(apiResources, vrResource.Resource)[vrResource.Resource+"/"+subresource],
+	}, nil
+}
+
+func (p *subresourceVerbsProvider) verbs() []string {
+	return p.subresourceVerbs
 }

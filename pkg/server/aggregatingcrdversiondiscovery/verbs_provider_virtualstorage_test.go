@@ -249,8 +249,9 @@ func Test_newVirtualStorageVerbsProvider(t *testing.T) {
 			}
 
 			require.Equal(t, tt.wantResourceVerbs, p.resource(), "unexpected resource verbs: has %v", p.resourceVerbs)
-			require.Equal(t, tt.wantStatusVerbs, p.statusSubresource(), "unexpected status subresource verbs: has %v", p.resourceVerbs)
-			require.Equal(t, tt.wantScaleVerbs, p.scaleSubresource(), "unexpected scale subresource verbs: has %v", p.resourceVerbs)
+			subresources := p.subresources()
+			require.Equal(t, tt.wantStatusVerbs, subresources["status"], "unexpected status subresource verbs: has %v", p.resourceVerbs)
+			require.Equal(t, tt.wantScaleVerbs, subresources["scale"], "unexpected scale subresource verbs: has %v", p.resourceVerbs)
 		})
 	}
 }

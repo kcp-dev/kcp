@@ -19,9 +19,11 @@ package v1alpha2
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	kubeconversion "k8s.io/apimachinery/pkg/conversion"
+	"k8s.io/utils/ptr"
 
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 )
@@ -124,16 +126,36 @@ func Convert_v1alpha2_APIExportStatus_To_v1alpha1_APIExportStatus(in *APIExportS
 	return autoConvert_v1alpha2_APIExportStatus_To_v1alpha1_APIExportStatus(in, out, s)
 }
 
-func Convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(in APIExportSpec) ([]string, []ResourceSchema) {
+// overhangingResourceSchema is a ResourceSchema plus the position it held in
+// spec.resources.
+//
+// An entry that v1alpha1 cannot represent survives a round-trip only in an
+// annotation, and merging it back in without its index appends it to the end.
+// Order carries no meaning for a listType=map, but a round-trip that reorders
+// makes every equality check on the object lie.
+//
+// The ResourceSchema is embedded, so this marshals exactly as a ResourceSchema
+// did with one extra key. An annotation written before this field existed
+// unmarshals with a nil index and is appended, as it was.
+type overhangingResourceSchema struct {
+	ResourceSchema
+	Index *int `json:"index,omitempty"`
+}
+
+func Convert_v1alpha2_ResourceSchemas_To_v1alpha1_LatestResourceSchemas(in APIExportSpec) ([]string, []overhangingResourceSchema) {
 	hubSchemas := []string{}
-	nonCRDSchemas := []ResourceSchema{}
+	nonCRDSchemas := []overhangingResourceSchema{}
 
 	if schemas := in.Resources; schemas != nil {
-		for _, schema := range schemas {
+		for i, schema := range schemas {
+			// A custom subresource entry always uses virtual storage, so it falls out
+			// here with the other non-CRD schemas and is retained in the annotation.
+			// v1alpha1's latestResourceSchemas is a list of schema names with nowhere
+			// to say that one of them is a subresource of another.
 			if schema.Storage.CRD != nil {
 				hubSchemas = append(hubSchemas, schema.Schema)
 			} else {
-				nonCRDSchemas = append(nonCRDSchemas, schema)
+				nonCRDSchemas = append(nonCRDSchemas, overhangingResourceSchema{ResourceSchema: schema, Index: ptr.To(i)})
 			}
 		}
 	}
@@ -251,7 +273,7 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 	}
 
 	if overhangingRS, ok := in.Annotations[ResourceSchemasAnnotation]; ok {
-		resourceSchemas := []ResourceSchema{}
+		resourceSchemas := []overhangingResourceSchema{}
 		if err := json.Unmarshal([]byte(overhangingRS), &resourceSchemas); err != nil {
 			return fmt.Errorf("failed to decode schemas from JSON: %w", err)
 		}
@@ -261,7 +283,16 @@ func Convert_v1alpha1_APIExport_To_v1alpha2_APIExport(in *apisv1alpha1.APIExport
 				out.Spec.Resources = []ResourceSchema{}
 			}
 
-			out.Spec.Resources = append(out.Spec.Resources, resourceSchemas...)
+			for _, schema := range resourceSchemas {
+				// Put it back where it was. An index from an older annotation is
+				// absent, or may not fit if the CRD-backed entries changed while the
+				// object was stored as v1alpha1; appending is the safe answer then.
+				if schema.Index != nil && *schema.Index <= len(out.Spec.Resources) {
+					out.Spec.Resources = slices.Insert(out.Spec.Resources, *schema.Index, schema.ResourceSchema)
+					continue
+				}
+				out.Spec.Resources = append(out.Spec.Resources, schema.ResourceSchema)
+			}
 		}
 
 		delete(out.Annotations, ResourceSchemasAnnotation)

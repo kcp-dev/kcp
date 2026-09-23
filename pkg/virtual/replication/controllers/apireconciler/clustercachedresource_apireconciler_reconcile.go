@@ -39,7 +39,11 @@ func findResourceSchemaByClusterCachedResourceEndpointSlice(
 	endpointSlice *cachev1alpha1.ClusterCachedResourceEndpointSlice,
 ) *apisv1alpha2.ResourceSchema {
 	resIdx := slices.IndexFunc(export.Spec.Resources, func(res apisv1alpha2.ResourceSchema) bool {
-		return res.Storage.Virtual != nil &&
+		// Only a whole resource is replicated. A custom subresource entry may name the
+		// same endpoint slice, and matching it here would serve "<resource>/<sub>" as
+		// though it were a resource.
+		return !res.IsSubresource() &&
+			res.Storage.Virtual != nil &&
 			ptr.Deref(res.Storage.Virtual.Reference.APIGroup, "") == cachev1alpha1.SchemeGroupVersion.Group &&
 			res.Storage.Virtual.Reference.Kind == "ClusterCachedResourceEndpointSlice" &&
 			res.Storage.Virtual.Reference.Name == endpointSlice.Name

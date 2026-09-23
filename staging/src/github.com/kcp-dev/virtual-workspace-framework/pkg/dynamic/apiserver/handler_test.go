@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -73,6 +74,14 @@ func (apiDef *mockedAPIDefinition) GetStorage() rest.Storage {
 }
 func (apiDef *mockedAPIDefinition) GetSubResourceStorage(subresource string) rest.Storage {
 	return apiDef.subresourcesStores[subresource]
+}
+func (apiDef *mockedAPIDefinition) GetSubResourceNames() []string {
+	names := make([]string, 0, len(apiDef.subresourcesStores))
+	for name := range apiDef.subresourcesStores {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 func (apiDef *mockedAPIDefinition) GetRequestScope() *handlers.RequestScope {
 	return nil
