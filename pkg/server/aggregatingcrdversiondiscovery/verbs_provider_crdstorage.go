@@ -35,10 +35,12 @@ func (p *crdStorageVerbsProvider) resource() []string {
 	return verbs
 }
 
-func (p *crdStorageVerbsProvider) statusSubresource() []string {
-	return metav1.Verbs([]string{"get", "patch", "update"})
-}
-
-func (p *crdStorageVerbsProvider) scaleSubresource() []string {
-	return metav1.Verbs([]string{"get", "patch", "update"})
+// subresources reports the verbs for the sub-resources CRD storage can serve.
+// Which of these the resource actually has is decided by the caller from the
+// bound CRD's own spec; this only says what the verbs would be.
+func (p *crdStorageVerbsProvider) subresources() map[string][]string {
+	return map[string][]string{
+		"status": metav1.Verbs([]string{"get", "patch", "update"}),
+		"scale":  metav1.Verbs([]string{"get", "patch", "update"}),
+	}
 }
