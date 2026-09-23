@@ -2839,7 +2839,7 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref common.ReferenceCallback) 
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Name is the name of the resource.",
+							Description: "Name is the name of the resource.\n\nA custom subresource is declared as its own entry, named \"<resource>/<subresource>\" in the style of an RBAC rule, e.g. \"virtualmachines/ssh\". Such an entry must use virtual storage, and the resource it names must be exported by this APIExport too. It is independent of how that resource is stored: a resource kept in a CRD may carry subresources that are not.\n\nstatus and scale are never declared this way. They belong to the object's shape and are declared on the APIResourceSchema.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -3051,6 +3051,34 @@ func schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref common.ReferenceCallback
 				Required: []string{"url"},
 			},
 		},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_overhangingResourceSchema(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "overhangingResourceSchema is a ResourceSchema plus the position it held in spec.resources.\n\nAn entry that v1alpha1 cannot represent survives a round-trip only in an annotation, and merging it back in without its index appends it to the end. Order carries no meaning for a listType=map, but a round-trip that reorders makes every equality check on the object lie.\n\nThe ResourceSchema is embedded, so this marshals exactly as a ResourceSchema did with one extra key. An annotation written before this field existed unmarshals with a nil index and is appended, as it was.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ResourceSchema": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1alpha2.ResourceSchema{}.OpenAPIModelName()),
+						},
+					},
+					"index": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+				Required: []string{"ResourceSchema"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha2.ResourceSchema{}.OpenAPIModelName()},
 	}
 }
 
