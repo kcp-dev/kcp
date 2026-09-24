@@ -127,3 +127,67 @@ func TestValidateCustomSubresourceEntry(t *testing.T) {
 		})
 	}
 }
+
+// TestValidateSubresourceClaims covers the rule that a claim on a custom
+// subresource needs a claim on the resource that serves it. status is exempt.
+func TestValidateSubresourceClaims(t *testing.T) {
+	t.Parallel()
+
+	claim := func(resource string) apisv1alpha2.PermissionClaim {
+		return apisv1alpha2.PermissionClaim{
+			GroupResource: apisv1alpha2.GroupResource{Group: "wildwest.dev", Resource: resource},
+			Verbs:         []string{"create"},
+		}
+	}
+
+	for _, tc := range []struct {
+		name     string
+		claims   []apisv1alpha2.PermissionClaim
+		exported sets.Set[string]
+		wantErr  string
+	}{
+		{
+			name:   "subresource claimed with its parent",
+			claims: []apisv1alpha2.PermissionClaim{claim("cowboys"), claim("cowboys/shoot")},
+		},
+		{
+			name:     "subresource claimed on a resource this export serves itself",
+			claims:   []apisv1alpha2.PermissionClaim{claim("cowboys/shoot")},
+			exported: sets.New("wildwest.dev/cowboys"),
+		},
+		{
+			name:    "subresource claimed alone",
+			claims:  []apisv1alpha2.PermissionClaim{claim("cowboys/shoot")},
+			wantErr: `requires a claim on "cowboys"`,
+		},
+		{
+			name:   "status needs no parent claim",
+			claims: []apisv1alpha2.PermissionClaim{claim("cowboys/status")},
+		},
+		{
+			name:    "parent claimed in another group does not count",
+			claims:  []apisv1alpha2.PermissionClaim{{GroupResource: apisv1alpha2.GroupResource{Group: "other.dev", Resource: "cowboys"}}, claim("cowboys/shoot")},
+			wantErr: `requires a claim on "cowboys"`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			exported := tc.exported
+			if exported == nil {
+				exported = sets.New[string]()
+			}
+
+			err := validateSubresourceClaims(&apisv1alpha2.APIExport{
+				Spec: apisv1alpha2.APIExportSpec{PermissionClaims: tc.claims},
+			}, exported)
+
+			if tc.wantErr == "" {
+				require.Nil(t, err)
+				return
+			}
+			require.NotNil(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
