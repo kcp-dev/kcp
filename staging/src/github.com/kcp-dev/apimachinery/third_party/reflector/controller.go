@@ -15,6 +15,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// This file is a trimmed fork of k8s.io/client-go/tools/cache/controller.go.
+//
+// It intentionally carries only the declarations needed to wire up the
+// cluster-aware Reflector in this package, which are `Config` and `controller`.
+//
+// Everything else in the upstream file (ResourceEventHandler and its
+// variants, DeletedObject, the NewInformer* constructors, processDeltas,
+// ...) is NOT forked here; use k8s.io/client-go/tools/cache directly.
+// Do not copy such code back into this file during a rebase.
+
 package reflector
 
 import (
