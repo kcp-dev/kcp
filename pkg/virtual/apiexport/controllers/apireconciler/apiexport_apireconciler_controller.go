@@ -19,6 +19,8 @@ package apireconciler
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +28,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -61,7 +64,45 @@ const (
 // (built-in and apis.kcp.io claims), a fixed hash for the export's own
 // resources and for claims naming an identityHash, and a dynamic set derived
 // from consumer APIBindings for identity-agnostic claims.
-type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identities forwardingregistry.IdentityHashesFunc, additionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error)
+//
+// customSubresources are the custom subresource entries served under the schema's
+// resource. They have no storage here: the shard resolves each entry to the
+// virtual workspace the declaring APIExport names, so a request for one is
+// forwarded to the shard like any other.
+type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identities forwardingregistry.IdentityHashesFunc, additionalLabelRequirements labels.Requirements, customSubresources []CustomSubresource) (apidefinition.APIDefinition, error)
+
+// CustomSubresource is one custom subresource entry served under a resource.
+type CustomSubresource struct {
+	// Name is the subresource name: the part after the slash of an APIExport
+	// entry named "widgets/frobnicate".
+	Name string
+
+	// Kind is the kind the subresource's own APIResourceSchema declares. A
+	// subresource speaks for itself rather than for its parent, so this is
+	// usually not the parent's kind.
+	Kind schema.GroupVersionKind
+
+	// Verbs are the verbs the subresource may be reached by, which decide the
+	// HTTP methods it accepts. For the export's own entries this is every verb a
+	// subresource can carry; for a claimed entry it is the claim's verbs, so
+	// discovery does not advertise a method the authorizer will refuse.
+	Verbs []string
+}
+
+// subresourcesFingerprint identifies a set of custom subresources, so that a definition
+// built for one set is not reused for another.
+//
+// The APIExport can gain, lose or re-point a subresource entry without the
+// parent APIResourceSchema changing at all, and the schema's UID is otherwise
+// the whole of what says a definition is still current.
+func subresourcesFingerprint(subresources []CustomSubresource) string {
+	parts := make([]string, 0, len(subresources))
+	for _, sub := range subresources {
+		parts = append(parts, fmt.Sprintf("%s=%s,%s", sub.Name, sub.Kind, strings.Join(sub.Verbs, "+")))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ";")
+}
 
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.

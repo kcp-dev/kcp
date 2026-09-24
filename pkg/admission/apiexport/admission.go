@@ -218,7 +218,48 @@ func (e *APIExportAdmission) validatev1alpha2(_ context.Context, a admission.Att
 		}
 	}
 
+	if err := validateSubresourceClaims(ae, exported); err != nil {
+		return admission.NewForbidden(a, err)
+	}
+
 	return e.validatePolicies(a, ae, old)
+}
+
+// validateSubresourceClaims checks that a claim on a custom subresource comes
+// with a claim on the resource it hangs off.
+//
+// A subresource is served under its parent, so an APIExport that claims one
+// without the other builds no API at all: the claim would be a declaration that
+// quietly serves nothing, which reads from the outside as the subresource simply
+// not existing.
+//
+// status and scale are exempt. They belong to the object's shape rather than
+// being entries of their own, and claiming status alone has always been allowed:
+// the authorizer reads such a claim as narrowing what the parent claim already
+// covers.
+func validateSubresourceClaims(ae *apisv1alpha2.APIExport, exported sets.Set[string]) *field.Error {
+	claimed := sets.New[string]()
+	for _, pc := range ae.Spec.PermissionClaims {
+		claimed.Insert(pc.Group + "/" + pc.Resource)
+	}
+
+	for i, pc := range ae.Spec.PermissionClaims {
+		resource, subresource, isSubresource := strings.Cut(pc.Resource, "/")
+		if !isSubresource || apisv1alpha2.IsSchemaOwnedSubresource(subresource) {
+			continue
+		}
+
+		parent := pc.Group + "/" + resource
+		if claimed.Has(parent) || exported.Has(parent) {
+			continue
+		}
+
+		return field.Invalid(
+			field.NewPath("spec").Child("permissionClaims").Index(i).Child("resource"), pc.Resource,
+			fmt.Sprintf("a claim on a custom subresource requires a claim on %q, which is what serves it", resource))
+	}
+
+	return nil
 }
 
 // validatePolicies enforces PermissionClaimPolicies: identity-less claims and

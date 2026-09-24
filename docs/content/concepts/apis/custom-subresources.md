@@ -215,6 +215,8 @@ rules:
   verbs: ["create"]
 ```
 
+## Reaching another provider's subresource
+
 A service provider reaching a consumer's objects through its own virtual workspace claims a
 subresource the same way, in the
 [permission claim](./exporting-apis.md#permission-claims) spelling that already exists:
@@ -222,18 +224,53 @@ subresource the same way, in the
 ```yaml
 permissionClaims:
 - group: compute.example.com
+  resource: virtualmachines
+  identityHash: <the other export's identity>
+  verbs: ["get", "list", "watch"]
+- group: compute.example.com
   resource: virtualmachines/ssh
+  identityHash: <the other export's identity>
   verbs: ["create"]
 ```
+
+Once the consumer accepts both claims, `virtualmachines/ssh` is served by *your* APIExport
+virtual workspace, next to the resource it hangs off:
+
+```console
+POST /services/apiexport/<your cluster>/<your export>/clusters/<consumer>/apis/compute.example.com/v1alpha1/virtualmachines/vm-1/ssh
+```
+
+This is the point of claiming it. The alternative is to call the consumer workspace directly,
+which needs RBAC for your identity inside every consumer workspace — the thing permission
+claims exist to avoid.
+
+Three rules govern what you get:
+
+- **Each subresource is claimed on its own.** A claim on `virtualmachines` does not carry
+  `virtualmachines/ssh`; claiming the resource cannot pick up a verb the provider did not
+  offer with it. A subresource claim without a claim on the resource it hangs off is refused,
+  because there would be no API for it to be part of.
+- **The claim's verbs decide the methods.** A `create`-only claim accepts `POST` and nothing
+  else, and discovery through your virtual workspace says so.
+- **The declaration still belongs to the other provider.** You reach only entries that export
+  actually declares. If it drops the entry, the subresource stops being served through your
+  virtual workspace too.
+
+The request travels one hop further than an ordinary claimed resource — your virtual workspace
+to the shard, and the shard to the declaring provider's endpoint. The provider's endpoint sees
+the calling user, not you, so decide there whether you can tell those apart before relying on
+the identity it receives.
 
 ## Limitations
 
 - The feature is behind the alpha `CacheAPIs` gate, and with the gate off a declared
   subresource is silently not served rather than rejected.
 - kcp ships no endpoint-slice kind for this. You define the kind and publish the URL yourself.
-- Streaming through two reverse proxies works over HTTP/1.1 upgrades. Prefer websockets over
-  SPDY for new APIs.
+- Streaming through two reverse proxies works over HTTP/1.1 upgrades — three when the caller is
+  another provider's virtual workspace. Prefer websockets over SPDY for new APIs.
 - Consumer discovery depends on your virtual workspace answering a discovery request. A
   workspace that is down costs its own subresources their entry in the discovery document.
 - The shard proxies the request without decoding it, so no admission plugin on the shard sees a
   subresource body or stream. Enforce policy in your own virtual workspace.
+- A claimed subresource cannot be requested across all workspaces. It hangs off one named
+  object, so a wildcard request has nothing to name.
