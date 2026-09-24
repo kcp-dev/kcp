@@ -39,6 +39,7 @@ import (
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
 	registry "github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
 
+	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/controllers/apireconciler"
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 )
 
@@ -61,7 +62,20 @@ func provideAPIExportFilteredRestStorage(ctx context.Context, dynamicClusterClie
 // name an identityHash it is a single fixed hash; for identity-agnostic claims
 // it is the set derived from the consumer APIBindings on the shard, which may
 // change over time without rebuilding the storage.
-func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc registry.DynamicClusterClientFunc, identities registry.IdentityHashesFunc, wrapper registry.StorageWrapper) apiserver.RestProviderFunc {
+//
+// customSubresources are entries the APIExport declares under this resource.
+// They are not forwarded through the client like status and the built-in
+// subresources: what serves them is a virtual workspace the shard resolves per
+// request, and what they carry may be a stream rather than an object.
+func provideDelegatingRestStorage(
+	ctx context.Context,
+	dynamicClusterClientFunc registry.DynamicClusterClientFunc,
+	identities registry.IdentityHashesFunc,
+	wrapper registry.StorageWrapper,
+	customSubresources []apireconciler.CustomSubresource,
+	customSubresourceProxy *shardProxy,
+	warrant func(cluster logicalcluster.Name) (string, error),
+) apiserver.RestProviderFunc {
 	return func(resource schema.GroupVersionResource, kind schema.GroupVersionKind, listKind schema.GroupVersionKind, typer runtime.ObjectTyper, tableConvertor rest.TableConvertor, namespaceScoped bool, schemaValidator validation.SchemaValidator, subresourcesSchemaValidator map[string]validation.SchemaValidator, structuralSchema *structuralschema.Structural) (mainStorage rest.Storage, subresourceStorages map[string]rest.Storage) {
 		statusSchemaValidate, statusEnabled := subresourcesSchemaValidator["status"]
 
@@ -199,6 +213,24 @@ func provideDelegatingRestStorage(ctx context.Context, dynamicClusterClientFunc 
 
 				NamedCreaterFunc: subresourceStore.NamedCreaterFunc,
 			}
+		}
+
+		for _, sub := range customSubresources {
+			if _, taken := subresourceStorages[sub.Name]; taken {
+				// status, scale and the built-in subresources are served by the
+				// storage that owns the object's shape. Admission refuses an
+				// entry that takes one of those names, so this only catches a
+				// declaration that predates that check.
+				continue
+			}
+			subresourceStorages[sub.Name] = newCustomSubresourceStorage(
+				resource,
+				sub,
+				namespaceScoped,
+				identities,
+				warrant,
+				customSubresourceProxy,
+			)
 		}
 
 		return &struct {

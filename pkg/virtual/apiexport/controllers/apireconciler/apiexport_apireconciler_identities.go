@@ -71,15 +71,19 @@ func (c *APIReconciler) dynamicIdentities(apiExport *apisv1alpha2.APIExport, gr 
 }
 
 // findClaimedSchema returns the APIResourceSchema serving gr among the exports
-// that carry identityHash, or nil if none does. Multiple exports may share an
-// identity (same owner); they are visited in a deterministic order and the
-// last match wins, mirroring the identity-hash claim path.
-func (c *APIReconciler) findClaimedSchema(ctx context.Context, identityHash string, gr schema.GroupResource) (*apisv1alpha1.APIResourceSchema, error) {
+// that carry identityHash, together with the export it came from, or nil if none
+// does. Multiple exports may share an identity (same owner); they are visited in
+// a deterministic order and the last match wins, mirroring the identity-hash
+// claim path.
+//
+// The export is returned as well because it is what declares the custom
+// subresources of gr, which the schema says nothing about.
+func (c *APIReconciler) findClaimedSchema(ctx context.Context, identityHash string, gr schema.GroupResource) (*apisv1alpha1.APIResourceSchema, *apisv1alpha2.APIExport, error) {
 	logger := klog.FromContext(ctx).WithValues("identity", identityHash)
 
 	exports, err := indexers.ByIndex[*apisv1alpha2.APIExport](c.apiExportIndexer, indexers.APIExportByIdentity, identityHash)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	sort.Slice(exports, func(i, j int) bool {
 		if exports[i].Name != exports[j].Name {
@@ -89,19 +93,20 @@ func (c *APIReconciler) findClaimedSchema(ctx context.Context, identityHash stri
 	})
 
 	var match *apisv1alpha1.APIResourceSchema
+	var matchExport *apisv1alpha2.APIExport
 	for _, export := range exports {
 		logger := logger.WithValues(logging.FromPrefix("candidateAPIExport", export)...)
 		candidates, err := c.getSchemasFromAPIExport(ctx, export)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		for _, candidate := range candidates {
 			if candidate.Spec.Group != gr.Group || candidate.Spec.Names.Plural != gr.Resource {
 				continue
 			}
 			logger.V(4).Info("found APIResourceSchema for claimed resource", "schema", candidate.Name)
-			match = candidate
+			match, matchExport = candidate, export
 		}
 	}
-	return match, nil
+	return match, matchExport, nil
 }

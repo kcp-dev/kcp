@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -76,8 +77,27 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 		return err
 	}
 	identities := map[schema.GroupResource]forwardingregistry.IdentityHashesFunc{}
+	sources := map[schema.GroupResource]subresourceSource{}
 	for gr := range apiResourceSchemas {
 		identities[gr] = staticIdentities(apiExport.Status.IdentityHash)
+		sources[gr] = subresourceSource{export: apiExport, own: true}
+	}
+
+	// Custom subresource claims, keyed by the resource they hang off. A claim on
+	// "widgets/frobnicate" builds no API of its own: it says that the entry
+	// APIExport declares under "widgets" may be reached through this virtual
+	// workspace, so it is read here and applied when "widgets" is built below.
+	claimedSubresourceVerbs := map[schema.GroupResource]map[string][]string{}
+	for _, pc := range apiExport.Spec.PermissionClaims {
+		resource, subresource, isSubresource := strings.Cut(pc.Resource, "/")
+		if !isSubresource || apisv1alpha2.IsSchemaOwnedSubresource(subresource) {
+			continue
+		}
+		parent := schema.GroupResource{Group: pc.Group, Resource: resource}
+		if claimedSubresourceVerbs[parent] == nil {
+			claimedSubresourceVerbs[parent] = map[string][]string{}
+		}
+		claimedSubresourceVerbs[parent][subresource] = pc.Verbs
 	}
 
 	clusterName := logicalcluster.From(apiExport)
@@ -153,8 +173,9 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			}
 
 			var claimedSchema *apisv1alpha1.APIResourceSchema
+			var claimedExport *apisv1alpha2.APIExport
 			for _, identity := range resolved {
-				claimedSchema, err = c.findClaimedSchema(klog.NewContext(ctx, logger), identity.IdentityHash, gr)
+				claimedSchema, claimedExport, err = c.findClaimedSchema(klog.NewContext(ctx, logger), identity.IdentityHash, gr)
 				if err != nil {
 					return err
 				}
@@ -170,6 +191,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			apiResourceSchemas[gr] = claimedSchema
 			claims[gr] = pc
 			identities[gr] = c.dynamicIdentities(apiExport, gr)
+			sources[gr] = subresourceSource{export: claimedExport, claimedVerbs: claimedSubresourceVerbs[gr]}
 			continue
 		}
 
@@ -214,7 +236,19 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				apiResourceSchemas[gr] = apiResourceSchema
 				identities[gr] = staticIdentities(pc.IdentityHash)
 				claims[gr] = pc
+				sources[gr] = subresourceSource{export: export, claimedVerbs: claimedSubresourceVerbs[gr]}
 			}
+		}
+	}
+
+	// A subresource is served under its parent, so a claim naming one whose
+	// parent is not served here builds nothing at all. That is a mistake in the
+	// APIExport rather than a state to wait for, and silence about it is exactly
+	// what makes the resulting 404 hard to place.
+	for parent, subresources := range claimedSubresourceVerbs {
+		if _, found := sources[parent]; !found {
+			logger.Info("custom subresources are claimed but the resource they hang off is not served by this APIExport",
+				"group", parent.Group, "resource", parent.Resource, "subresources", sets.List(sets.KeySet(subresources)))
 		}
 	}
 
@@ -234,11 +268,21 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				Resource: apiResourceSchema.Spec.Names.Plural,
 			}
 
+			// Custom subresources are declared on the APIExport, not on the
+			// schema, so they are resolved per version before the definition is
+			// reused: an export can add, drop or re-point one without the
+			// schema's UID changing.
+			var customSubresources []CustomSubresource
+			if source, found := sources[gvr.GroupResource()]; found {
+				customSubresources = c.customSubresourcesFrom(klog.NewContext(ctx, logger), source, gvr.GroupResource(), version.Name)
+			}
+			fingerprint := subresourcesFingerprint(customSubresources)
+
 			oldDef, found := oldSet[gvr]
 			if found {
 				oldDef := oldDef.(apiResourceSchemaApiDefinition)
-				if oldDef.UID == apiResourceSchema.UID && oldDef.IdentityHash == apiExport.Status.IdentityHash {
-					// this is the same schema and identity as before. no need to update.
+				if oldDef.UID == apiResourceSchema.UID && oldDef.IdentityHash == apiExport.Status.IdentityHash && oldDef.Subresources == fingerprint {
+					// this is the same schema, identity and subresource set as before. no need to update.
 					newSet[gvr] = oldDef
 					preservedGVR = append(preservedGVR, gvrString(gvr))
 					continue
@@ -263,8 +307,8 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				labelReqs = labels.Requirements{*req}
 			}
 
-			logger.Info("creating API definition", "gvr", gvr, "labels", labelReqs)
-			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs)
+			logger.Info("creating API definition", "gvr", gvr, "labels", labelReqs, "customSubresources", fingerprint)
+			apiDefinition, err := c.createAPIDefinition(apiResourceSchema, version.Name, identities[gvr.GroupResource()], labelReqs, customSubresources)
 			if err != nil {
 				// TODO(ncdc): would be nice to expose some sort of user-visible error
 				logger.Error(err, "error creating api definition", "gvr", gvr)
@@ -275,6 +319,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				APIDefinition: apiDefinition,
 				UID:           apiResourceSchema.UID,
 				IdentityHash:  apiExport.Status.IdentityHash,
+				Subresources:  fingerprint,
 			}
 			newGVRs = append(newGVRs, gvrString(gvr))
 		}
@@ -322,6 +367,111 @@ type apiResourceSchemaApiDefinition struct {
 
 	UID          types.UID
 	IdentityHash string
+
+	// Subresources fingerprints the custom subresources this definition was
+	// built with, which the schema's UID says nothing about.
+	Subresources string
+}
+
+// subresourceSource is where the custom subresources of one resource come from:
+// the APIExport declaring them, and what this virtual workspace's own APIExport
+// may reach of them.
+type subresourceSource struct {
+	// export declares the resource and any subresource entries under it.
+	export *apisv1alpha2.APIExport
+
+	// own says the resource is exported by this virtual workspace's own
+	// APIExport, in which case every subresource entry under it is served.
+	own bool
+
+	// claimedVerbs are the verbs claimed per subresource name, for a resource
+	// reached through a permission claim. A claim on the resource does not carry
+	// its subresources: each is claimed as its own entry, so that claiming a
+	// resource cannot pick up a verb the provider did not offer with it.
+	claimedVerbs map[string][]string
+}
+
+// allSubresourceVerbs are the verbs the export's own custom subresources may be
+// reached by. A subresource is not a collection, so list, watch and
+// deletecollection are not among them.
+var allSubresourceVerbs = []string{"create", "delete", "get", "patch", "update"}
+
+// customSubresourcesFrom returns the custom subresource entries served under
+// parent, resolved to the kind each entry's own APIResourceSchema declares.
+//
+// An entry is skipped, with a log line, when it is not reachable rather than not
+// yet ready: a claimed subresource that this APIExport does not claim, or one
+// whose schema has not arrived or serves no version. Skipping leaves the
+// subresource unserved, which is a 404 at the edge -- the log line is the only
+// thing that says why.
+func (c *APIReconciler) customSubresourcesFrom(ctx context.Context, source subresourceSource, parent schema.GroupResource, parentVersion string) []CustomSubresource {
+	logger := klog.FromContext(ctx)
+	if source.export == nil {
+		return nil
+	}
+	exportCluster := logicalcluster.From(source.export)
+
+	var subresources []CustomSubresource
+	for _, entry := range source.export.Spec.Resources {
+		if !entry.IsSubresource() {
+			continue
+		}
+		resource, subresource := entry.SplitName()
+		if entry.Group != parent.Group || resource != parent.Resource {
+			continue
+		}
+
+		logger := logger.WithValues("subresource", entry.Name, "schema", entry.Schema)
+
+		verbs := allSubresourceVerbs
+		if !source.own {
+			claimed, isClaimed := source.claimedVerbs[subresource]
+			if !isClaimed {
+				logger.V(4).Info("custom subresource of a claimed resource is not claimed itself")
+				continue
+			}
+			verbs = claimed
+		}
+
+		schemaForSubresource, err := c.apiResourceSchemaLister.Cluster(exportCluster).Get(entry.Schema)
+		if err != nil {
+			logger.V(3).Info("APIResourceSchema for custom subresource not available", "err", err.Error())
+			continue
+		}
+		kind, found := servedKind(schemaForSubresource, parentVersion)
+		if !found {
+			logger.V(3).Info("APIResourceSchema for custom subresource serves no version")
+			continue
+		}
+
+		subresources = append(subresources, CustomSubresource{
+			Name:  subresource,
+			Kind:  kind,
+			Verbs: verbs,
+		})
+	}
+
+	return subresources
+}
+
+// servedKind returns the kind a subresource schema speaks, preferring the
+// parent's version where the schema serves it so that a request and its
+// subresource agree on a version wherever they can.
+func servedKind(apiResourceSchema *apisv1alpha1.APIResourceSchema, preferredVersion string) (schema.GroupVersionKind, bool) {
+	gvk := schema.GroupVersionKind{Group: apiResourceSchema.Spec.Group, Kind: apiResourceSchema.Spec.Names.Kind}
+	for _, version := range apiResourceSchema.Spec.Versions {
+		if !version.Served {
+			continue
+		}
+		if version.Name == preferredVersion {
+			gvk.Version = version.Name
+			return gvk, true
+		}
+		if gvk.Version == "" {
+			gvk.Version = version.Name
+		}
+	}
+	return gvk, gvk.Version != ""
 }
 
 func gvrString(gvr schema.GroupVersionResource) string {
