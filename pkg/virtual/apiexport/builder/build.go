@@ -133,23 +133,14 @@ func BuildVirtualWorkspace(
 					return dynamicClient, nil
 				}
 
-				// Add a warrant of a fake local service account giving full access
-				warrant := validation.Warrant{
-					User:   "system:serviceaccount:default:rest",
-					Groups: []string{bootstrap.SystemKcpAdminGroup},
-					Extra: map[string][]string{
-						serviceaccount.ClusterNameKey: {cluster.Name.Path().String()},
-					},
-				}
-
-				bs, err := json.Marshal(warrant)
+				warrant, err := fullAccessWarrant(cluster.Name)
 				if err != nil {
-					return nil, fmt.Errorf("error marshaling warrant: %w", err)
+					return nil, err
 				}
 
 				// Impersonate the request user and add the warrant as an extra.
 				impersonationConfig := rest.CopyConfig(cfg)
-				impersonationConfig.Impersonate = newImpersonationConfig(user, string(bs))
+				impersonationConfig.Impersonate = newImpersonationConfig(user, warrant)
 				impersonatedClient, err := kcpdynamic.NewForConfig(impersonationConfig)
 				if err != nil {
 					return nil, fmt.Errorf("error generating dynamic client: %w", err)
@@ -157,12 +148,20 @@ func BuildVirtualWorkspace(
 				return impersonatedClient, nil
 			}
 
+			// A custom subresource is proxied to the shard rather than forwarded
+			// through a client, so it needs the shard's URL and a transport of
+			// its own rather than a dynamic client.
+			customSubresourceProxy, err := newShardProxy(cfg)
+			if err != nil {
+				return nil, err
+			}
+
 			apiReconciler, err := apireconciler.NewAPIReconciler(
 				kcpClusterClient,
 				cachedKcpInformers.Apis().V1alpha1().APIResourceSchemas(),
 				cachedKcpInformers.Apis().V1alpha2().APIExports(),
 				kcpInformers.Apis().V1alpha2().APIBindings(),
-				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identities forwardingregistry.IdentityHashesFunc, optionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error) {
+				func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identities forwardingregistry.IdentityHashesFunc, optionalLabelRequirements labels.Requirements, customSubresources []apireconciler.CustomSubresource) (apidefinition.APIDefinition, error) {
 					ctx, cancelFn := context.WithCancel(context.Background())
 
 					var wrapper forwardingregistry.StorageWrapper
@@ -172,7 +171,7 @@ func BuildVirtualWorkspace(
 						})
 					}
 
-					storageBuilder := provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identities, wrapper)
+					storageBuilder := provideDelegatingRestStorage(ctx, impersonatedDynamicClientGetter, identities, wrapper, customSubresources, customSubresourceProxy, fullAccessWarrant)
 					def, err := apiserver.CreateServingInfoFor(mainConfig, apiResourceSchema, version, storageBuilder)
 					if err != nil {
 						cancelFn()
@@ -320,6 +319,26 @@ type apiDefinitionWithCancel struct {
 func (d *apiDefinitionWithCancel) TearDown() {
 	d.cancelFn()
 	d.APIDefinition.TearDown()
+}
+
+// fullAccessWarrant is a warrant of a fake local service account giving full
+// access in cluster, which is what lets a request forwarded from here reach a
+// claimed resource in a consumer workspace: this virtual workspace has already
+// decided the caller may, and the shard has no other way to be told so.
+func fullAccessWarrant(cluster logicalcluster.Name) (string, error) {
+	warrant := validation.Warrant{
+		User:   "system:serviceaccount:default:rest",
+		Groups: []string{bootstrap.SystemKcpAdminGroup},
+		Extra: map[string][]string{
+			serviceaccount.ClusterNameKey: {cluster.Path().String()},
+		},
+	}
+
+	bs, err := json.Marshal(warrant)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling warrant: %w", err)
+	}
+	return string(bs), nil
 }
 
 // newImpersonationConfig builds a rest.ImpersonationConfig for the given user,
