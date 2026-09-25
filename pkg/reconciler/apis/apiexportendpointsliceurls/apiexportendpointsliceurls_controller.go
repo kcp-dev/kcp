@@ -125,8 +125,8 @@ func NewController(
 			})
 			return err
 		},
-		apiExportEndpointSliceClusterInformer:       apiExportEndpointSliceClusterInformer,
-		globalApiExportEndpointSliceClusterInformer: globalAPIExportEndpointSliceClusterInformer,
+		apiExportEndpointSliceIndexer:       apiExportEndpointSliceClusterInformer.Informer().GetIndexer(),
+		globalAPIExportEndpointSliceIndexer: globalAPIExportEndpointSliceClusterInformer.Informer().GetIndexer(),
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
@@ -183,71 +183,84 @@ type controller struct {
 	listAPIBindingsByAPIExport  func(apiexport *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	patchAPIExportEndpointSlice func(ctx context.Context, cluster logicalcluster.Path, patch *apisv1alpha1apply.APIExportEndpointSliceApplyConfiguration) error
 
-	apiExportEndpointSliceClusterInformer       apisv1alpha1informers.APIExportEndpointSliceClusterInformer
-	globalApiExportEndpointSliceClusterInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer
+	apiExportEndpointSliceIndexer       cache.Indexer
+	globalAPIExportEndpointSliceIndexer cache.Indexer
 }
 
 func (c *controller) enqueueAPIExportEndpointSliceByAPIBinding(binding *apisv1alpha2.APIBinding, logger logr.Logger) {
-	{ // local to shard
+	exportKeys := c.apiExportKeysForBinding(binding)
+
+	for _, source := range []struct {
+		indexer   cache.Indexer
+		logSuffix string
+	}{
+		{indexer: c.apiExportEndpointSliceIndexer, logSuffix: " because of APIBinding"},
+		{indexer: c.globalAPIExportEndpointSliceIndexer, logSuffix: " because of APIBinding from cache"},
+	} {
 		keys := sets.New[string]()
-		if path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path); !path.Empty() { // This is remote apibinding.
-			pathKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexers.APIExportEndpointSliceByAPIExport, path.Join(binding.Spec.Reference.Export.Name).String())
+		for _, exportKey := range exportKeys {
+			sliceKeys, err := source.indexer.IndexKeys(indexers.APIExportEndpointSliceByAPIExport, exportKey)
 			if err != nil {
 				utilruntime.HandleError(err)
 				return
 			}
-			keys.Insert(pathKeys...)
-		} else {
-			// This is local apibinding to the export. Meaning it has path set to empty string, so apiexport is in the same cluster as the binding.
-			// While our CLI does not allow this, it is possible to create such a binding via the API.
-			clusterKeys, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexers.APIExportEndpointSliceByAPIExport, logicalcluster.From(binding).Path().Join(binding.Spec.Reference.Export.Name).String())
-			if err != nil {
-				utilruntime.HandleError(err)
-				return
-			}
-			keys.Insert(clusterKeys...)
+			keys.Insert(sliceKeys...)
 		}
 
 		for _, key := range sets.List[string](keys) {
-			slice, exists, err := c.apiExportEndpointSliceClusterInformer.Informer().GetIndexer().GetByKey(key)
+			slice, exists, err := source.indexer.GetByKey(key)
 			if err != nil {
 				utilruntime.HandleError(err)
 				continue
 			} else if !exists {
 				continue
 			}
-			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](slice), logger, " because of APIBinding")
+			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](slice), logger, source.logSuffix)
 		}
 	}
-	{
-		keys := sets.New[string]()
-		if path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path); !path.Empty() {
-			pathKeys, err := c.globalApiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexers.APIExportEndpointSliceByAPIExport, path.Join(binding.Spec.Reference.Export.Name).String())
-			if err != nil {
-				utilruntime.HandleError(err)
-				return
-			}
-			keys.Insert(pathKeys...)
-		} else {
-			clusterKeys, err := c.globalApiExportEndpointSliceClusterInformer.Informer().GetIndexer().IndexKeys(indexers.APIExportEndpointSliceByAPIExport, logicalcluster.From(binding).Path().Join(binding.Spec.Reference.Export.Name).String())
-			if err != nil {
-				utilruntime.HandleError(err)
-				return
-			}
-			keys.Insert(clusterKeys...)
-		}
+}
 
-		for _, key := range sets.List[string](keys) {
-			slice, exists, err := c.globalApiExportEndpointSliceClusterInformer.Informer().GetIndexer().GetByKey(key)
-			if err != nil {
-				utilruntime.HandleError(err)
-				continue
-			} else if !exists {
-				continue
-			}
-			c.enqueueAPIExportEndpointSlice(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](slice), logger, "because of APIBinding from cache")
-		}
+// apiExportKeysForBinding returns every APIExportEndpointSliceByAPIExport index
+// value under which a slice for the binding's APIExport may be filed.
+//
+// A slice is indexed by the export reference it spells out and by its own
+// logical cluster. A slice that leaves spec.export.path empty (meaning "the
+// export in my own workspace") is therefore indexed only as
+// "<slice cluster name>:<export name>", while a binding usually references the
+// same export by its canonical path ("root:org:ws"). Looking the slice up only
+// by the binding's reference never matches it, so a shard whose first consumer
+// of such an export appears would never publish its URL. Resolving the export
+// and querying under both its canonical path and its logical cluster name makes
+// the lookup independent of how either side spells the reference — the same
+// pair of keys the reverse lookup (listAPIBindingsByAPIExport) already uses.
+func (c *controller) apiExportKeysForBinding(binding *apisv1alpha2.APIBinding) []string {
+	name := binding.Spec.Reference.Export.Name
+	path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
+	if path.Empty() {
+		// A local binding: the export lives in the binding's own logical cluster.
+		// Our CLI does not create these, but the API allows them.
+		path = logicalcluster.From(binding).Path()
 	}
+	keys := sets.New(path.Join(name).String())
+
+	export, err := c.getAPIExport(path, name)
+	if err != nil {
+		// Not replicated to this shard's cache yet, or already gone: the reference
+		// as written is all we have. This is not a lost event — the binding cannot
+		// become Bound here before the export is in this shard's cache, and that
+		// status update comes back through this handler with the export
+		// resolvable.
+		if !errors.IsNotFound(err) {
+			utilruntime.HandleError(err)
+		}
+		return sets.List(keys)
+	}
+
+	keys.Insert(logicalcluster.From(export).Path().Join(name).String())
+	if exportPath := logicalcluster.NewPath(export.Annotations[core.LogicalClusterPathAnnotationKey]); !exportPath.Empty() {
+		keys.Insert(exportPath.Join(name).String())
+	}
+	return sets.List(keys)
 }
 
 // enqueueAPIExportEndpointSlice enqueues an APIExportEndpointSlice.
