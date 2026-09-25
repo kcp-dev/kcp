@@ -237,13 +237,10 @@ def _tls_route(name, hostname, service, port, cfg):
 
 
 def _kubeconfig(cfg, name, target):
-    groups = ["system:masters"]
-    if name in ("root", "frontproxy"):
-        # The front-proxy drops system:masters on ingress (see
-        # pkg/proxy/options/authentication.go DropGroups), so the admin
-        # kubeconfig that goes through it must carry system:kcp:admin
-        # or it arrives at the shard with no privileged groups at all.
-        groups.append("system:kcp:admin")
+    if name == "frontproxy":
+        groups = ["system:kcp:admin"]
+    else:
+        groups = ["system:masters"]
     return {
         "apiVersion": "operator.kcp.io/v1alpha1",
         "kind": "Kubeconfig",
