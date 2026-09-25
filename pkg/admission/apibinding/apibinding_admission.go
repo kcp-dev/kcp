@@ -22,10 +22,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -44,6 +46,7 @@ import (
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 )
 
 const (
@@ -248,6 +251,10 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 	exportPath := ab.BindingReference().ExportPath()
 	exportName := ab.BindingReference().ExportName()
 
+	if err := o.validateReplicatedResourceClaims(ab, clusterName, exportPath, exportName); err != nil {
+		return admission.NewForbidden(a, err)
+	}
+
 	switch {
 	case a.GetOperation() == admission.Create,
 		a.GetOperation() == admission.Update && !ab.BindingReference().DeepEqual(oldAPIBinding.BindingReference()),
@@ -292,6 +299,65 @@ func (o *apiBindingAdmission) Validate(ctx context.Context, a admission.Attribut
 		}
 	}
 
+	return nil
+}
+
+// validateReplicatedResourceClaims refuses a permission claim that narrows by
+// label a resource the producing APIExport serves from a ClusterCachedResource.
+//
+// Such a resource is one read-only copy replicated to every consumer, so there is
+// no per-consumer object to carry the claim label a selector is enforced through.
+// The APIExport virtual workspace consequently serves these claims without a
+// label requirement, which is only sound while the claim asks for every object.
+// Accepting a narrowed claim would mean serving it as though it had asked for
+// everything, so it is refused where the author can still see why.
+//
+// A claim on a resource whose producer this shard cannot resolve is left alone:
+// that is either a binding whose export is unreadable, which the access check
+// below reports, or an informer that has not caught up, and neither should
+// surface here as an invalid selector.
+func (o *apiBindingAdmission) validateReplicatedResourceClaims(ab apiBinding, clusterName logicalcluster.Name, exportPath, exportName string) error {
+	// Only v1alpha2 claims carry a selector, and a claim is only narrowed when it
+	// sets one instead of matchAll.
+	v2, ok := ab.(*apiBindingV1alpha2)
+	if !ok || exportName == "" {
+		return nil
+	}
+	narrowed := func(claim apisv1alpha2.AcceptablePermissionClaim) bool {
+		return !claim.Selector.MatchAll &&
+			(len(claim.Selector.MatchLabels) > 0 || len(claim.Selector.MatchExpressions) > 0)
+	}
+	if !slices.ContainsFunc(v2.binding.Spec.PermissionClaims, narrowed) {
+		return nil
+	}
+
+	path := logicalcluster.NewPath(exportPath)
+	if path.Empty() {
+		path = clusterName.Path()
+	}
+	export, err := o.getAPIExport(path, exportName)
+	if err != nil {
+		return nil
+	}
+
+	var errs field.ErrorList
+	for i, claim := range v2.binding.Spec.PermissionClaims {
+		if !narrowed(claim) {
+			continue
+		}
+		gr := schema.GroupResource{Group: claim.Group, Resource: claim.Resource}
+		if !permissionclaim.ServedFromClusterCachedResource(export, gr) {
+			continue
+		}
+		errs = append(errs, field.Invalid(
+			field.NewPath("spec", "permissionClaims").Index(i).Child("selector"),
+			claim.Selector,
+			fmt.Sprintf("%s is served from a ClusterCachedResource -- one read-only copy shared by every consumer -- so a per-object selector cannot be applied to it; claim it with matchAll or not at all", gr),
+		))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%v", errs)
+	}
 	return nil
 }
 
