@@ -67,13 +67,47 @@ load('./kcp_static.Tiltfile', 'deploy_kcp')
 # include this Tiltfile. Empty string → operator defaults / no token auth.
 #   KCP_IMAGE_REPO override is for images outside the operator's default repo,
 #   e.g. PR builds in ghcr.io/kcp-dev/kcp-prs.
+#
+# Optional OIDC, enabled by setting KCP_OIDC_ISSUER_URL: the operator then
+# configures the shards and the front-proxy to validate that issuer's JWTs
+# (usernames arrive prefixed "oidc:" unless the issuer config says otherwise).
+#   KCP_OIDC_CLIENT_ID       client id (default "kcp")
+#   KCP_OIDC_CA_SECRET       secret (key ca.crt, same namespace) holding the
+#                            issuer's CA, for self-signed issuers
+#   KCP_OIDC_USERNAME_CLAIM  claim usernames come from (operator default: sub)
+#   KCP_OIDC_GROUPS_CLAIM    claim groups come from
+#   KCP_EXTRA_HOSTNAMES      extra comma-separated hostnames the kcp pods
+#                            resolve to the gateway, e.g. an in-cluster
+#                            issuer's hostname (dex.kcp.localhost)
+oidc = None
+if os.getenv('KCP_OIDC_ISSUER_URL', ''):
+    oidc = {
+        'issuerURL': os.getenv('KCP_OIDC_ISSUER_URL'),
+        'clientID': os.getenv('KCP_OIDC_CLIENT_ID', 'kcp'),
+    }
+    if os.getenv('KCP_OIDC_USERNAME_CLAIM', ''):
+        oidc['usernameClaim'] = os.getenv('KCP_OIDC_USERNAME_CLAIM')
+    if os.getenv('KCP_OIDC_GROUPS_CLAIM', ''):
+        oidc['groupsClaim'] = os.getenv('KCP_OIDC_GROUPS_CLAIM')
+    if os.getenv('KCP_OIDC_CA_SECRET', ''):
+        # The key is documented to default to ca.crt but is not defaulted in
+        # the CRD, and the operator renders it verbatim into --oidc-ca-file.
+        oidc['caFileRef'] = {'name': os.getenv('KCP_OIDC_CA_SECRET'), 'key': 'ca.crt'}
+
+# The default hostname list deploy_kcp() would compute for this base domain
+# and shard set, plus whatever the caller needs resolved from inside the pods.
+hostnames = ['kcp.localhost', 'root.kcp.localhost', 'theseus.kcp.localhost']
+hostnames += [h for h in os.getenv('KCP_EXTRA_HOSTNAMES', '').split(',') if h]
+
 deploy_kcp(
     base_domain='kcp.localhost',
     extra_shards=['theseus'],
+    hostnames=hostnames,
     image_repo=os.getenv('KCP_IMAGE_REPO', ''),
     image_tag=os.getenv('KCP_IMAGE_TAG', ''),
     token_auth_secret=os.getenv('KCP_TOKEN_AUTH_SECRET', None) or None,
     token_auth_key=os.getenv('KCP_TOKEN_AUTH_KEY', None) or None,
+    oidc=oidc,
 )
 
 # Portal (contrib-dashboard) — a web UI for kcp workspaces/APIExports served in

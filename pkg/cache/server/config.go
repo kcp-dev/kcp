@@ -104,14 +104,22 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		c.EmbeddedEtcd.LogLevel = "error"
 	}
 
-	// Default cache storage prefix to /cache to discern from root shard.
-	// If the prefix is not the default value `--etcd-prefix` was passed and must be honoured.
+	// The cache server must never share a storage prefix with a shard: its
+	// keys are <shard>/<cluster>/<name> where a shard's are <cluster>/<name>,
+	// so co-located keyspaces interleave — shard rows break cache lists
+	// ("had 2 parts, wanted 3") and the poisoned indexes duplicate objects
+	// per path ("multiple apiexports found"). Default the prefix to /cache,
+	// and when `--etcd-prefix` was passed (an embedded cache inherits the
+	// shard's etcd options verbatim), honour it as the base but still
+	// discern the cache with a /cache suffix.
 	//
 	// It boils down to the following on the storage level:
 	// for listing across shard:  /<prefix>/<group>/<resource>:<identity>/*
 	// for listing for one shard: /<prefix>/<group>/<resource>:<identity>/<shard>/*
 	if opts.Etcd.StorageConfig.Prefix == kubeoptions.DefaultEtcdPathPrefix {
 		opts.Etcd.StorageConfig.Prefix = "/cache"
+	} else if !strings.HasSuffix(opts.Etcd.StorageConfig.Prefix, "/cache") {
+		opts.Etcd.StorageConfig.Prefix = strings.TrimSuffix(opts.Etcd.StorageConfig.Prefix, "/") + "/cache"
 	}
 
 	serverConfig := genericapiserver.NewRecommendedConfig(apiextensionsapiserver.Codecs)
