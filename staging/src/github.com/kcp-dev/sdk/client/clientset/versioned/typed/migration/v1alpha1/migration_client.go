@@ -29,6 +29,7 @@ import (
 
 type MigrationV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	APIExportIdentityRotationsGetter
 	LogicalClusterDumpsGetter
 	LogicalClusterMigrationsGetter
 }
@@ -36,6 +37,10 @@ type MigrationV1alpha1Interface interface {
 // MigrationV1alpha1Client is used to interact with features provided by the migration.kcp.io group.
 type MigrationV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *MigrationV1alpha1Client) APIExportIdentityRotations() APIExportIdentityRotationInterface {
+	return newAPIExportIdentityRotations(c)
 }
 
 func (c *MigrationV1alpha1Client) LogicalClusterDumps() LogicalClusterDumpInterface {
