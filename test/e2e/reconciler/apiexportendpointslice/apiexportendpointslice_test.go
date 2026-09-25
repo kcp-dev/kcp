@@ -226,41 +226,36 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	t.Logf("Create a consumer workspaces - one per shard")
-	var bindShardname string
-	{
-		for _, shard := range shards.Items {
-			if bindShardname == "" { // bind to the first shard only
-				bindShardname = shard.Name
-			}
-			if bindShardname != shard.Name {
-				continue
-			}
-			consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-bound-against-%s", shard.Name), kcptesting.WithShard(shard.Name))
-
-			t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerPath, providerPath)
-			apiBinding := &apisv1alpha2.APIBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cowboys",
-				},
-				Spec: apisv1alpha2.APIBindingSpec{
-					Reference: apisv1alpha2.BindingReference{
-						Export: &apisv1alpha2.ExportBindingReference{
-							Path: providerPath.String(),
-							Name: "today-cowboys",
-						},
+	bindAPIExport := func(consumerPath logicalcluster.Path) {
+		t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerPath, providerPath)
+		apiBinding := &apisv1alpha2.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cowboys",
+			},
+			Spec: apisv1alpha2.APIBindingSpec{
+				Reference: apisv1alpha2.BindingReference{
+					Export: &apisv1alpha2.ExportBindingReference{
+						Path: providerPath.String(),
+						Name: "today-cowboys",
 					},
 				},
-			}
-
-			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
-			require.NoError(t, err, "failed to construct kcp cluster client for server")
-
-			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
-				return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
-			}, wait.ForeverTestTimeout, time.Millisecond*100)
+			},
 		}
+		kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+		require.NoError(t, err, "failed to construct kcp cluster client for server")
+		kcptestinghelpers.Eventually(t, func() (bool, string) {
+			_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
+			return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
+		}, wait.ForeverTestTimeout, time.Millisecond*100)
+	}
+
+	t.Logf("Create a consumer workspace on the first shard (before the AEES exists)")
+	var consumerPaths []logicalcluster.Path
+	{
+		shard := shards.Items[0]
+		consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-bound-against-%s", shard.Name), kcptesting.WithShard(shard.Name))
+		consumerPaths = append(consumerPaths, consumerPath)
+		bindAPIExport(consumerPath)
 	}
 
 	t.Logf("Create a topology PartitionSet for the providers")
@@ -313,7 +308,7 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 		}, metav1.CreateOptions{})
 		require.NoError(t, err)
 
-		// we should have 1 APIExportEndpointSlice with 1 APIExportEndpoint as we bound only once.
+		// The pre-existing binding on the first shard should surface immediately.
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			slice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "shared-cowboys", metav1.GetOptions{})
 			if len(slice.Status.APIExportEndpoints) == 1 {
@@ -323,66 +318,43 @@ func TestAPIBindingEndpointSlicesSharded(t *testing.T) {
 		}, wait.ForeverTestTimeout*50, time.Millisecond*500)
 	}
 
-	t.Logf("Create consumer on second shard and observe APIExportEndpointSlice to have second url added")
-	var consumerPath logicalcluster.Path
+	t.Logf("Create consumers on all remaining shards and observe APIExportEndpointSlice URLs added")
 	{
-		for _, shard := range shards.Items {
-			if bindShardname == shard.Name {
-				continue
-			}
-			consumerPath, _ = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-bound-against-%s", shard.Name), kcptesting.WithShard(shard.Name))
-
-			t.Logf("Create an APIBinding in %q that points to the today-cowboys export from %q", consumerPath, providerPath)
-			apiBinding := &apisv1alpha2.APIBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "cowboys",
-				},
-				Spec: apisv1alpha2.APIBindingSpec{
-					Reference: apisv1alpha2.BindingReference{
-						Export: &apisv1alpha2.ExportBindingReference{
-							Path: providerPath.String(),
-							Name: "today-cowboys",
-						},
-					},
-				},
-			}
-
-			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
-			require.NoError(t, err, "failed to construct kcp cluster client for server")
-
-			kcptestinghelpers.Eventually(t, func() (bool, string) {
-				_, err = kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Create(t.Context(), apiBinding, metav1.CreateOptions{})
-				return err == nil, fmt.Sprintf("Error creating APIBinding: %v", err)
-			}, wait.ForeverTestTimeout, time.Millisecond*500)
+		for _, shard := range shards.Items[1:] {
+			consumerPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-bound-against-%s", shard.Name), kcptesting.WithShard(shard.Name))
+			consumerPaths = append(consumerPaths, consumerPath)
+			bindAPIExport(consumerPath)
 		}
 	}
 
-	t.Logf("Check that APIExportEndpointSlices has 2 virtual workspaces")
+	t.Logf("Check that APIExportEndpointSlice has %d virtual workspaces (one per shard)", len(shards.Items))
 	{
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 			require.NoError(t, err, "failed to construct kcp cluster client for server")
 
 			slice, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), "shared-cowboys", metav1.GetOptions{})
-			if len(slice.Status.APIExportEndpoints) == 2 {
+			if len(slice.Status.APIExportEndpoints) == len(shards.Items) {
 				return true, ""
 			}
-			return false, fmt.Sprintf("APIExportEndpointSlice has %d endpoints: %v", len(slice.Status.APIExportEndpoints), err)
+			return false, fmt.Sprintf("APIExportEndpointSlice has %d endpoints (want %d): %v", len(slice.Status.APIExportEndpoints), len(shards.Items), err)
 		}, wait.ForeverTestTimeout*50, time.Millisecond*500)
 	}
 
-	t.Logf("Delete consumer on second shard and observe APIExportEndpointSlice to have second url removed")
+	t.Logf("Delete consumers on all but the first shard and observe their endpoints removed")
 	{
 		kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
 		require.NoError(t, err, "failed to construct kcp cluster client for server")
 
-		kcptestinghelpers.Eventually(t, func() (bool, string) {
-			err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Delete(t.Context(), "cowboys", metav1.DeleteOptions{})
-			return err == nil, fmt.Sprintf("Error deleting APIBinding: %v", err)
-		}, wait.ForeverTestTimeout, time.Millisecond*500)
+		for _, consumerPath := range consumerPaths[1:] {
+			kcptestinghelpers.Eventually(t, func() (bool, string) {
+				err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Delete(t.Context(), "cowboys", metav1.DeleteOptions{})
+				return err == nil, fmt.Sprintf("Error deleting APIBinding: %v", err)
+			}, wait.ForeverTestTimeout, time.Millisecond*500)
+		}
 	}
 
-	t.Logf("Check that APIExportEndpointSlices has 1 virtual workspaces")
+	t.Logf("Check that APIExportEndpointSlice has 1 virtual workspace (first shard consumer remains)")
 	{
 		kcptestinghelpers.Eventually(t, func() (bool, string) {
 			kcpClusterClient, err := kcpclientset.NewForConfig(cfg)

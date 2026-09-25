@@ -185,11 +185,9 @@ func TestAPIBinding(t *testing.T) {
 	provider1ClusterName := logicalcluster.Name(provider1.Spec.Cluster)
 	provider2ClusterName := logicalcluster.Name(provider2.Spec.Cluster)
 
-	consumer1Path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-1-bound-against-1"))
-	var consumer2Path, consumer3Path logicalcluster.Path
-	var consumer3Workspace *tenancyv1alpha1.Workspace
-	consumer2Path, _ = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-2-bound-against-1"))
-	consumer3Path, consumer3Workspace = kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-3-bound-against-2"))
+	consumer1Path, consumer1Workspace := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-1-bound-against-1"))
+	consumer2Path, consumer2Workspace := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-2-bound-against-1"))
+	consumer3Path, consumer3Workspace := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithName("consumer-3-bound-against-2"))
 	consumer3ClusterName := logicalcluster.Name(consumer3Workspace.Spec.Cluster)
 
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
@@ -198,27 +196,43 @@ func TestAPIBinding(t *testing.T) {
 	dynamicClusterClient, err := kcpdynamic.NewForConfig(cfg)
 	require.NoError(t, err, "failed to construct dynamic cluster client for server")
 
-	shardVirtualWorkspaceURLs := sets.New[string]()
-	t.Logf("Getting a list of VirtualWorkspaceURLs assigned to Shards")
-	// Filtering out shards that are not schedulable
-	var shardItems []corev1alpha1.Shard
-	for _, s := range shards.Items {
-		if _, ok := s.Annotations["experimental.core.kcp.io/unschedulable"]; !ok {
-			shardItems = append(shardItems, s)
+	consumerShards := func(workspaces []*tenancyv1alpha1.Workspace) sets.Set[string] {
+		wsShards := sets.New[string]()
+		for _, w := range workspaces {
+			wsShards.Insert(w.Annotations["core.kcp.io/shard"])
 		}
+		return wsShards
 	}
-	require.Eventually(t, func() bool {
-		for _, s := range shardItems {
-			if _, ok := s.Annotations["experimental.core.kcp.io/unschedulable"]; !ok {
-				if len(s.Spec.VirtualWorkspaceURL) == 0 {
-					t.Logf("%q shard hasn't had assigned a virtual workspace URL", s.Name)
-					return false
-				}
-				shardVirtualWorkspaceURLs.Insert(s.Spec.VirtualWorkspaceURL)
+	provider1ConsumerShards := consumerShards([]*tenancyv1alpha1.Workspace{consumer1Workspace, consumer2Workspace})
+	// consumer1 and consumer2 also appear here because bindConsumerToProvider creates a cowboys2 binding
+	// pointing to provider2 for each of them (to exercise the naming-conflict path). Even though those
+	// bindings are in conflict state, they still register their shards as consumers in provider2's AEES.
+	provider2ConsumerShards := consumerShards([]*tenancyv1alpha1.Workspace{consumer1Workspace, consumer2Workspace, consumer3Workspace})
+
+	shardVirtualWorkspaceURLs := func(consumerShards sets.Set[string]) sets.Set[string] {
+		urls := sets.New[string]()
+		for _, s := range shards.Items {
+			if !consumerShards.Has(s.Name) {
+				continue
+			}
+			urls.Insert(s.Spec.VirtualWorkspaceURL)
+		}
+		return urls
+	}
+	provider1ShardVirtualWorkspaceURLs := shardVirtualWorkspaceURLs(provider1ConsumerShards)
+	provider2ShardVirtualWorkspaceURLs := shardVirtualWorkspaceURLs(provider2ConsumerShards)
+
+	shardItems := func(shardNames sets.Set[string]) []corev1alpha1.Shard {
+		var items []corev1alpha1.Shard
+		for _, s := range shards.Items {
+			if shardNames.Has(s.Name) {
+				items = append(items, s)
 			}
 		}
-		return true
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected all Shards to have a VirtualWorkspaceURL assigned")
+		return items
+	}
+	provider1ShardItems := shardItems(provider1ConsumerShards)
+	provider2ShardItems := shardItems(provider2ConsumerShards)
 
 	exportName := "today-cowboys"
 	serviceProviderWorkspaces := []logicalcluster.Path{provider1Path, provider2Path}
@@ -367,7 +381,7 @@ func TestAPIBinding(t *testing.T) {
 		}, kcptestinghelpers.IsNot(apisv1alpha2.InitialBindingCompleted).WithReason(apisv1alpha2.NamingConflictsReason), "expected naming conflict")
 	}
 
-	verifyVirtualWorkspaceURLs := func(serviceProviderClusterName logicalcluster.Name) {
+	verifyVirtualWorkspaceURLs := func(serviceProviderClusterName logicalcluster.Name, shardVirtualWorkspaceURLs sets.Set[string]) {
 		expectedURLs := make([]string, 0, len(shardVirtualWorkspaceURLs))
 		for _, urlString := range sets.List[string](shardVirtualWorkspaceURLs) {
 			u, err := url.Parse(urlString)
@@ -404,15 +418,15 @@ func TestAPIBinding(t *testing.T) {
 	for _, consumerWorkspace := range consumersOfServiceProvider1 {
 		bindConsumerToProvider(consumerWorkspace, provider1Path)
 	}
-	verifyVirtualWorkspaceURLs(provider1ClusterName)
+	verifyVirtualWorkspaceURLs(provider1ClusterName, provider1ShardVirtualWorkspaceURLs)
 
 	t.Logf("=== Binding %q to %q", consumer3Path, provider2Path)
 	bindConsumerToProvider(consumer3Path, provider2Path)
-	verifyVirtualWorkspaceURLs(provider2ClusterName)
+	verifyVirtualWorkspaceURLs(provider2ClusterName, provider2ShardVirtualWorkspaceURLs)
 
 	t.Logf("=== Testing identity wildcards")
 
-	verifyWildcardList := func(consumerWorkspace logicalcluster.Path, expectedItems int) {
+	verifyWildcardList := func(consumerWorkspace logicalcluster.Path, expectedItems int, shardItems []corev1alpha1.Shard) {
 		t.Logf("Get APIBinding for workspace %s", consumerWorkspace.String())
 		apiBinding, err := kcpClusterClient.Cluster(consumerWorkspace).ApisV1alpha2().APIBindings().Get(t.Context(), "cowboys", metav1.GetOptions{})
 		require.NoError(t, err, "error getting apibinding")
@@ -442,11 +456,11 @@ func TestAPIBinding(t *testing.T) {
 
 	for _, consumerWorkspace := range consumersOfServiceProvider1 {
 		t.Logf("Verify %q bound to service provider 1 (%q) wildcard list works", consumerWorkspace, provider1Path)
-		verifyWildcardList(consumerWorkspace, 2)
+		verifyWildcardList(consumerWorkspace, 2, provider1ShardItems)
 	}
 
 	t.Logf("=== Verify that in %q (bound to %q) wildcard list works", consumer3Path, provider2Path)
-	verifyWildcardList(consumer3Path, 1)
+	verifyWildcardList(consumer3Path, 1, provider2ShardItems)
 
 	t.Logf("=== Verify that %s|%s export virtual workspace shows cowboys", provider2Path, exportName)
 	rawConfig, err := server.RawConfig()
