@@ -229,6 +229,9 @@ func provideDelegatingRestStorage(
 				namespaceScoped,
 				identities,
 				warrant,
+				// The parent's own getter, so that a claim's selector decides
+				// which objects the subresource may be reached on.
+				storage.GetterFunc.Get,
 				customSubresourceProxy,
 			)
 		}
