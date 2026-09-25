@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -131,6 +132,10 @@ type customSubresourceStorage struct {
 	// workspace.
 	warrant func(cluster logicalcluster.Name) (string, error)
 
+	// parentGet reads the object the subresource hangs off, through the same
+	// storage that serves the parent -- label selector and all. See gateOnParent.
+	parentGet func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error)
+
 	proxy *shardProxy
 }
 
@@ -145,6 +150,7 @@ func newCustomSubresourceStorage(
 	namespaceScoped bool,
 	identities forwardingregistry.IdentityHashesFunc,
 	warrant func(cluster logicalcluster.Name) (string, error),
+	parentGet func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error),
 	proxy *shardProxy,
 ) *customSubresourceStorage {
 	methods := sets.New[string]()
@@ -168,6 +174,7 @@ func newCustomSubresourceStorage(
 		methods:         sets.List(methods), // sorted, so discovery does not change between identical builds
 		identities:      identities,
 		warrant:         warrant,
+		parentGet:       parentGet,
 		proxy:           proxy,
 	}
 }
@@ -207,6 +214,10 @@ func (s *customSubresourceStorage) Connect(ctx context.Context, name string, _ r
 		return nil, apierrors.NewInternalError(errors.New("no user in context"))
 	}
 
+	if err := s.gateOnParent(ctx, name); err != nil {
+		return nil, err
+	}
+
 	warrant, err := s.warrant(cluster.Name)
 	if err != nil {
 		return nil, apierrors.NewInternalError(err)
@@ -223,6 +234,28 @@ func (s *customSubresourceStorage) Connect(ctx context.Context, name string, _ r
 
 		responder: responder,
 	}, nil
+}
+
+// gateOnParent refuses the request unless the object the subresource hangs off is
+// one this virtual workspace would serve.
+//
+// Being allowed to reach a subresource is not the same as being allowed to reach
+// it on any object. A permission claim may carry a selector, and the parent
+// storage applies it as a label requirement, so the set of objects a claimer may
+// touch is decided there and nowhere else. Reading the parent through that same
+// storage is what borrows the decision: an object the selector excludes reads as
+// not found, and so does its subresource.
+//
+// This costs one round trip per call, which is what the built-in subresources
+// pay for the same guarantee.
+func (s *customSubresourceStorage) gateOnParent(ctx context.Context, name string) error {
+	if s.parentGet == nil {
+		return apierrors.NewInternalError(errors.New("no parent storage to authorize the subresource against"))
+	}
+	if _, err := s.parentGet(ctx, name, &metav1.GetOptions{}); err != nil {
+		return err
+	}
+	return nil
 }
 
 // targetPath is where the subresource lives on the shard.
