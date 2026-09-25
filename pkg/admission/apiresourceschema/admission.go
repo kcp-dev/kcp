@@ -21,11 +21,23 @@ import (
 	"fmt"
 	"io"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/endpoints/request"
 
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
+	apisv1alpha2listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha2"
+
+	"github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 )
 
 const (
@@ -43,10 +55,42 @@ func Register(plugins *admission.Plugins) {
 
 type apiResourceSchemaValidation struct {
 	*admission.Handler
+
+	hasSynced       func() bool
+	apiExportLister apisv1alpha2listers.APIExportClusterLister
+	historyLister   apisv1alpha2listers.APIExportHistoryClusterLister
 }
 
 // Ensure that the required admission interfaces are implemented.
 var _ = admission.ValidationInterface(&apiResourceSchemaValidation{})
+var _ = admission.InitializationValidator(&apiResourceSchemaValidation{})
+var _ = initializers.WantsKcpInformers(&apiResourceSchemaValidation{})
+
+// SetKcpInformers implements initializers.WantsKcpInformers.
+func (o *apiResourceSchemaValidation) SetKcpInformers(local, _ kcpinformers.SharedInformerFactory) {
+	apiExports := local.Apis().V1alpha2().APIExports()
+	histories := local.Apis().V1alpha2().APIExportHistories()
+
+	o.hasSynced = func() bool {
+		return apiExports.Informer().HasSynced() && histories.Informer().HasSynced()
+	}
+	o.apiExportLister = apiExports.Lister()
+	o.historyLister = histories.Lister()
+}
+
+// ValidateInitialization implements admission.InitializationValidator.
+func (o *apiResourceSchemaValidation) ValidateInitialization() error {
+	if o.apiExportLister == nil {
+		return fmt.Errorf(PluginName + " plugin needs an APIExport lister")
+	}
+	if o.historyLister == nil {
+		return fmt.Errorf(PluginName + " plugin needs an APIExportHistory lister")
+	}
+	if o.hasSynced == nil {
+		return fmt.Errorf(PluginName + " plugin needs an informer sync check")
+	}
+	return nil
+}
 
 // Validate does validation of a APIResourceSchema for create and update.
 func (o *apiResourceSchemaValidation) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
@@ -71,6 +115,10 @@ func (o *apiResourceSchemaValidation) Validate(ctx context.Context, a admission.
 			return admission.NewForbidden(a, fmt.Errorf("%v", errs))
 		}
 
+		if err := o.validateHistory(ctx, a, schema); err != nil {
+			return err
+		}
+
 	case admission.Update:
 		u, ok = a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
@@ -87,4 +135,79 @@ func (o *apiResourceSchemaValidation) Validate(ctx context.Context, a admission.
 	}
 
 	return nil
+}
+
+// validateHistory rejects a schema that changes the scope of a group resource an
+// APIExport referencing it has served before.
+func (o *apiResourceSchemaValidation) validateHistory(ctx context.Context, a admission.Attributes, schema *apisv1alpha1.APIResourceSchema) error {
+	// Do not wait for the informers here: the system APIResourceSchemas are written
+	// while bootstrapping, before the kcp informers this plugin needs are started.
+	// Only those privileged writes are exempt, everybody else fails closed.
+	if o.hasSynced == nil {
+		return nil
+	}
+	if !o.hasSynced() {
+		if isSystemPrivileged(a) {
+			return nil
+		}
+		return admission.NewForbidden(a, fmt.Errorf("not yet ready to handle request"))
+	}
+
+	clusterName, err := request.ClusterNameFrom(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve cluster from context: %w", err)
+	}
+
+	apiExports, err := o.apiExportLister.Cluster(clusterName).List(labels.Everything())
+	if err != nil {
+		return fmt.Errorf("failed to list APIExports: %w", err)
+	}
+
+	for _, apiExport := range apiExports {
+		if !referencesSchema(apiExport, schema.Name) {
+			continue
+		}
+
+		history, err := o.historyLister.Cluster(apibinding.SystemBoundCRDsClusterName).Get(string(apiExport.UID))
+		if apierrors.IsNotFound(err) {
+			continue
+		} else if err != nil {
+			return fmt.Errorf("failed to get scope history for APIExport %s: %w", apiExport.Name, err)
+		}
+
+		for _, resource := range history.Status.Resources {
+			if resource.Group != schema.Spec.Group || resource.Resource != schema.Spec.Names.Plural {
+				continue
+			}
+			if resource.Scope == schema.Spec.Scope {
+				continue
+			}
+
+			return admission.NewForbidden(a, field.Invalid(
+				field.NewPath("spec").Child("scope"),
+				schema.Spec.Scope,
+				fmt.Sprintf("%s.%s has been served with scope %q by APIExport %s, it cannot be served with scope %q; "+
+					"use a different group resource or a new APIExport instead",
+					schema.Spec.Names.Plural, schema.Spec.Group, resource.Scope, apiExport.Name, schema.Spec.Scope)))
+		}
+	}
+
+	return nil
+}
+
+func referencesSchema(apiExport *apisv1alpha2.APIExport, name string) bool {
+	for _, resource := range apiExport.Spec.Resources {
+		if resource.Schema == name {
+			return true
+		}
+	}
+	return false
+}
+
+func isSystemPrivileged(a admission.Attributes) bool {
+	u := a.GetUserInfo()
+	if u == nil {
+		return false
+	}
+	return sets.New(u.GetGroups()...).Has(kuser.SystemPrivilegedGroup)
 }

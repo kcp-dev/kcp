@@ -76,6 +76,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexportendpointslice"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexportendpointsliceurls"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexporthistory"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/crdcleanup"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/extraannotationsync"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
@@ -1167,6 +1168,40 @@ func (s *Server) installCRDCleanupController(ctx context.Context, config *rest.C
 	})
 }
 
+func (s *Server) installAPIExportHistoryController(ctx context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, apiexporthistory.ControllerName)
+
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	c, err := apiexporthistory.NewController(
+		kcpClusterClient,
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExportHistories(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: apiexporthistory.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExportHistories().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
 func (s *Server) installLogicalClusterCleanupController(ctx context.Context, config *rest.Config) error {
 	config = rest.CopyConfig(config)
 	config = rest.AddUserAgent(config, logicalclustercleanup.ControllerName)
@@ -2215,6 +2250,10 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 	)
 	apiexport.InstallIndexers(
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports())
+	apiexporthistory.InstallIndexers(
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExportHistories(),
+	)
 	apiexportendpointslice.InstallIndexers(
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),

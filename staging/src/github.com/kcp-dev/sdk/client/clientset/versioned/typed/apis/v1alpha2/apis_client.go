@@ -31,6 +31,7 @@ type ApisV1alpha2Interface interface {
 	RESTClient() rest.Interface
 	APIBindingsGetter
 	APIExportsGetter
+	APIExportHistoriesGetter
 }
 
 // ApisV1alpha2Client is used to interact with features provided by the apis.kcp.io group.
@@ -44,6 +45,10 @@ func (c *ApisV1alpha2Client) APIBindings() APIBindingInterface {
 
 func (c *ApisV1alpha2Client) APIExports() APIExportInterface {
 	return newAPIExports(c)
+}
+
+func (c *ApisV1alpha2Client) APIExportHistories() APIExportHistoryInterface {
+	return newAPIExportHistories(c)
 }
 
 // NewForConfig creates a new ApisV1alpha2Client for the given config.

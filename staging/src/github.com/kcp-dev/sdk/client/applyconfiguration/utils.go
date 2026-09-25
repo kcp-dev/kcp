@@ -122,6 +122,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha2.APIBindingStatusApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("APIExport"):
 		return &apisv1alpha2.APIExportApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("APIExportHistory"):
+		return &apisv1alpha2.APIExportHistoryApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("APIExportHistoryRef"):
+		return &apisv1alpha2.APIExportHistoryRefApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("APIExportHistorySpec"):
+		return &apisv1alpha2.APIExportHistorySpecApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("APIExportHistoryStatus"):
+		return &apisv1alpha2.APIExportHistoryStatusApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("APIExportSpec"):
 		return &apisv1alpha2.APIExportSpecApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("APIExportStatus"):
@@ -144,6 +152,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha2.PermissionClaimApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("PermissionClaimSelector"):
 		return &apisv1alpha2.PermissionClaimSelectorApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResourceHistory"):
+		return &apisv1alpha2.ResourceHistoryApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchema"):
 		return &apisv1alpha2.ResourceSchemaApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchemaStorage"):
