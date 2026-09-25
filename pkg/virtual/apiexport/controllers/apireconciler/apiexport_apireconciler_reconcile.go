@@ -41,6 +41,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	"github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas"
 	apiexportbuiltin "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 )
@@ -290,21 +291,43 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			}
 
 			var labelReqs labels.Requirements
-			if c, ok := claims[gvr.GroupResource()]; ok {
-				key, label, err := permissionclaims.ToLabelKeyAndValue(clusterName, apiExport.Name, c)
-				if err != nil {
-					return fmt.Errorf("failed to convert permission claim %v to label key and value: %w", c, err)
+			if claim, ok := claims[gvr.GroupResource()]; ok {
+				// A resource the producing export serves from a
+				// ClusterCachedResource is one read-only copy replicated to every
+				// consumer, and the claim label controller labels objects in a
+				// consumer workspace only. A replicated object therefore carries no
+				// claim label, and this requirement would exclude every one of
+				// them: the claim is accepted, the resource is advertised, and the
+				// read comes back empty with no error, which is indistinguishable
+				// from a workspace that holds none.
+				//
+				// The claim is still the whole of the permission. The bound API
+				// authorizer requires an accepted claim carrying the verb before
+				// anything reaches this storage, and the cached resource confines
+				// the read to the producer's copy. What the label additionally
+				// carries for an ordinary claimed resource is the consumer's
+				// selector, which is why a claim on a replicated resource may only
+				// be matchAll; the APIBinding admission plugin refuses a narrowed
+				// one rather than let it be served as though it asked for
+				// everything.
+				if permissionclaim.ServedFromClusterCachedResource(sources[gvr.GroupResource()].export, gvr.GroupResource()) {
+					logger.V(4).Info("claimed resource is served from a ClusterCachedResource; serving it without a claim label requirement", "gvr", gvr)
+				} else {
+					key, label, err := permissionclaims.ToLabelKeyAndValue(clusterName, apiExport.Name, claim)
+					if err != nil {
+						return fmt.Errorf("failed to convert permission claim %v to label key and value: %w", claim, err)
+					}
+					claimLabels := []string{label}
+					if gvr.GroupResource() == apisv1alpha2.Resource("apibindings") {
+						_, fallbackLabel := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.From(apiExport), apiExport.Name)
+						claimLabels = append(claimLabels, fallbackLabel)
+					}
+					req, err := labels.NewRequirement(key, selection.In, claimLabels)
+					if err != nil {
+						return fmt.Errorf("failed to create label requirement for permission claim %v: %w", claim, err)
+					}
+					labelReqs = labels.Requirements{*req}
 				}
-				claimLabels := []string{label}
-				if gvr.GroupResource() == apisv1alpha2.Resource("apibindings") {
-					_, fallbackLabel := permissionclaims.ToReflexiveAPIBindingLabelKeyAndValue(logicalcluster.From(apiExport), apiExport.Name)
-					claimLabels = append(claimLabels, fallbackLabel)
-				}
-				req, err := labels.NewRequirement(key, selection.In, claimLabels)
-				if err != nil {
-					return fmt.Errorf("failed to create label requirement for permission claim %v: %w", c, err)
-				}
-				labelReqs = labels.Requirements{*req}
 			}
 
 			logger.Info("creating API definition", "gvr", gvr, "labels", labelReqs, "customSubresources", fingerprint)
