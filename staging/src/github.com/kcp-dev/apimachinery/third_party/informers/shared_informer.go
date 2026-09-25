@@ -15,6 +15,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// This file is a mixed fork of k8s.io/client-go/tools/cache/shared_informer.go
+// with some transplanted code from controller.go and the_real_fifo.go.
+// Generally it follows these rules:
+// 1. Upstream interfaces (e.g. SharedInformer, SharedIndexInformer, ...)
+//    are taken directly from cache package
+// 2. Non-exported functions which are not methods of our custom type at the bottom of
+//    this file (e.g. processDeltas, processDeltasInBatch, processReplacedAllInfo,
+//    reconcileReplacement) are taken from upstream controller.go and the_real_fifo.go
+//    and need to be checked and transplanted manually. Any package-level types need
+//    to be aliased (see start of this file).
+
 package informers
 
 import (
@@ -43,6 +54,42 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpreflector "github.com/kcp-dev/apimachinery/v2/third_party/reflector"
 	"github.com/kcp-dev/logicalcluster/v3"
+)
+
+// Our custom type and var aliases. These make subsequent merges of upstream code easier.
+// Use these instead of modifying upstream functions with cache.xyz to keep surface as small
+// as possible
+type (
+	ResourceEventHandler             = cache.ResourceEventHandler
+	SharedInformer                   = cache.SharedInformer
+	ResourceEventHandlerRegistration = cache.ResourceEventHandlerRegistration
+	DoneChecker                      = cache.DoneChecker
+	Store                            = cache.Store
+	Deltas                           = cache.Deltas
+	KeyFunc                          = cache.KeyFunc
+	BookmarkInfo                     = cache.BookmarkInfo
+	SyncAllInfo                      = cache.SyncAllInfo
+	ReplacedAllInfo                  = cache.ReplacedAllInfo
+	Transaction                      = cache.Transaction
+	TransactionStore                 = cache.TransactionStore
+	DeletedFinalStateUnknown         = cache.DeletedFinalStateUnknown
+	KeyError                         = cache.KeyError
+	Delta                            = cache.Delta
+	KeyListerGetter                  = cache.KeyListerGetter
+)
+
+var (
+	Sync                  = cache.Sync
+	Replaced              = cache.Replaced
+	Added                 = cache.Added
+	Updated               = cache.Updated
+	Deleted               = cache.Deleted
+	Bookmark              = cache.Bookmark
+	ReplacedAll           = cache.ReplacedAll
+	SyncAll               = cache.SyncAll
+	TransactionTypeAdd    = cache.TransactionTypeAdd
+	TransactionTypeUpdate = cache.TransactionTypeUpdate
+	TransactionTypeDelete = cache.TransactionTypeDelete
 )
 
 // Optional configuration options for [SharedInformer.AddEventHandlerWithOptions].
@@ -730,6 +777,26 @@ func (s *sharedIndexInformer) RemoveEventHandler(handle cache.ResourceEventHandl
 	return s.processor.removeListener(handle)
 }
 
+// TODO TBD: Do we actually need this function?
+
+// ShutDownEventHandler removes the event handler and blocks until it has fully
+// stopped processing events.
+//
+// Like RemoveEventHandler, it is idempotent and thread-safe. However, it MUST NOT
+// be called from within the event handler's own callbacks, as that will result
+// in a deadlock.
+func ShutDownEventHandler(informer SharedInformer, handle ResourceEventHandlerRegistration) error {
+	if err := informer.RemoveEventHandler(handle); err != nil {
+		return err
+	}
+	if s, ok := handle.(interface{ ShutdownChan() <-chan struct{} }); ok {
+		<-s.ShutdownChan()
+	} else {
+		return fmt.Errorf("handle does not support ShutdownChan()")
+	}
+	return nil
+}
+
 // sharedProcessor has a collection of processorListener and can
 // distribute a notification object to its listeners.  There are two
 // kinds of distribute operations.  The sync distributions go to a
@@ -802,6 +869,8 @@ func (p *sharedProcessor) removeListener(handle cache.ResourceEventHandlerRegist
 
 	if p.listenersStarted {
 		close(listener.addCh)
+	} else {
+		close(listener.runFinished)
 	}
 
 	return nil
@@ -925,10 +994,11 @@ func (p *sharedProcessor) resyncCheckPeriodChanged(logger klog.Logger, resyncChe
 // processorListener also keeps track of the adjusted requested resync
 // period of the listener.
 type processorListener struct {
-	logger klog.Logger
-	nextCh chan interface{}
-	addCh  chan interface{}
-	done   chan struct{}
+	logger      klog.Logger
+	nextCh      chan interface{}
+	addCh       chan interface{}
+	done        chan struct{}
+	runFinished chan struct{}
 
 	handler     cache.ResourceEventHandler
 	handlerName string
@@ -981,13 +1051,18 @@ func (p *processorListener) HasSyncedChecker() cache.DoneChecker {
 	return p.syncTracker
 }
 
-func newProcessListener(logger klog.Logger, handler cache.ResourceEventHandler, requestedResyncPeriod, resyncPeriod time.Duration, now time.Time, bufferSize int, hasSynced cache.DoneChecker) *processorListener {
+func (p *processorListener) ShutdownChan() <-chan struct{} {
+	return p.runFinished
+}
+
+func newProcessListener(logger klog.Logger, handler ResourceEventHandler, requestedResyncPeriod, resyncPeriod time.Duration, now time.Time, bufferSize int, hasSynced DoneChecker) *processorListener {
 	handlerName := nameForHandler(handler)
 	ret := &processorListener{
 		logger:                logger,
 		nextCh:                make(chan interface{}),
 		addCh:                 make(chan interface{}),
 		done:                  make(chan struct{}),
+		runFinished:           make(chan struct{}),
 		upstreamHasSynced:     hasSynced,
 		handler:               handler,
 		handlerName:           handlerName,
@@ -1044,6 +1119,7 @@ func (p *processorListener) pop() {
 }
 
 func (p *processorListener) run() {
+	defer close(p.runFinished)
 	// this call blocks until the channel is closed.  When a panic happens during the notification
 	// we will catch it, **the offending item will be skipped!**, and after a short delay (one second)
 	// the next notification will be attempted. This is usually better than the alternative of never
@@ -1131,27 +1207,27 @@ func (p *processorListener) setResyncPeriod(resyncPeriod time.Duration) {
 func processDeltas(
 	logger klog.Logger,
 	// Object which receives event notifications from the given deltas
-	handler cache.ResourceEventHandler,
-	clientState cache.Store,
-	deltas cache.Deltas,
+	handler ResourceEventHandler,
+	clientState Store,
+	deltas Deltas,
 	isInInitialList bool,
-	keyFunc cache.KeyFunc,
+	keyFunc KeyFunc,
 ) error {
 	// from oldest to newest
 	for _, d := range deltas {
 		obj := d.Object
 
 		switch d.Type {
-		case cache.ReplacedAll:
-			info, ok := obj.(cache.ReplacedAllInfo)
+		case ReplacedAll:
+			info, ok := obj.(ReplacedAllInfo)
 			if !ok {
 				return fmt.Errorf("ReplacedAll did not contain ReplacedAllInfo: %T", obj)
 			}
 			if err := processReplacedAllInfo(logger, handler, info, clientState, isInInitialList, keyFunc); err != nil {
 				return err
 			}
-		case cache.SyncAll:
-			_, ok := obj.(cache.SyncAllInfo)
+		case SyncAll:
+			_, ok := obj.(SyncAllInfo)
 			if !ok {
 				return fmt.Errorf("SyncAll did not contain SyncAllInfo: %T", obj)
 			}
@@ -1160,7 +1236,7 @@ func processDeltas(
 				handler.OnUpdate(obj, obj)
 			}
 			return nil
-		case cache.Sync, cache.Replaced, cache.Added, cache.Updated:
+		case Sync, Replaced, Added, Updated:
 			if old, exists, err := clientState.Get(obj); err == nil && exists {
 				if err := clientState.Update(obj); err != nil {
 					return err
@@ -1172,13 +1248,13 @@ func processDeltas(
 				}
 				handler.OnAdd(obj, isInInitialList)
 			}
-		case cache.Deleted:
+		case Deleted:
 			if err := clientState.Delete(obj); err != nil {
 				return err
 			}
 			handler.OnDelete(obj)
-		case cache.Bookmark:
-			info, ok := obj.(cache.BookmarkInfo)
+		case Bookmark:
+			info, ok := obj.(BookmarkInfo)
 			if !ok {
 				return fmt.Errorf("bookmark delta did not contain BookmarkInfo: %T", obj)
 			}
@@ -1199,20 +1275,20 @@ func processDeltas(
 // only successful operations trigger callbacks.
 func processDeltasInBatch(
 	logger klog.Logger,
-	handler cache.ResourceEventHandler,
-	clientState cache.Store,
-	deltas []cache.Delta,
+	handler ResourceEventHandler,
+	clientState Store,
+	deltas []Delta,
 	isInInitialList bool,
-	keyFunc cache.KeyFunc,
+	keyFunc KeyFunc,
 ) error {
 	// from oldest to newest
-	txns := make([]cache.Transaction, 0)
+	txns := make([]Transaction, 0)
 	callbacks := make([]func(), 0)
-	txnStore, txnSupported := clientState.(cache.TransactionStore)
+	txnStore, txnSupported := clientState.(TransactionStore)
 	if !txnSupported {
 		var errs []error
 		for _, delta := range deltas {
-			if err := processDeltas(logger, handler, clientState, cache.Deltas{delta}, isInInitialList, keyFunc); err != nil {
+			if err := processDeltas(logger, handler, clientState, Deltas{delta}, isInInitialList, keyFunc); err != nil {
 				errs = append(errs, err)
 			}
 		}
@@ -1225,11 +1301,11 @@ func processDeltasInBatch(
 	for _, d := range deltas {
 		obj := d.Object
 		switch d.Type {
-		case cache.Sync, cache.Replaced, cache.Added, cache.Updated:
+		case Sync, Replaced, Added, Updated:
 			// it will only return one old object for each because items are unique
 			if old, exists, err := clientState.Get(obj); err == nil && exists {
-				txn := cache.Transaction{
-					Type:   cache.TransactionTypeUpdate,
+				txn := Transaction{
+					Type:   TransactionTypeUpdate,
 					Object: obj,
 				}
 				txns = append(txns, txn)
@@ -1237,8 +1313,8 @@ func processDeltasInBatch(
 					handler.OnUpdate(old, obj)
 				})
 			} else {
-				txn := cache.Transaction{
-					Type:   cache.TransactionTypeAdd,
+				txn := Transaction{
+					Type:   TransactionTypeAdd,
 					Object: obj,
 				}
 				txns = append(txns, txn)
@@ -1246,9 +1322,9 @@ func processDeltasInBatch(
 					handler.OnAdd(obj, isInInitialList)
 				})
 			}
-		case cache.Deleted:
-			txn := cache.Transaction{
-				Type:   cache.TransactionTypeDelete,
+		case Deleted:
+			txn := Transaction{
+				Type:   TransactionTypeDelete,
 				Object: obj,
 			}
 			txns = append(txns, txn)
@@ -1277,8 +1353,8 @@ func processDeltasInBatch(
 	return nil
 }
 
-func processReplacedAllInfo(logger klog.Logger, handler cache.ResourceEventHandler, info cache.ReplacedAllInfo, clientState cache.Store, isInInitialList bool, keyFunc cache.KeyFunc) error {
-	var deletions []cache.DeletedFinalStateUnknown
+func processReplacedAllInfo(logger klog.Logger, handler ResourceEventHandler, info ReplacedAllInfo, clientState Store, isInInitialList bool, keyFunc KeyFunc) error {
+	var deletions []DeletedFinalStateUnknown
 	type replacement struct {
 		oldObj interface{}
 		newObj interface{}
@@ -1286,7 +1362,7 @@ func processReplacedAllInfo(logger klog.Logger, handler cache.ResourceEventHandl
 	replacements := make([]replacement, 0, len(info.Objects))
 
 	err := reconcileReplacement(logger, nil, clientState, info.Objects, keyFunc,
-		func(obj cache.DeletedFinalStateUnknown) error {
+		func(obj DeletedFinalStateUnknown) error {
 			deletions = append(deletions, obj)
 			return nil
 		},
@@ -1329,11 +1405,11 @@ func processReplacedAllInfo(logger klog.Logger, handler cache.ResourceEventHandl
 // kcp: This is taken from the_real_fifo.go
 func reconcileReplacement(
 	logger klog.Logger,
-	queuedItems []cache.Delta,
-	knownObjects cache.KeyListerGetter,
+	queuedItems []Delta,
+	knownObjects KeyListerGetter,
 	newItems []interface{},
 	keyOf func(obj interface{}) (string, error),
-	onDelete func(obj cache.DeletedFinalStateUnknown) error,
+	onDelete func(obj DeletedFinalStateUnknown) error,
 	onReplace func(obj interface{}) error,
 ) error {
 	// determine the keys of everything we're adding.  We cannot add the items until after the synthetic deletes have been
@@ -1342,17 +1418,17 @@ func reconcileReplacement(
 	for _, obj := range newItems {
 		key, err := keyOf(obj)
 		if err != nil {
-			return cache.KeyError{Obj: obj, Err: err}
+			return KeyError{obj, err}
 		}
 		newKeys.Insert(key)
 	}
 
 	queuedKeys := []string{}
-	lastQueuedItemForKey := map[string]cache.Delta{}
+	lastQueuedItemForKey := map[string]Delta{}
 	for _, queuedItem := range queuedItems {
 		queuedKey, err := keyOf(queuedItem.Object)
 		if err != nil {
-			return cache.KeyError{Obj: queuedItem.Object, Err: err}
+			return KeyError{queuedItem.Object, err}
 		}
 
 		if _, seen := lastQueuedItemForKey[queuedKey]; !seen {
@@ -1375,14 +1451,14 @@ func reconcileReplacement(
 		// disconnected from apiserver.
 		lastQueuedItem := lastQueuedItemForKey[queuedKey]
 		// if we've already got the item marked as deleted, no need to add another delete
-		if lastQueuedItem.Type == cache.Deleted {
+		if lastQueuedItem.Type == Deleted {
 			continue
 		}
 
 		// if we got here, then the last entry we have for the queued item is *not* a deletion and we need to add a delete
 		deletedObj := lastQueuedItem.Object
 
-		retErr := onDelete(cache.DeletedFinalStateUnknown{
+		retErr := onDelete(DeletedFinalStateUnknown{
 			Key: queuedKey,
 			Obj: deletedObj,
 		})
@@ -1409,7 +1485,7 @@ func reconcileReplacement(
 			deletedObj = nil
 			utilruntime.HandleErrorWithLogger(logger, nil, "Key does not exist in known objects store, placing DeleteFinalStateUnknown marker without object", "key", knownKey)
 		}
-		retErr := onDelete(cache.DeletedFinalStateUnknown{
+		retErr := onDelete(DeletedFinalStateUnknown{
 			Key: knownKey,
 			Obj: deletedObj,
 		})
