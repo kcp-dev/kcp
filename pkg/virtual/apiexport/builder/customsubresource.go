@@ -223,8 +223,17 @@ func (s *customSubresourceStorage) Connect(ctx context.Context, name string, _ r
 		return nil, apierrors.NewInternalError(err)
 	}
 
+	// What the client addressed BELOW the subresource travels with the request.
+	// A subresource that proxies a whole API -- an edge's Kubernetes API, a
+	// backend's REST surface -- is addressed as "<name>/<verb>/<their path>", and
+	// dropping that path sends every call to the backend's root instead.
+	tail, err := subresourceTail(ctx)
+	if err != nil {
+		return nil, apierrors.NewBadRequest(err.Error())
+	}
+
 	target := *s.proxy.host
-	target.Path = path.Join(s.proxy.host.Path, s.targetPath(ctx, cluster.Name, name))
+	target.Path = path.Join(s.proxy.host.Path, s.targetPath(ctx, cluster.Name, name), tail)
 
 	return &proxyHandler{
 		storage: s,
@@ -256,6 +265,35 @@ func (s *customSubresourceStorage) gateOnParent(ctx context.Context, name string
 		return err
 	}
 	return nil
+}
+
+// subresourceTail is the path the client addressed below the subresource, or ""
+// when it addressed the subresource itself.
+//
+// It comes from the request info the apiserver already parsed, whose Parts are
+// documented as "resource/resourceName/subresource/other/stuff/we/don't
+// interpret" -- group, version and namespace segments are stripped, so the tail
+// is everything from the fourth part on. Reading it there rather than searching
+// the URL for the subresource name is what keeps an object called "my-k8s-edge"
+// from shifting where the tail is judged to begin.
+//
+// A traversal segment is refused rather than cleaned. The target path is built
+// by joining, and join cleans, so ".." in a tail would resolve upwards and
+// address a resource the caller never named.
+func subresourceTail(ctx context.Context) (string, error) {
+	info, found := genericapirequest.RequestInfoFrom(ctx)
+	if !found {
+		return "", errors.New("no request info in context")
+	}
+	if len(info.Parts) <= 3 {
+		return "", nil
+	}
+	for _, segment := range info.Parts[3:] {
+		if segment == "" || segment == "." || segment == ".." {
+			return "", fmt.Errorf("%q is not a path segment addressable below %s", segment, info.Subresource)
+		}
+	}
+	return path.Join(info.Parts[3:]...), nil
 }
 
 // targetPath is where the subresource lives on the shard.
