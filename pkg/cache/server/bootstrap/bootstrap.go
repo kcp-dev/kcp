@@ -45,6 +45,7 @@ func Bootstrap(ctx context.Context, apiExtensionsClusterClient kcpapiextensionsc
 		{"apis.kcp.io", "apiconversions"},
 		{"apis.kcp.io", "apiexports"},
 		{"apis.kcp.io", "apiexportendpointslices"},
+		{"admin.kcp.io", "permissionclaimpolicies"},
 		{"core.kcp.io", "logicalclusters"},
 		{"migration.kcp.io", "logicalclustermigrations"},
 		{"core.kcp.io", "shards"},

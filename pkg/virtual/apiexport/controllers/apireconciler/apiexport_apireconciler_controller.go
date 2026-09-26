@@ -19,6 +19,8 @@ package apireconciler
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +28,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -43,9 +46,11 @@ import (
 	apisv1alpha2listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha2"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 )
 
@@ -53,14 +58,64 @@ const (
 	ControllerName = "kcp-virtual-apiexport-api-reconciler"
 )
 
-type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, additionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error)
+// CreateAPIDefinitionFunc builds the serving definition for one version of a
+// schema. identities tells the forwarding storage which identity hashes the
+// resource is stored under on this shard: nil for resources without identity
+// (built-in and apis.kcp.io claims), a fixed hash for the export's own
+// resources and for claims naming an identityHash, and a dynamic set derived
+// from consumer APIBindings for identity-agnostic claims.
+//
+// customSubresources are the custom subresource entries served under the schema's
+// resource. They have no storage here: the shard resolves each entry to the
+// virtual workspace the declaring APIExport names, so a request for one is
+// forwarded to the shard like any other.
+type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identities forwardingregistry.IdentityHashesFunc, additionalLabelRequirements labels.Requirements, customSubresources []CustomSubresource) (apidefinition.APIDefinition, error)
+
+// CustomSubresource is one custom subresource entry served under a resource.
+type CustomSubresource struct {
+	// Name is the subresource name: the part after the slash of an APIExport
+	// entry named "widgets/frobnicate".
+	Name string
+
+	// Kind is the kind the subresource's own APIResourceSchema declares. A
+	// subresource speaks for itself rather than for its parent, so this is
+	// usually not the parent's kind.
+	Kind schema.GroupVersionKind
+
+	// Verbs are the verbs the subresource may be reached by, which decide the
+	// HTTP methods it accepts. For the export's own entries this is every verb a
+	// subresource can carry; for a claimed entry it is the claim's verbs, so
+	// discovery does not advertise a method the authorizer will refuse.
+	Verbs []string
+}
+
+// subresourcesFingerprint identifies a set of custom subresources, so that a definition
+// built for one set is not reused for another.
+//
+// The APIExport can gain, lose or re-point a subresource entry without the
+// parent APIResourceSchema changing at all, and the schema's UID is otherwise
+// the whole of what says a definition is still current.
+func subresourcesFingerprint(subresources []CustomSubresource) string {
+	parts := make([]string, 0, len(subresources))
+	for _, sub := range subresources {
+		parts = append(parts, fmt.Sprintf("%s=%s,%s", sub.Name, sub.Kind, strings.Join(sub.Verbs, "+")))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ";")
+}
 
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.
+//
+// apiBindingInformer is the shard-local (wildcard) APIBinding informer. It is
+// what identity-agnostic permission claims resolve against: the identity of a
+// claimed resource in a consumer workspace is whatever that workspace's
+// APIBinding for the resource carries.
 func NewAPIReconciler(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
 	createAPIBindingAPIDefinition func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
 ) (*APIReconciler, error) {
@@ -75,6 +130,9 @@ func NewAPIReconciler(
 		listAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIExport, error) {
 			return apiExportInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
+
+		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
+		identityResolver:  permissionclaim.NewIdentityResolver(apiBindingInformer.Informer().GetIndexer()),
 
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -94,10 +152,35 @@ func NewAPIReconciler(
 		cache.Indexers{
 			indexers.APIExportByIdentity:          indexers.IndexAPIExportByIdentity,
 			indexers.APIExportByClaimedIdentities: indexers.IndexAPIExportByClaimedIdentities,
+			indexers.ByLogicalClusterPathAndName:  indexers.IndexByLogicalClusterPathAndName,
+		},
+	)
+	indexers.AddIfNotPresentOrDie(
+		apiBindingInformer.Informer().GetIndexer(),
+		cache.Indexers{
+			indexers.APIBindingsByAPIExport:                   indexers.IndexAPIBindingByAPIExport,
+			indexers.APIBindingByBoundResources:               indexers.IndexAPIBindingByBoundResources,
+			indexers.APIBindingByAcceptedClaimedGroupResource: indexers.IndexAPIBindingByAcceptedClaimedGroupResource,
 		},
 	)
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
+
+	// Identity-agnostic claims start and stop being served as consumers bind
+	// and accept them, and as the producer bindings they resolve through come
+	// and go. The identity set itself is read at request time, so only the
+	// existence of a served definition depends on this reconcile.
+	_, _ = apiBindingInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueAPIBinding(obj, logger)
+		},
+		UpdateFunc: func(_, obj interface{}) {
+			c.enqueueAPIBinding(obj, logger)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueAPIBinding(obj, logger)
+		},
+	}))
 
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -134,6 +217,9 @@ type APIReconciler struct {
 	apiExportLister  apisv1alpha2listers.APIExportClusterLister
 	apiExportIndexer cache.Indexer
 	listAPIExports   func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIExport, error)
+
+	apiBindingIndexer cache.Indexer
+	identityResolver  *permissionclaim.IdentityResolver
 
 	queue workqueue.TypedRateLimitingInterface[string]
 
