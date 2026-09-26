@@ -145,6 +145,63 @@ func TestCustomSubresourceTargetPath(t *testing.T) {
 	})
 }
 
+// TestSubresourceTail covers the path a client addresses below the subresource.
+//
+// A subresource that proxies a whole API is addressed as
+// "<name>/<verb>/<their path>". Dropping that path sends every call to the
+// backend's root, which answers something plausible -- an apiserver returns its
+// paths document with 200 -- so the caller sees a malformed reply rather than an
+// error and the cause is two hops away.
+func TestSubresourceTail(t *testing.T) {
+	t.Parallel()
+
+	withParts := func(subresource string, parts ...string) context.Context {
+		return genericapirequest.WithRequestInfo(context.Background(), &genericapirequest.RequestInfo{
+			Subresource: subresource,
+			Parts:       parts,
+		})
+	}
+
+	t.Run("the subresource itself has no tail", func(t *testing.T) {
+		t.Parallel()
+		tail, err := subresourceTail(withParts("k8s", "kubernetesclusters", "edge", "k8s"))
+		require.NoError(t, err)
+		require.Empty(t, tail)
+	})
+
+	t.Run("a proxied API path travels with the request", func(t *testing.T) {
+		t.Parallel()
+		tail, err := subresourceTail(withParts("k8s",
+			"kubernetesclusters", "edge", "k8s", "apis", "apiextensions.k8s.io", "v1", "customresourcedefinitions"))
+		require.NoError(t, err)
+		require.Equal(t, "apis/apiextensions.k8s.io/v1/customresourcedefinitions", tail)
+	})
+
+	// The tail is read from the parsed parts, so a name carrying the verb cannot
+	// shift where it begins.
+	t.Run("an object named after the verb does not shift the tail", func(t *testing.T) {
+		t.Parallel()
+		tail, err := subresourceTail(withParts("k8s", "kubernetesclusters", "my-k8s-edge", "k8s", "api", "v1", "nodes"))
+		require.NoError(t, err)
+		require.Equal(t, "api/v1/nodes", tail)
+	})
+
+	// The target path is built by joining, and join cleans, so a traversal
+	// segment would resolve upwards onto a resource the caller never named.
+	t.Run("a traversal segment is refused", func(t *testing.T) {
+		t.Parallel()
+		_, err := subresourceTail(withParts("k8s", "kubernetesclusters", "edge", "k8s", "..", "..", "secrets"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not a path segment addressable below k8s")
+	})
+
+	t.Run("no request info is an error, not an empty tail", func(t *testing.T) {
+		t.Parallel()
+		_, err := subresourceTail(context.Background())
+		require.Error(t, err)
+	})
+}
+
 // TestCustomSubresourceGatesOnParent covers that a subresource is only reachable
 // on an object the parent storage would serve.
 //
@@ -167,6 +224,12 @@ func TestCustomSubresourceGatesOnParent(t *testing.T) {
 
 	ctx := genericapirequest.WithCluster(context.Background(), genericapirequest.Cluster{Name: "consumer"})
 	ctx = genericapirequest.WithUser(ctx, &user.DefaultInfo{Name: "someone"})
+	// The apiserver always parses request info before storage is reached, and
+	// Connect reads the addressed path out of it.
+	ctx = genericapirequest.WithRequestInfo(ctx, &genericapirequest.RequestInfo{
+		Subresource: "shoot",
+		Parts:       []string{"cowboys", "lucky-luke", "shoot"},
+	})
 
 	t.Run("the parent's error is the answer", func(t *testing.T) {
 		t.Parallel()
