@@ -35,6 +35,7 @@ import (
 	"github.com/kcp-dev/sdk/apis/core"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 
@@ -185,6 +186,82 @@ func TestMigrationAbortOnWorkspaceDeletion(t *testing.T) {
 		require.True(c, apierrors.IsNotFound(err) || apierrors.IsForbidden(err),
 			"expected NotFound or Forbidden accessing deleted LC, got: %v", err)
 	}, wait.ForeverTestTimeout, 500*time.Millisecond, "logical cluster data still accessible after abort")
+}
+
+// TestMigrationFailsForLogicalClusterAlreadyMigrating verifies that a
+// LogicalClusterMigration created for a logical cluster that is already
+// part of another migration is set into the Failed phase.
+func TestMigrationFailsForLogicalClusterAlreadyMigrating(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := kcptesting.SharedKcpServer(t)
+
+	cfg := server.BaseConfig(t)
+	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	originShard := server.ShardNames()[0]
+	// Use a non-existent shard as destination to keep the first migration
+	// stuck in the Migrating phase.
+	nonExistentShard := "non-existent-shard-for-already-migrating-test"
+
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
+	wsPath, ws := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithShard(originShard))
+	lcName := logicalcluster.Name(ws.Spec.Cluster)
+
+	t.Logf("Workspace %s (logical cluster %s) created on shard %s", wsPath, lcName, originShard)
+
+	bindMigrationAPI(t, kcpClusterClient, orgPath)
+
+	createMigration := func(name string) {
+		t.Helper()
+		t.Logf("Creating LogicalClusterMigration %q", name)
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			_, err := kcpClusterClient.Cluster(orgPath).MigrationV1alpha1().LogicalClusterMigrations().Create(
+				t.Context(),
+				&migrationv1alpha1.LogicalClusterMigration{
+					ObjectMeta: metav1.ObjectMeta{Name: name},
+					Spec: migrationv1alpha1.LogicalClusterMigrationSpec{
+						LogicalCluster:   lcName.String(),
+						DestinationShard: nonExistentShard,
+					},
+				},
+				metav1.CreateOptions{},
+			)
+			require.NoError(c, err)
+		}, wait.ForeverTestTimeout, 100*time.Millisecond, "failed to create LogicalClusterMigration %q", name)
+	}
+
+	// Start the first migration and wait until it holds the logical cluster.
+	createMigration("first-migration")
+
+	t.Logf("Waiting for the first migration to reach Migrating phase")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		migration, err := kcpClusterClient.Cluster(orgPath).MigrationV1alpha1().LogicalClusterMigrations().Get(t.Context(), "first-migration", metav1.GetOptions{})
+		require.NoError(c, err)
+		t.Logf("first migration phase: %q, conditions: %v", migration.Status.Phase, conditionsSummary(migration.Status.Conditions))
+		require.Equal(c, migrationv1alpha1.LogicalClusterMigrationPhaseMigrating, migration.Status.Phase)
+	}, wait.ForeverTestTimeout, 500*time.Millisecond, "first migration did not reach Migrating phase")
+
+	// Create a second migration for the same logical cluster.
+	createMigration("second-migration")
+
+	t.Logf("Waiting for the second migration to reach Failed phase")
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		migration, err := kcpClusterClient.Cluster(orgPath).MigrationV1alpha1().LogicalClusterMigrations().Get(t.Context(), "second-migration", metav1.GetOptions{})
+		require.NoError(c, err)
+		t.Logf("second migration phase: %q, conditions: %v", migration.Status.Phase, conditionsSummary(migration.Status.Conditions))
+		require.Equal(c, migrationv1alpha1.LogicalClusterMigrationPhaseFailed, migration.Status.Phase)
+		require.True(c, hasCondition(migration.Status.Conditions, migrationv1alpha1.LCMigrationOriginReady, corev1.ConditionFalse),
+			"OriginReady condition should be False")
+		require.Equal(c, "LogicalClusterAlreadyMigrating", conditions.GetReason(migration, migrationv1alpha1.LCMigrationOriginReady))
+	}, wait.ForeverTestTimeout, 500*time.Millisecond, "second migration did not reach Failed phase")
+
+	// The first migration must not be affected by the failed second one.
+	migration, err := kcpClusterClient.Cluster(orgPath).MigrationV1alpha1().LogicalClusterMigrations().Get(t.Context(), "first-migration", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseMigrating, migration.Status.Phase)
 }
 
 // bindMigrationAPI creates and waits for the migration.kcp.io APIBinding to
