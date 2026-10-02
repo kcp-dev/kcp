@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,11 +73,27 @@ func (c *Controller) reconcile(ctx context.Context, migration *migrationv1alpha1
 	// Route through the process. The overview of the process id
 	// described in the doc.go, details are in the methods.
 	switch migration.Status.Phase {
-	case migrationv1alpha1.LogicalClusterMigrationPhaseCompleted, migrationv1alpha1.LogicalClusterMigrationPhaseFailed:
+	case migrationv1alpha1.LogicalClusterMigrationPhaseCompleted:
+		// The migration is done, the destination releases the finalizer.
+		if isDestination {
+			removeFinalizer(migration)
+		}
+		return false, nil
+
+	case migrationv1alpha1.LogicalClusterMigrationPhaseFailed:
+		// A failed migration may never have reached the destination, so
+		// whichever shard sees it first releases the finalizer.
+		removeFinalizer(migration)
 		return false, nil
 
 	case "":
 		if isOrigin {
+			// Add the finalizer before starting so the migration cannot be
+			// deleted while it is in progress. Metadata and status cannot
+			// be committed together, so requeue to set the phase afterwards.
+			if addFinalizer(migration) {
+				return true, nil
+			}
 			migration.Status.Phase = migrationv1alpha1.LogicalClusterMigrationPhasePreparing
 			return true, nil
 		}
@@ -400,6 +417,28 @@ func (c *Controller) reconcileAborting(ctx context.Context, migration *migration
 	}
 
 	return false, nil
+}
+
+// addFinalizer adds MigrationFinalizer to the migration and reports whether
+// the migration was changed.
+func addFinalizer(migration *migrationv1alpha1.LogicalClusterMigration) bool {
+	if slices.Contains(migration.Finalizers, MigrationFinalizer) {
+		return false
+	}
+	migration.Finalizers = append(migration.Finalizers, MigrationFinalizer)
+	return true
+}
+
+// removeFinalizer removes MigrationFinalizer from the migration and reports
+// whether the migration was changed.
+func removeFinalizer(migration *migrationv1alpha1.LogicalClusterMigration) bool {
+	if !slices.Contains(migration.Finalizers, MigrationFinalizer) {
+		return false
+	}
+	migration.Finalizers = slices.DeleteFunc(migration.Finalizers, func(f string) bool {
+		return f == MigrationFinalizer
+	})
+	return true
 }
 
 // originOwnsLC returns true for phases in which the origin shard still holds
