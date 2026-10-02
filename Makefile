@@ -321,7 +321,7 @@ ifdef SUITES
 SUITES_ARG = --suites $(SUITES)
 COMPLETE_SUITES_ARG = -args $(SUITES_ARG)
 endif
-TEST_FEATURE_GATES ?= WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true
+TEST_FEATURE_GATES ?= WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true,APIConversion=true
 PROXY_FEATURE_GATES ?= $(TEST_FEATURE_GATES)
 # Per-file log verbosity (klog --vmodule) for the kcp shards started by the e2e
 # targets, on top of the default --v=2. Patterns match source file base names
