@@ -26,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
+
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 func newAttr(obj, oldObject runtime.Object, op admission.Operation, user user.Info) admission.Attributes {
@@ -605,6 +607,80 @@ func TestAdmission(t *testing.T) {
 				},
 			),
 		},
+		{
+			testName: "created internal.tenancy.kcp.io/cluster annotation on create",
+			attr: newAttr(
+				&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+						Annotations: map[string]string{
+							"internal.tenancy.kcp.io/cluster": "victimcluster",
+						},
+					},
+				},
+				nil,
+				admission.Create,
+				&user.DefaultInfo{},
+			),
+			wantErr: "forbidden: modification of reserved annotation: \"internal.tenancy.kcp.io/cluster\"",
+		},
+		{
+			testName: "created internal.tenancy.kcp.io/cluster annotation on create as privileged system user",
+			attr: newAttr(
+				&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+						Annotations: map[string]string{
+							"internal.tenancy.kcp.io/cluster": "victimcluster",
+						},
+					},
+				},
+				nil,
+				admission.Create,
+				&user.DefaultInfo{Groups: []string{user.SystemPrivilegedGroup}},
+			),
+		},
+		{
+			testName: "created reserved annotation as workspace bootstrapper",
+			attr: newAttr(
+				&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+						Annotations: map[string]string{
+							"bootstrap.kcp.io/create-only":    "true",
+							"internal.tenancy.kcp.io/cluster": "somecluster",
+						},
+					},
+				},
+				nil,
+				admission.Create,
+				&user.DefaultInfo{Groups: []string{bootstrap.SystemKcpWorkspaceBootstrapper}},
+			),
+		},
+		{
+			testName: "changed internal.tenancy.kcp.io/cluster annotation on update",
+			attr: newAttr(
+				&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+						Annotations: map[string]string{
+							"internal.tenancy.kcp.io/cluster": "victimcluster",
+						},
+					},
+				},
+				&v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bar",
+						Annotations: map[string]string{
+							"internal.tenancy.kcp.io/cluster": "owncluster",
+						},
+					},
+				},
+				admission.Update,
+				&user.DefaultInfo{},
+			),
+			wantErr: "forbidden: modification of reserved annotation: \"internal.tenancy.kcp.io/cluster\"",
+		},
 	} {
 		t.Run(tc.testName, func(t *testing.T) {
 			t.Parallel()
@@ -621,6 +697,62 @@ func TestAdmission(t *testing.T) {
 				gotErr = err.Error()
 			}
 
+			if gotErr != tc.wantErr {
+				t.Errorf("want error %q, got %q", tc.wantErr, gotErr)
+			}
+		})
+	}
+}
+
+func TestPackageAllowList(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		obj     *v1.Pod
+		wantErr string
+	}{
+		{
+			name: "apibinding export label is allowed",
+			obj: &v1.Pod{ObjectMeta: metav1.ObjectMeta{
+				Name:   "foo",
+				Labels: map[string]string{"internal.apis.kcp.io/export": "someexport"},
+			}},
+		},
+		{
+			name: "permission claim label is allowed",
+			obj: &v1.Pod{ObjectMeta: metav1.ObjectMeta{
+				Name:   "foo",
+				Labels: map[string]string{"claimed.internal.apis.kcp.io/abc123": "someexport"},
+			}},
+		},
+		{
+			name: "workspace owner annotation is allowed",
+			obj: &v1.Pod{ObjectMeta: metav1.ObjectMeta{
+				Name:        "foo",
+				Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+			}},
+		},
+		{
+			name: "unknown internal kcp.io label is still forbidden",
+			obj: &v1.Pod{ObjectMeta: metav1.ObjectMeta{
+				Name:   "foo",
+				Labels: map[string]string{"internal.apis.kcp.io/not-allowed": "x"},
+			}},
+			wantErr: "forbidden: modification of reserved label: \"internal.apis.kcp.io/not-allowed\"",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			plugin := &reservedMetadata{
+				Handler:             admission.NewHandler(admission.Create, admission.Update),
+				annotationAllowList: annotationAllowList,
+				labelAllowList:      labelAllowList,
+			}
+			var ctx context.Context
+			gotErr := ""
+			if err := plugin.Validate(ctx, newAttr(tc.obj, nil, admission.Create, &user.DefaultInfo{}), nil); err != nil {
+				gotErr = err.Error()
+			}
 			if gotErr != tc.wantErr {
 				t.Errorf("want error %q, got %q", tc.wantErr, gotErr)
 			}
