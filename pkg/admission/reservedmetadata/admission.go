@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -28,11 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
 
-	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
-	"github.com/kcp-dev/sdk/apis/core"
-	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
-
-	"github.com/kcp-dev/kcp/pkg/authorization"
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 const (
@@ -40,13 +37,57 @@ const (
 )
 
 var (
-	annotationAllowList = []string{
-		tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, // protected by workspace admission from non-system:admins
-		authorization.RequiredGroupsAnnotationKey,               // protected by workspace admission from non-system:admins
-		core.LogicalClusterPathAnnotationKey,                    // protected by pathannoation admission from non-system:admins
+	annotationAllowList = []*regexp.Regexp{
+		// storage layer annotations. Unfortunately these are also being written by
+		// the following clients we are using:
+		// * server bootstrap and bootstrap identity
+		// * cache server replication
+		regexp.MustCompile(`^kcp\.io/(cluster|shard|original-api-version)$`),
+
+		// pathAnnotation webhook sets this using user credentials
+		regexp.MustCompile(`^kcp\.io/path$`),
+
+		// workspace mutating webhook sets these on logicalclusters using user credentials
+		regexp.MustCompile(`^authorization\.kcp\.io/required-groups$`),
+		regexp.MustCompile(`^experimental\.tenancy\.kcp\.io/owner$`),
+
+		// note: combined together to reduce number of individual regexps
+		// workspace mount hook or WorkspaceType controller set these annotations.
+		regexp.MustCompile(`^experimental\.tenancy\.kcp\.io/(mount|default-api-binding-lifecycle)$`),
+
+		// set on ResourceQuotas by workspace admin, not privileged group (see isPrivilegedUser())
+		regexp.MustCompile(`^experimental\.quota\.kcp\.io/cluster-scoped$`),
+
+		// set by APIExport owners (which don't have to be privileged users) directly on the object
+		regexp.MustCompile(`^apiexports\.apis\.kcp\.io/skip-endpointslice$`),
+
+		// note: combined together to reduce number of individual regexps
+		// * max-total-objects is being set by workspace admin directly
+		// * inactive needs to be let through here, since it is guarded by
+		//   logicalcluster admission plugin
+		regexp.MustCompile(`^core\.kcp\.io/(max-total-objects|inactive)$`),
+
+		// free-form annotations set by APIExport owners, synced to APIBindings
+		regexp.MustCompile(`^extra\.apis\.kcp\.io/`),
+
+		// v1alpha1<->v1alpha2 conversion round-trip annotations, which can use
+		// user credentials
+		regexp.MustCompile(`^apis\.v1alpha2\.kcp\.io/`),
 	}
-	labelAllowList = []string{
-		apisv1alpha1.APIExportPermissionClaimLabelPrefix + "*", // protected by the permissionclaim admission plugin
+
+	labelAllowList = []*regexp.Regexp{
+		// stamped by the permissionclaims mutating admission plugin on claimed
+		// objects inside the end user's own request
+		// we need to match the full suffix here as they are hash generated
+		regexp.MustCompile(`^claimed\.internal\.apis\.kcp\.io/`),
+
+		// set and validated by the ApiBinding admission plugin, so we need
+		// to pass it here
+		regexp.MustCompile(`^internal\.apis\.kcp\.io/export$`),
+
+		// currently used by our tests for marking objects;
+		// These could potentially be moved out
+		regexp.MustCompile(`^internal\.kcp\.io/(e2e-test|test-initializer)$`),
 	}
 )
 
@@ -56,9 +97,7 @@ func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
 			return &reservedMetadata{
-				Handler:             admission.NewHandler(admission.Create, admission.Update),
-				annotationAllowList: annotationAllowList,
-				labelAllowList:      labelAllowList,
+				Handler: admission.NewHandler(admission.Create, admission.Update),
 			}, nil
 		})
 }
@@ -66,14 +105,11 @@ func Register(plugins *admission.Plugins) {
 // reservedMetadata is a validating admission plugin protecting against mutating reserved kcp metadata.
 type reservedMetadata struct {
 	*admission.Handler
-
-	annotationAllowList []string
-	labelAllowList      []string
 }
 
 var _ = admission.ValidationInterface(&reservedMetadata{})
 
-// Validate asserts the underlying object for changes in labels and annotations.
+// Validate asserts the underlying object for changes in labels and annotations to reserved kcp.io metadata.
 // If the user is member of the privileged system group, all mutations are allowed.
 func (o *reservedMetadata) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	newMeta, err := meta.Accessor(a.GetObject())
@@ -89,7 +125,8 @@ func (o *reservedMetadata) Validate(ctx context.Context, a admission.Attributes,
 		oldMeta = &metav1.ObjectMeta{}
 	}
 
-	if slices.Contains(a.GetUserInfo().GetGroups(), user.SystemPrivilegedGroup) {
+	// allow privileged users to change any reserved metadata
+	if isPrivilegedUser(a.GetUserInfo().GetGroups()) {
 		return nil
 	}
 
@@ -104,7 +141,7 @@ func (o *reservedMetadata) Validate(ctx context.Context, a admission.Attributes,
 	return nil
 }
 
-func hasPrivilegedModification(new, old map[string]string, allowList []string) (key string, modified bool) {
+func hasPrivilegedModification(new, old map[string]string, allowList []*regexp.Regexp) (key string, modified bool) {
 	hasChanged := func(k, v1, v2 string, v2present bool) bool {
 		return (!v2present || v1 != v2) && isPrivileged(k, allowList)
 	}
@@ -128,14 +165,29 @@ func hasPrivilegedModification(new, old map[string]string, allowList []string) (
 	return "", false
 }
 
-func isPrivileged(key string, allowList []string) bool {
-	for i := range allowList {
-		if strings.HasSuffix(allowList[i], "*") && strings.HasPrefix(key, allowList[i][:len(allowList[i])-1]) {
-			return false
-		} else if allowList[i] == key {
+func isPrivileged(key string, allowList []*regexp.Regexp) bool {
+	// exit early if the key is not kcp.io or a subdomain of it.
+	// Doing this first saves us running through all the Regexes
+	// for non privileged keys.
+	domain, _, _ := strings.Cut(key, "/")
+	if domain != "kcp.io" && !strings.HasSuffix(domain, ".kcp.io") {
+		return false
+	}
+
+	for _, re := range allowList {
+		if re.MatchString(key) {
 			return false
 		}
 	}
 
-	return strings.HasSuffix(key, "kcp.io")
+	return true
+}
+
+func isPrivilegedUser(groups []string) bool {
+	return slices.Contains(groups, user.SystemPrivilegedGroup) ||
+		slices.Contains(groups, bootstrap.SystemLogicalClusterAdmin) ||
+		slices.Contains(groups, bootstrap.SystemExternalLogicalClusterAdmin) ||
+		slices.Contains(groups, bootstrap.SystemKcpWorkspaceBootstrapper)
+	// note: workspaceadmins are purposefully not considered to be privileged users for this plugin
+	// as this would lead to cross-workspace privileged escalations.
 }
