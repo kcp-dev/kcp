@@ -325,22 +325,5 @@ func TestStatusSubresourceClaimsThroughVW(t *testing.T) {
 func vwCowboysClient(t *testing.T, cfg *rest.Config, kcpClients kcpclientset.ClusterInterface, consumerWorkspace *tenancyv1alpha1.Workspace, exportPath logicalcluster.Path, exportName string, gvr schema.GroupVersionResource) dynamic.ResourceInterface {
 	t.Helper()
 
-	vwCfg := rest.CopyConfig(cfg)
-	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		apiExportEndpointSlice, err := kcpClients.Cluster(exportPath).ApisV1alpha1().APIExportEndpointSlices().Get(t.Context(), exportName, metav1.GetOptions{})
-		if kcptestinghelpers.TolerateOrFail(t, err, apierrors.IsNotFound) {
-			return false, fmt.Sprintf("waiting on APIExportEndpointSlice to be available %v", err.Error())
-		}
-		var found bool
-		vwCfg.Host, found, err = framework.VirtualWorkspaceURL(t.Context(), cfg, consumerWorkspace, framework.ExportVirtualWorkspaceURLs(apiExportEndpointSlice))
-		if err != nil {
-			return false, fmt.Sprintf("error getting VW URL: %v", err)
-		}
-		return found, fmt.Sprintf("waiting for virtual workspace URLs to be available: %v", apiExportEndpointSlice.Status.APIExportEndpoints)
-	}, wait.ForeverTestTimeout, time.Millisecond*100)
-
-	vwClient, err := kcpdynamic.NewForConfig(vwCfg)
-	require.NoError(t, err)
-	consumerClusterName := logicalcluster.Name(consumerWorkspace.Spec.Cluster)
-	return vwClient.Cluster(consumerClusterName.Path()).Resource(gvr).Namespace("default")
+	return vwResourceClient(t, cfg, kcpClients, consumerWorkspace, exportPath, exportName, gvr)
 }

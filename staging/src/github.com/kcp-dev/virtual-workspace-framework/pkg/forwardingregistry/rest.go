@@ -74,6 +74,37 @@ func NewStorage(
 	patchConflictRetryBackoff *wait.Backoff,
 	wrapper StorageWrapper,
 ) (mainStorage, statusStorage, scaleStorage *StoreFuncs) {
+	return NewStorageWithIdentities(
+		ctx,
+		resource,
+		identityHashesFromHash(apiExportIdentityHash),
+		kind, listKind,
+		strategy,
+		categories,
+		tableConvertor,
+		replicasPathMapping,
+		dynamicClusterClientFunc,
+		patchConflictRetryBackoff,
+		wrapper,
+	)
+}
+
+// NewStorageWithIdentities returns a REST storage that forwards calls to a
+// dynamic client for a resource served under a dynamic set of identity hashes
+// (see IdentityHashesFunc and DefaultDynamicDelegatedStoreFuncsWithIdentities).
+func NewStorageWithIdentities(
+	ctx context.Context,
+	resource schema.GroupVersionResource,
+	identities IdentityHashesFunc,
+	kind, listKind schema.GroupVersionKind,
+	strategy customresource.CustomResourceStrategy,
+	categories []string,
+	tableConvertor rest.TableConvertor,
+	replicasPathMapping managedfields.ResourcePathMappings,
+	dynamicClusterClientFunc DynamicClusterClientFunc,
+	patchConflictRetryBackoff *wait.Backoff,
+	wrapper StorageWrapper,
+) (mainStorage, statusStorage, scaleStorage *StoreFuncs) {
 	if patchConflictRetryBackoff == nil {
 		patchConflictRetryBackoff = &retry.DefaultRetry
 	}
@@ -94,10 +125,10 @@ func NewStorage(
 		// TODO: what do we do on Destroy()?
 	}
 
-	store := DefaultDynamicDelegatedStoreFuncs(
+	store := DefaultDynamicDelegatedStoreFuncsWithIdentities(
 		factory, listFactory, destroyer,
 		strategy, tableConvertor,
-		resource, apiExportIdentityHash, categories,
+		resource, identities, categories,
 		dynamicClusterClientFunc, []string{}, *patchConflictRetryBackoff, ctx.Done(),
 	)
 	if wrapper != nil {
@@ -105,10 +136,10 @@ func NewStorage(
 	}
 
 	statusStrategy := customresource.NewStatusStrategy(strategy)
-	statusStore := DefaultDynamicDelegatedStoreFuncs(
+	statusStore := DefaultDynamicDelegatedStoreFuncsWithIdentities(
 		factory, listFactory, destroyer,
 		statusStrategy, tableConvertor,
-		resource, apiExportIdentityHash, categories,
+		resource, identities, categories,
 		dynamicClusterClientFunc, []string{"status"}, *patchConflictRetryBackoff, ctx.Done(),
 	)
 	delegateUpdate := statusStore.UpdaterFunc
@@ -127,14 +158,14 @@ func NewStorage(
 		return ret
 	}
 
-	scaleStore := DefaultDynamicDelegatedStoreFuncs(
+	scaleStore := DefaultDynamicDelegatedStoreFuncsWithIdentities(
 		scaleFactory,
 		nil,
 		func() {},
 		strategy,
 		tableConvertor,
 		resource,
-		apiExportIdentityHash,
+		identities,
 		nil,
 		dynamicClusterClientFunc,
 		[]string{"scale"},

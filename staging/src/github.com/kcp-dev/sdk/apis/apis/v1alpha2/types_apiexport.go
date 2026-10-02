@@ -18,6 +18,7 @@ package v1alpha2
 
 import (
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -158,6 +159,19 @@ type APIExportSpec struct {
 // ResourceSchema defines the resource schemas that are exposed with this APIExport.
 type ResourceSchema struct {
 	// Name is the name of the resource.
+	//
+	// A custom subresource is declared as its own entry, named
+	// "<resource>/<subresource>" in the style of an RBAC rule, e.g.
+	// "virtualmachines/ssh". Such an entry must use virtual storage, and the
+	// resource it names must be exported by this APIExport too. It is independent of
+	// how that resource is stored: a resource kept in a CRD may carry subresources
+	// that are not.
+	//
+	// status and scale are never declared this way. They belong to the object's
+	// shape and are declared on the APIResourceSchema.
+	//
+	// +kubebuilder:validation:Pattern=`^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=127
 	Name string `json:"name"`
 	// Group is the API group of the resource. Empty string represents the core group.
 	Group string `json:"group"`
@@ -382,4 +396,33 @@ type APIExportList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []APIExport `json:"items"`
+}
+
+// IsSubresource reports whether this entry declares a custom subresource rather
+// than a resource, which it does by naming "<resource>/<subresource>" in the style
+// of an RBAC rule.
+//
+// Callers that create or serve CRDs must skip these entries: a subresource has no
+// CustomResourceDefinition of its own and is served by the virtual workspace its
+// storage names.
+func (r ResourceSchema) IsSubresource() bool {
+	return strings.Contains(r.Name, "/")
+}
+
+// SplitName returns the resource this entry belongs to and, when the entry declares
+// a custom subresource, the subresource name. The subresource is empty otherwise.
+func (r ResourceSchema) SplitName() (resource, subresource string) {
+	resource, subresource, _ = strings.Cut(r.Name, "/")
+	return resource, subresource
+}
+
+// IsSchemaOwnedSubresource reports whether a subresource belongs to the object's
+// own shape rather than being a custom subresource.
+//
+// status and scale are declared on the APIResourceSchema and served by whatever
+// serves the resource itself, so they always follow the parent. The set is closed:
+// apiextensionsv1.CustomResourceSubresources has exactly these two fields, and
+// admission refuses a custom subresource that takes either name.
+func IsSchemaOwnedSubresource(subresource string) bool {
+	return subresource == "status" || subresource == "scale"
 }

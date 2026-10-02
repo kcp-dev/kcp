@@ -38,6 +38,7 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+	"k8s.io/streaming/pkg/httpstream"
 	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -190,21 +191,34 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var crdName string
+	var (
+		crdName              string
+		parentUsesCRDStorage bool
+	)
 	for _, boundResource := range apiBinding.Status.BoundResources {
 		if boundResource.Group == gr.Group && boundResource.Resource == gr.Resource {
 			crdName = boundResource.Schema.UID
 
-			if len(boundResource.StorageVersions) > 0 {
-				// Virtual resources have zero storage versions, because they don't
-				// use CRD storage. This resource is definitely not a VR.
-				s.delegate.ServeHTTP(w, r)
-				return
-			}
+			// Virtual resources have zero storage versions, because they don't use
+			// CRD storage. Storage versions therefore mean the parent object lives in
+			// etcd -- but a custom subresource of it may still be served by a virtual
+			// workspace, so this rules out treating the parent as virtual and nothing
+			// more.
+			parentUsesCRDStorage = len(boundResource.StorageVersions) > 0
 
 			break
 		}
 	}
+
+	// When the parent is in etcd, only a custom subresource can still be served
+	// elsewhere. The parent itself, and the subresources belonging to its own shape,
+	// leave here without resolving the bound CRD or the APIExport -- which is what
+	// keeps every ordinary status and scale write on the path it took before.
+	if parentUsesCRDStorage && !requestsCustomSubresource(requestInfo.Subresource) {
+		s.delegate.ServeHTTP(w, r)
+		return
+	}
+
 	if crdName == "" {
 		// This should not happen, the indexers returned a binding for this specific GR.
 		responsewriters.ErrorNegotiated(
@@ -256,17 +270,17 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var virtualStorage *apisv1alpha2.ResourceSchemaStorageVirtual
-	for _, resource := range apiExport.Spec.Resources {
-		if resource.Storage.Virtual != nil &&
-			resource.Group == gr.Group &&
-			resource.Name == gr.Resource {
-			virtualStorage = resource.Storage.Virtual
-			break
-		}
+	// A custom subresource is looked up as its own entry. status and scale belong to
+	// the object's shape, so they follow the parent to wherever the parent is served.
+	lookupSubresource := ""
+	if requestsCustomSubresource(requestInfo.Subresource) {
+		lookupSubresource = requestInfo.Subresource
 	}
+
+	virtualStorage := resolveVirtualStorage(apiExport, gr, lookupSubresource)
 	if virtualStorage == nil {
-		// Not a virtual resource: the binding's export doesn't define such resource with virtual storage.
+		// Neither this resource nor the subresource it names is served elsewhere: the
+		// binding's export declares no virtual storage for it.
 		s.delegate.ServeHTTP(w, r)
 		return
 	}
@@ -315,7 +329,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vrHandler, err := newVirtualResourceHandler(s.Extra.VWClientConfig, vrEndpointURL, clusterNameOrWildcard.String(), inboundHops)
+	vrHandler, err := newVirtualResourceHandler(s.Extra.VWClientConfig, vrEndpointURL, clusterNameOrWildcard.String(), inboundHops, httpstream.IsUpgradeRequest(r))
 	if err != nil {
 		utilruntime.HandleError(err)
 		responsewriters.ErrorNegotiated(
@@ -396,10 +410,23 @@ func (s *Server) getAPIBindingForRequest(
 	return nil, nil
 }
 
-func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard string, inboundHops int) (http.Handler, error) {
+func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard string, inboundHops int, isUpgrade bool) (http.Handler, error) {
 	scopedURL, err := url.Parse(virtualResourceURLWithCluster(vwURL, clusterNameOrWildcard))
 	if err != nil {
 		return nil, err
+	}
+
+	if isUpgrade {
+		// ReverseProxy tunnels an HTTP/1.1 protocol upgrade, but only over a
+		// connection that is actually HTTP/1.1. If the transport negotiates HTTP/2
+		// with the virtual workspace, the Upgrade header is dropped and a streaming
+		// subresource fails in a way that looks like the backend refusing it.
+		//
+		// This is decided from the request rather than from the declaration: the
+		// client asking to upgrade is exactly the condition under which HTTP/2
+		// breaks, and it needs no field on the API to say so.
+		cfg = rest.CopyConfig(cfg)
+		cfg.NextProtos = []string{"http/1.1"}
 	}
 
 	tr, err := rest.TransportFor(cfg)
@@ -443,4 +470,40 @@ func virtualResourceURLWithCluster(vwURL, clusterNameOrWildcard string) string {
 	// E.g.:
 	//     /services/replication/1oget0q1249b2vcy/sheriffs/clusters/385doly4poks8a45/apis/wildwest.dev/v1alpha1/sheriffs
 	return fmt.Sprintf("%s/clusters/%s", vwURL, clusterNameOrWildcard)
+}
+
+// resolveVirtualStorage decides which virtual workspace, if any, serves a request.
+//
+// A custom subresource is an entry in its own right, named "<resource>/<subresource>"
+// in the style of an RBAC rule, and it is resolved before the parent's storage
+// because the two are independent: "virtualmachines/ssh" may be served remotely
+// while the object it hangs off stays in etcd. status and scale are never declared
+// that way, so they keep following the parent as they always have.
+//
+// The caller decides whether the request names a custom subresource; passing an
+// empty subresource asks for whatever serves the resource itself.
+func resolveVirtualStorage(apiExport *apisv1alpha2.APIExport, gr schema.GroupResource, subresource string) *apisv1alpha2.ResourceSchemaStorageVirtual {
+	name := gr.Resource
+	if subresource != "" {
+		name += "/" + subresource
+	}
+
+	for i := range apiExport.Spec.Resources {
+		resource := &apiExport.Spec.Resources[i]
+		if resource.Group == gr.Group && resource.Name == name {
+			return resource.Storage.Virtual
+		}
+	}
+
+	return nil
+}
+
+// requestsCustomSubresource reports whether a request names a subresource that
+// something other than the resource's own storage could serve.
+//
+// A request for the resource itself never does. Nor does one for status or scale:
+// those belong to the object's shape, so they are served wherever the resource is,
+// and admission refuses a custom subresource that takes either name.
+func requestsCustomSubresource(subresource string) bool {
+	return subresource != "" && !apisv1alpha2.IsSchemaOwnedSubresource(subresource)
 }

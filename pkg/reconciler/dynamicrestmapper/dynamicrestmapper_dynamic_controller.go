@@ -469,6 +469,13 @@ func (c *DynamicTypesController) gatherGVKRsForAPIBinding(apiBinding *apisv1alph
 	var gvkrs []typeMeta
 
 	for _, resourceSchema := range apiExport.Spec.Resources {
+		// A custom subresource is a separate entry named "<resource>/<subresource>".
+		// It is reached through its parent's mapping, and registering its own kind
+		// here would add a resource nothing serves.
+		if resourceSchema.IsSubresource() {
+			continue
+		}
+
 		sch, err := c.getAPIResourceSchema(logicalcluster.From(apiExport), resourceSchema.Schema)
 		if err != nil {
 			return nil, err
