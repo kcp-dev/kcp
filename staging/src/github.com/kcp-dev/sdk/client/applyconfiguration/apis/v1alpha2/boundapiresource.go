@@ -39,6 +39,15 @@ type BoundAPIResourceApplyConfiguration struct {
 	//
 	// Versions may not be removed while they exist in this list.
 	StorageVersions []string `json:"storageVersions,omitempty"`
+	// identityHashes lists every identity hash under which instances of this
+	// resource may exist in storage. It mirrors storageVersions for identity
+	// rotation: the drain target is always the schema's current identityHash;
+	// every other entry is a drain source that the identity migrator empties
+	// and then prunes from this list. Normally it contains exactly the
+	// schema's current identityHash.
+	//
+	// Hashes may not be removed while instances exist under them in storage.
+	IdentityHashes []string `json:"identityHashes,omitempty"`
 }
 
 // BoundAPIResourceApplyConfiguration constructs a declarative configuration of the BoundAPIResource type for use with
@@ -77,6 +86,16 @@ func (b *BoundAPIResourceApplyConfiguration) WithSchema(value *BoundAPIResourceS
 func (b *BoundAPIResourceApplyConfiguration) WithStorageVersions(values ...string) *BoundAPIResourceApplyConfiguration {
 	for i := range values {
 		b.StorageVersions = append(b.StorageVersions, values[i])
+	}
+	return b
+}
+
+// WithIdentityHashes adds the given value to the IdentityHashes field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the IdentityHashes field.
+func (b *BoundAPIResourceApplyConfiguration) WithIdentityHashes(values ...string) *BoundAPIResourceApplyConfiguration {
+	for i := range values {
+		b.IdentityHashes = append(b.IdentityHashes, values[i])
 	}
 	return b
 }

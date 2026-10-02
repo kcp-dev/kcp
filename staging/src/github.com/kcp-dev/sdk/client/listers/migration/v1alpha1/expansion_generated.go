@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// APIExportIdentityRotationClusterListerExpansion allows custom methods to be added to
+// APIExportIdentityRotationClusterLister.
+type APIExportIdentityRotationClusterListerExpansion interface{}
+
+// APIExportIdentityRotationListerExpansion allows custom methods to be added to
+// APIExportIdentityRotationLister.
+type APIExportIdentityRotationListerExpansion interface{}
+
 // LogicalClusterMigrationClusterListerExpansion allows custom methods to be added to
 // LogicalClusterMigrationClusterLister.
 type LogicalClusterMigrationClusterListerExpansion interface{}

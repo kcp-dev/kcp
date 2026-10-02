@@ -32,6 +32,7 @@ import (
 
 type MigrationV1alpha1ClusterInterface interface {
 	MigrationV1alpha1ClusterScoper
+	APIExportIdentityRotationsClusterGetter
 	LogicalClusterDumpsClusterGetter
 	LogicalClusterMigrationsClusterGetter
 }
@@ -50,6 +51,10 @@ func (c *MigrationV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+func (c *MigrationV1alpha1ClusterClient) APIExportIdentityRotations() APIExportIdentityRotationClusterInterface {
+	return &aPIExportIdentityRotationsClusterInterface{clientCache: c.clientCache}
 }
 
 func (c *MigrationV1alpha1ClusterClient) LogicalClusterDumps() LogicalClusterDumpClusterInterface {
