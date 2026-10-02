@@ -175,6 +175,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
 	reservednames.PluginName,
+	reservedmetadata.PluginName,
 	permissionclaims.PluginName,
 	pathannotation.PluginName,
 	objectcountlimit.PluginName,
