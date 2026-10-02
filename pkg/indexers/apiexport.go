@@ -85,11 +85,16 @@ func IndexAPIExportByIdentity(obj interface{}) ([]string, error) {
 // An ambiguous hash (several exports resolve to it, i.e. a shared identity)
 // is returned unchanged: normalization is only safe when the alias maps to
 // one export.
-func CanonicalIdentityHash(local, global cache.Indexer, hash string) string {
+//
+// The indexer must hold the global (cache server) view of APIExports: a
+// shard-local view could see only one of several exports sharing the hash
+// and normalize where other shards and the virtual workspace do not.
+// This is why we use only the global indexer for canonicalization, not any shard-local caches.
+func CanonicalIdentityHash(globalIndexer cache.Indexer, hash string) string {
 	if hash == "" {
 		return hash
 	}
-	exports, err := ByIndexWithFallback[*apisv1alpha2.APIExport](local, global, APIExportByIdentity, hash)
+	exports, err := ByIndex[*apisv1alpha2.APIExport](globalIndexer, APIExportByIdentity, hash)
 	if err != nil || len(exports) != 1 {
 		return hash
 	}

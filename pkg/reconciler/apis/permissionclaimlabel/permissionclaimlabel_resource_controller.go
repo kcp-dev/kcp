@@ -88,7 +88,9 @@ func NewResourceController(
 	// claimed under that identity change without any event on the objects
 	// themselves, so re-enqueue them explicitly. (Re-reconciling the claiming
 	// APIBindings is not enough: they only touch objects when their set of
-	// applied claims changes, which an identity change does not.)
+	// applied claims changes, which an identity change does not.) The fan-out
+	// over claimed objects runs on the worker via a relabel key, not in this
+	// handler, so it does not block informer event delivery.
 	exportIdentityHandler := cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldExport, ok := oldObj.(*apisv1alpha2.APIExport)
@@ -107,7 +109,8 @@ func NewResourceController(
 				"apiexport", newExport.Name, "cluster", logicalcluster.From(newExport),
 				"identityHash", newExport.Status.IdentityHash, "aliases", newExport.Status.IdentityAliasHashes)
 			for _, resource := range newExport.Spec.Resources {
-				c.enqueueClaimedResources(logger, schema.GroupResource{Group: resource.Group, Resource: resource.Name})
+				gr := schema.GroupResource{Group: resource.Group, Resource: resource.Name}
+				c.queue.Add(relabelKeyPrefix + gr.String())
 			}
 		},
 	}

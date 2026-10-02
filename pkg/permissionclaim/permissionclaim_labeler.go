@@ -76,7 +76,7 @@ func NewLabeler(
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
 		},
 		canonicalIdentityHash: func(hash string) string {
-			return indexers.CanonicalIdentityHash(apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), hash)
+			return indexers.CanonicalIdentityHash(globalAPIExportInformer.Informer().GetIndexer(), hash)
 		},
 	}
 }

@@ -222,7 +222,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 				// hash before hashing, mirroring the permissionclaim labeler,
 				// so claims on either side of a rotation produce identical
 				// filter labels.
-				c.IdentityHash = indexers.CanonicalIdentityHash(apiExportIndexer, apiExportIndexer, c.IdentityHash)
+				c.IdentityHash = indexers.CanonicalIdentityHash(apiExportIndexer, c.IdentityHash)
 				key, label, err := permissionclaims.ToLabelKeyAndValue(clusterName, apiExport.Name, c)
 				if err != nil {
 					return fmt.Errorf("failed to convert permission claim %v to label key and value: %w", c, err)
