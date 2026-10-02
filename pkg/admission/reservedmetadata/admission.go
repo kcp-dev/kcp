@@ -33,6 +33,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
+	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 const (
@@ -47,6 +48,7 @@ var (
 	}
 	labelAllowList = []string{
 		apisv1alpha1.APIExportPermissionClaimLabelPrefix + "*", // protected by the permissionclaim admission plugin
+		apisv1alpha1.InternalAPIBindingExportLabelKey,          // set and validated authoritatively by the apibinding admission plugin
 	}
 )
 
@@ -89,15 +91,20 @@ func (o *reservedMetadata) Validate(ctx context.Context, a admission.Attributes,
 		oldMeta = &metav1.ObjectMeta{}
 	}
 
-	if slices.Contains(a.GetUserInfo().GetGroups(), user.SystemPrivilegedGroup) {
+	// TODO keep in sync with the logicalcluster admission plugin.
+	groups := a.GetUserInfo().GetGroups()
+	if slices.Contains(groups, user.SystemPrivilegedGroup) ||
+		slices.Contains(groups, bootstrap.SystemLogicalClusterAdmin) ||
+		slices.Contains(groups, bootstrap.SystemExternalLogicalClusterAdmin) ||
+		slices.Contains(groups, bootstrap.SystemKcpWorkspaceBootstrapper) {
 		return nil
 	}
 
-	if k, ok := hasPrivilegedModification(newMeta.GetAnnotations(), oldMeta.GetAnnotations(), annotationAllowList); ok {
+	if k, ok := hasPrivilegedModification(newMeta.GetAnnotations(), oldMeta.GetAnnotations(), o.annotationAllowList); ok {
 		return admission.NewForbidden(a, fmt.Errorf("modification of reserved annotation: %q", k))
 	}
 
-	if k, ok := hasPrivilegedModification(newMeta.GetLabels(), oldMeta.GetLabels(), labelAllowList); ok {
+	if k, ok := hasPrivilegedModification(newMeta.GetLabels(), oldMeta.GetLabels(), o.labelAllowList); ok {
 		return admission.NewForbidden(a, fmt.Errorf("modification of reserved label: %q", k))
 	}
 
@@ -137,5 +144,8 @@ func isPrivileged(key string, allowList []string) bool {
 		}
 	}
 
-	return strings.HasSuffix(key, "kcp.io")
+	// cut any sub paths, so we only have the domain
+	domain, _, _ := strings.Cut(key, "/")
+
+	return domain == "kcp.io" || strings.HasSuffix(domain, ".kcp.io")
 }
