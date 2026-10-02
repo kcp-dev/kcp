@@ -43,9 +43,11 @@ import (
 	apisv1alpha2listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha2"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apidefinition"
 	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/permissionclaim"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 )
 
@@ -53,14 +55,26 @@ const (
 	ControllerName = "kcp-virtual-apiexport-api-reconciler"
 )
 
-type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identityHash string, additionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error)
+// CreateAPIDefinitionFunc builds the serving definition for one version of a
+// schema. identities tells the forwarding storage which identity hashes the
+// resource is stored under on this shard: nil for resources without identity
+// (built-in and apis.kcp.io claims), a fixed hash for the export's own
+// resources and for claims naming an identityHash, and a dynamic set derived
+// from consumer APIBindings for identity-agnostic claims.
+type CreateAPIDefinitionFunc func(apiResourceSchema *apisv1alpha1.APIResourceSchema, version string, identities forwardingregistry.IdentityHashesFunc, additionalLabelRequirements labels.Requirements) (apidefinition.APIDefinition, error)
 
 // NewAPIReconciler returns a new controller which reconciles APIResourceImport resources
 // and delegates the corresponding SyncTargetAPI management to the given SyncTargetAPIManager.
+//
+// apiBindingInformer is the shard-local (wildcard) APIBinding informer. It is
+// what identity-agnostic permission claims resolve against: the identity of a
+// claimed resource in a consumer workspace is whatever that workspace's
+// APIBinding for the resource carries.
 func NewAPIReconciler(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	createAPIDefinition CreateAPIDefinitionFunc,
 	createAPIBindingAPIDefinition func(ctx context.Context, apibindingVersion string, clusterName logicalcluster.Name, apiExportName string) (apidefinition.APIDefinition, error),
 ) (*APIReconciler, error) {
@@ -75,6 +89,9 @@ func NewAPIReconciler(
 		listAPIExports: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIExport, error) {
 			return apiExportInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
+
+		apiBindingIndexer: apiBindingInformer.Informer().GetIndexer(),
+		identityResolver:  permissionclaim.NewIdentityResolver(apiBindingInformer.Informer().GetIndexer()),
 
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -94,10 +111,35 @@ func NewAPIReconciler(
 		cache.Indexers{
 			indexers.APIExportByIdentity:          indexers.IndexAPIExportByIdentity,
 			indexers.APIExportByClaimedIdentities: indexers.IndexAPIExportByClaimedIdentities,
+			indexers.ByLogicalClusterPathAndName:  indexers.IndexByLogicalClusterPathAndName,
+		},
+	)
+	indexers.AddIfNotPresentOrDie(
+		apiBindingInformer.Informer().GetIndexer(),
+		cache.Indexers{
+			indexers.APIBindingsByAPIExport:                   indexers.IndexAPIBindingByAPIExport,
+			indexers.APIBindingByBoundResources:               indexers.IndexAPIBindingByBoundResources,
+			indexers.APIBindingByAcceptedClaimedGroupResource: indexers.IndexAPIBindingByAcceptedClaimedGroupResource,
 		},
 	)
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
+
+	// Identity-agnostic claims start and stop being served as consumers bind
+	// and accept them, and as the producer bindings they resolve through come
+	// and go. The identity set itself is read at request time, so only the
+	// existence of a served definition depends on this reconcile.
+	_, _ = apiBindingInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.enqueueAPIBinding(obj, logger)
+		},
+		UpdateFunc: func(_, obj interface{}) {
+			c.enqueueAPIBinding(obj, logger)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.enqueueAPIBinding(obj, logger)
+		},
+	}))
 
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -134,6 +176,9 @@ type APIReconciler struct {
 	apiExportLister  apisv1alpha2listers.APIExportClusterLister
 	apiExportIndexer cache.Indexer
 	listAPIExports   func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIExport, error)
+
+	apiBindingIndexer cache.Indexer
+	identityResolver  *permissionclaim.IdentityResolver
 
 	queue workqueue.TypedRateLimitingInterface[string]
 

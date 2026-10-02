@@ -347,12 +347,13 @@ func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInf
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
 
-	if err := apiBindingInformer.Informer().GetIndexer().AddIndexers(
-		cache.Indexers{
-			indexers.APIBindingByClusterAndAcceptedClaimedGroupResources: indexers.IndexAPIBindingByClusterAndAcceptedClaimedGroupResources,
-			indexers.APIBindingByAcceptedClaimedGroupResource:            indexers.IndexAPIBindingByAcceptedClaimedGroupResource,
-		},
-	); err != nil {
-		panic(err)
-	}
+	// AddIfNotPresentOrDie, not a raw AddIndexers: in an embedded kcp the
+	// APIExport virtual workspace shares this informer and registers
+	// APIBindingByAcceptedClaimedGroupResource for its own use. Registering the
+	// same index function under the same name twice is a no-op; erroring on it
+	// would make startup depend on which component wires its indexers first.
+	indexers.AddIfNotPresentOrDie(apiBindingInformer.Informer().GetIndexer(), cache.Indexers{
+		indexers.APIBindingByClusterAndAcceptedClaimedGroupResources: indexers.IndexAPIBindingByClusterAndAcceptedClaimedGroupResources,
+		indexers.APIBindingByAcceptedClaimedGroupResource:            indexers.IndexAPIBindingByAcceptedClaimedGroupResource,
+	})
 }

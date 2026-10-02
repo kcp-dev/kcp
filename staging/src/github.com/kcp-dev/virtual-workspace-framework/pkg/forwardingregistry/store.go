@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -69,6 +71,28 @@ type Strategy interface {
 
 type DynamicClusterClientFunc func(ctx context.Context) (kcpdynamic.ClusterInterface, error)
 
+// IdentityHashesFunc returns the identity hashes under which the resource is
+// stored on this shard at the time of the request. Nil or empty means the
+// resource is not served under any identity (only per-cluster requests can
+// still be forwarded; wildcard list/watch serve nothing).
+//
+// A nil IdentityHashesFunc (as opposed to a func returning nil) means the
+// resource has no identity at all and is always forwarded under its plain
+// resource name; this is what the single-hash constructors use for an empty
+// hash.
+type IdentityHashesFunc func(ctx context.Context) []string
+
+// identityHashesFromHash maps the legacy single-hash argument to an
+// IdentityHashesFunc: an empty hash means "no identity" (nil func), otherwise
+// the resource is served under exactly that one hash.
+func identityHashesFromHash(apiExportIdentityHash string) IdentityHashesFunc {
+	if apiExportIdentityHash == "" {
+		return nil
+	}
+	hashes := []string{apiExportIdentityHash}
+	return func(context.Context) []string { return hashes }
+}
+
 func DefaultDynamicDelegatedStoreFuncs(
 	factory FactoryFunc,
 	listFactory ListFactoryFunc,
@@ -83,8 +107,35 @@ func DefaultDynamicDelegatedStoreFuncs(
 	patchConflictRetryBackoff wait.Backoff,
 	stopWatchesCh <-chan struct{},
 ) *StoreFuncs {
-	client := clientGetter(dynamicClusterClientFunc, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
-	listerWatcher := listerWatcherGetter(dynamicClusterClientFunc, strategy.NamespaceScoped(), resource, apiExportIdentityHash)
+	return DefaultDynamicDelegatedStoreFuncsWithIdentities(
+		factory, listFactory, destroyerFunc,
+		strategy, tableConvertor,
+		resource, identityHashesFromHash(apiExportIdentityHash), categories,
+		dynamicClusterClientFunc, subResources, patchConflictRetryBackoff, stopWatchesCh,
+	)
+}
+
+// DefaultDynamicDelegatedStoreFuncsWithIdentities is DefaultDynamicDelegatedStoreFuncs
+// for a resource that may be served under a dynamic set of identity hashes
+// (see IdentityHashesFunc). Per-cluster requests carry the ":identity" suffix
+// only when exactly one hash is returned and otherwise let the shard resolve
+// the identity from the binding; wildcard list/watch fan out over all hashes.
+func DefaultDynamicDelegatedStoreFuncsWithIdentities(
+	factory FactoryFunc,
+	listFactory ListFactoryFunc,
+	destroyerFunc DestroyerFunc,
+	strategy Strategy,
+	tableConvertor rest.TableConvertor,
+	resource schema.GroupVersionResource,
+	identities IdentityHashesFunc,
+	categories []string,
+	dynamicClusterClientFunc DynamicClusterClientFunc,
+	subResources []string,
+	patchConflictRetryBackoff wait.Backoff,
+	stopWatchesCh <-chan struct{},
+) *StoreFuncs {
+	client := clientGetter(dynamicClusterClientFunc, strategy.NamespaceScoped(), resource, identities)
+	listerWatcher := listerWatcherGetter(dynamicClusterClientFunc, strategy.NamespaceScoped(), resource, identities)
 	s := &StoreFuncs{}
 	s.FactoryFunc = factory
 	s.ListFactoryFunc = listFactory
@@ -200,21 +251,30 @@ func DefaultDynamicDelegatedStoreFuncs(
 			return nil, err
 		}
 
-		delegate, err := listerWatcher(ctx)
+		delegates, err := listerWatcher(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		list, err := delegate.List(ctx, v1ListOptions)
-		if apierrors.IsNotFound(err) {
-			// The resource (identity) is not served on this shard - e.g. a
-			// resource claimed from another APIExport that has no binding on this
-			// shard. There is nothing to list here; return an empty list instead
-			// of a 404 so wildcard consumers aggregating across shards/endpoints
-			// are not wedged by a shard that simply holds none of these objects.
+		switch len(delegates) {
+		case 0:
+			// Wildcard request for a resource that is currently not served
+			// under any identity on this shard: nothing to ask the shard for.
 			return listFactory(), nil
+		case 1:
+			list, err := delegates[0].List(ctx, v1ListOptions)
+			if apierrors.IsNotFound(err) {
+				// The resource (identity) is not served on this shard - e.g. a
+				// resource claimed from another APIExport that has no binding on this
+				// shard. There is nothing to list here; return an empty list instead
+				// of a 404 so wildcard consumers aggregating across shards/endpoints
+				// are not wedged by a shard that simply holds none of these objects.
+				return listFactory(), nil
+			}
+			return list, err
+		default:
+			return listAcrossIdentities(ctx, delegates, v1ListOptions, listFactory)
 		}
-		return list, err
 	}
 	s.UpdaterFunc = func(ctx context.Context, name string, objInfo rest.UpdatedObjectInfo, createValidation rest.ValidateObjectFunc, updateValidation rest.ValidateObjectUpdateFunc, forceAllowCreate bool, options *metav1.UpdateOptions) (runtime.Object, bool, error) {
 		delegate, err := client(ctx)
@@ -300,7 +360,7 @@ func DefaultDynamicDelegatedStoreFuncs(
 		if err := metainternalversion.Convert_internalversion_ListOptions_To_v1_ListOptions(options, &v1ListOptions, nil); err != nil {
 			return nil, err
 		}
-		delegate, err := listerWatcher(ctx)
+		delegates, err := listerWatcher(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -315,26 +375,35 @@ func DefaultDynamicDelegatedStoreFuncs(
 			}
 		}()
 
-		w, err := delegate.Watch(watchCtx, v1ListOptions)
-		if apierrors.IsNotFound(err) {
-			if ptr.Deref(v1ListOptions.SendInitialEvents, false) {
-				// A WatchList client treats the stream as its initial list and
-				// waits for the server to close that list with an
-				// "initial-events-end" bookmark before it considers its store
-				// synced. An empty watch sends no such bookmark, and never
-				// errors either, so there is nothing to make the client relist:
-				// it waits forever. Surface the NotFound instead, which the
-				// client retries, picking the resource up once this shard
-				// serves it.
-				return nil, err
+		switch len(delegates) {
+		case 0:
+			// See ListerFunc: the resource is currently served under no
+			// identity on this shard.
+			return emptyWatchOrNotFound(watchCtx, v1ListOptions, resource.GroupResource())
+		case 1:
+			w, err := delegates[0].Watch(watchCtx, v1ListOptions)
+			if apierrors.IsNotFound(err) {
+				if ptr.Deref(v1ListOptions.SendInitialEvents, false) {
+					// A WatchList client treats the stream as its initial list and
+					// waits for the server to close that list with an
+					// "initial-events-end" bookmark before it considers its store
+					// synced. An empty watch sends no such bookmark, and never
+					// errors either, so there is nothing to make the client relist:
+					// it waits forever. Surface the NotFound instead, which the
+					// client retries, picking the resource up once this shard
+					// serves it.
+					return nil, err
+				}
+				// See ListerFunc: the resource is not served on this shard. Return a
+				// watch that yields no events and stays open until the (request- or
+				// stop-bounded) context is done, instead of surfacing a 404. Objects
+				// that later appear on this shard are picked up on the next relist.
+				return newEmptyWatch(watchCtx), nil
 			}
-			// See ListerFunc: the resource is not served on this shard. Return a
-			// watch that yields no events and stays open until the (request- or
-			// stop-bounded) context is done, instead of surfacing a 404. Objects
-			// that later appear on this shard are picked up on the next relist.
-			return newEmptyWatch(watchCtx), nil
+			return w, err
+		default:
+			return watchAcrossIdentities(watchCtx, delegates, v1ListOptions, resource.GroupResource())
 		}
-		return w, err
 	}
 	s.TableConvertorFunc = tableConvertor.ConvertToTable
 	s.CategoriesProviderFunc = func() []string {
@@ -344,18 +413,42 @@ func DefaultDynamicDelegatedStoreFuncs(
 	return s
 }
 
-func clientGetter(dynamicClusterClientFunc DynamicClusterClientFunc, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (dynamic.ResourceInterface, error) {
+// forwardedResources returns the resource names (with or without the
+// ":identity" suffix) a request must be forwarded to on the shard.
+//
+// Without identities (nil func) the plain resource is used. Per-cluster
+// requests use the suffix only when exactly one hash is served; otherwise the
+// plain resource is forwarded and the shard resolves the identity from the
+// APIBinding in the target cluster. Wildcard requests get one entry per hash,
+// which may be none when nothing is served under any identity here.
+func forwardedResources(ctx context.Context, resource schema.GroupVersionResource, identities IdentityHashesFunc, wildcard bool) []schema.GroupVersionResource {
+	if identities == nil {
+		return []schema.GroupVersionResource{resource}
+	}
+	hashes := identities(ctx)
+	if !wildcard && len(hashes) != 1 {
+		return []schema.GroupVersionResource{resource}
+	}
+	gvrs := make([]schema.GroupVersionResource, 0, len(hashes))
+	for _, hash := range hashes {
+		gvr := resource
+		gvr.Resource += ":" + hash
+		gvrs = append(gvrs, gvr)
+	}
+	return gvrs
+}
+
+func clientGetter(dynamicClusterClientFunc DynamicClusterClientFunc, namespaceScoped bool, resource schema.GroupVersionResource, identities IdentityHashesFunc) func(ctx context.Context) (dynamic.ResourceInterface, error) {
 	return func(ctx context.Context) (dynamic.ResourceInterface, error) {
 		cluster, err := genericapirequest.ValidClusterFrom(ctx)
 		if err != nil {
 			return nil, apiErrorBadRequest(err)
 		}
 
-		gvr := resource
+		// Per-cluster semantics apply to every verb going through the
+		// resource client, so a single resource name is always returned.
+		gvr := forwardedResources(ctx, resource, identities, false)[0]
 		clusterName := cluster.Name
-		if apiExportIdentityHash != "" {
-			gvr.Resource += ":" + apiExportIdentityHash
-		}
 
 		dynamicClusterClient, err := dynamicClusterClientFunc(ctx)
 		if err != nil {
@@ -379,16 +472,16 @@ type listerWatcher interface {
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
 }
 
-func listerWatcherGetter(dynamicClusterClientFunc DynamicClusterClientFunc, namespaceScoped bool, resource schema.GroupVersionResource, apiExportIdentityHash string) func(ctx context.Context) (listerWatcher, error) {
-	return func(ctx context.Context) (listerWatcher, error) {
+// listerWatcherGetter returns the lister/watchers a list or watch request must
+// be forwarded to: exactly one for per-cluster requests, and one per served
+// identity (possibly none) for wildcard requests.
+func listerWatcherGetter(dynamicClusterClientFunc DynamicClusterClientFunc, namespaceScoped bool, resource schema.GroupVersionResource, identities IdentityHashesFunc) func(ctx context.Context) ([]listerWatcher, error) {
+	return func(ctx context.Context) ([]listerWatcher, error) {
 		cluster, err := genericapirequest.ValidClusterFrom(ctx)
 		if err != nil {
 			return nil, apiErrorBadRequest(err)
 		}
-		gvr := resource
-		if apiExportIdentityHash != "" {
-			gvr.Resource += ":" + apiExportIdentityHash
-		}
+		gvrs := forwardedResources(ctx, resource, identities, cluster.Wildcard)
 		namespace, namespaceSet := genericapirequest.NamespaceFrom(ctx)
 
 		dynamicClusterClient, err := dynamicClusterClientFunc(ctx)
@@ -401,18 +494,245 @@ func listerWatcherGetter(dynamicClusterClientFunc DynamicClusterClientFunc, name
 			if namespaceScoped && namespaceSet && namespace != metav1.NamespaceAll {
 				return nil, apiErrorBadRequest(fmt.Errorf("cross-cluster LIST and WATCH are required to be cross-namespace, not scoped to namespace %s", namespace))
 			}
-			return dynamicClusterClient.Resource(gvr), nil
+			delegates := make([]listerWatcher, 0, len(gvrs))
+			for _, gvr := range gvrs {
+				delegates = append(delegates, dynamicClusterClient.Resource(gvr))
+			}
+			return delegates, nil
 		default:
+			gvr := gvrs[0]
 			if namespaceScoped {
 				if !namespaceSet {
 					return nil, apiErrorBadRequest(fmt.Errorf("there should be a Namespace context in a request for a namespaced resource: %s", gvr.String()))
 				}
-				return dynamicClusterClient.Cluster(cluster.Name.Path()).Resource(gvr).Namespace(namespace), nil
+				return []listerWatcher{dynamicClusterClient.Cluster(cluster.Name.Path()).Resource(gvr).Namespace(namespace)}, nil
 			}
-			return dynamicClusterClient.Cluster(cluster.Name.Path()).Resource(gvr), nil
+			return []listerWatcher{dynamicClusterClient.Cluster(cluster.Name.Path()).Resource(gvr)}, nil
 		}
 	}
 }
+
+// listAcrossIdentities lists from every delegate (one per identity hash) and
+// returns the concatenation, in delegate order. Pagination cannot span
+// several etcd prefixes, so Limit/Continue are dropped and no continue token
+// is returned. The result's resourceVersion is the largest one seen: all
+// prefixes live in the same etcd on the shard, so revisions are comparable.
+// A NotFound from a single delegate means that identity is not served on
+// this shard and is skipped, as in the single-identity case.
+func listAcrossIdentities(ctx context.Context, delegates []listerWatcher, opts metav1.ListOptions, listFactory ListFactoryFunc) (runtime.Object, error) {
+	opts.Limit = 0
+	opts.Continue = ""
+
+	var merged *unstructured.UnstructuredList
+	var resourceVersions []string
+	for _, delegate := range delegates {
+		list, err := delegate.List(ctx, opts)
+		if apierrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if merged == nil {
+			merged = list
+		} else {
+			merged.Items = append(merged.Items, list.Items...)
+		}
+		resourceVersions = append(resourceVersions, list.GetResourceVersion())
+	}
+	if merged == nil {
+		return listFactory(), nil
+	}
+
+	merged.SetResourceVersion(maxResourceVersion(resourceVersions))
+	merged.SetContinue("")
+	merged.SetRemainingItemCount(nil)
+	return merged, nil
+}
+
+// maxResourceVersion returns the numerically largest of the given resource
+// versions. If any non-empty one does not parse as an integer, the first
+// non-empty resource version is returned instead.
+func maxResourceVersion(resourceVersions []string) string {
+	first := ""
+	maxRV := ""
+	var maxValue uint64
+	for _, rv := range resourceVersions {
+		if rv == "" {
+			continue
+		}
+		if first == "" {
+			first = rv
+		}
+		value, err := strconv.ParseUint(rv, 10, 64)
+		if err != nil {
+			return first
+		}
+		if maxRV == "" || value > maxValue {
+			maxRV, maxValue = rv, value
+		}
+	}
+	return maxRV
+}
+
+// watchAcrossIdentities opens one watch per delegate (one per identity hash)
+// and fans them into a single watch.Interface. Delegates answering NotFound
+// are skipped as in the single-identity case; if none is left, an empty watch
+// bound to ctx is returned. Any other error stops the watches already opened
+// and is returned.
+func watchAcrossIdentities(ctx context.Context, delegates []listerWatcher, opts metav1.ListOptions, gr schema.GroupResource) (watch.Interface, error) {
+	sources := make([]watch.Interface, 0, len(delegates))
+	for _, delegate := range delegates {
+		w, err := delegate.Watch(ctx, opts)
+		if apierrors.IsNotFound(err) {
+			continue
+		}
+		if err != nil {
+			for _, s := range sources {
+				s.Stop()
+			}
+			return nil, err
+		}
+		sources = append(sources, w)
+	}
+
+	switch len(sources) {
+	case 0:
+		return emptyWatchOrNotFound(ctx, opts, gr)
+	case 1:
+		return sources[0], nil
+	default:
+		// Each source ends its initial list with its own "initial-events-end"
+		// bookmark. Forwarding the first one would tell a WatchList client it
+		// is synced while other identities are still sending initial events,
+		// silently losing those objects, so the fan-in withholds the bookmark
+		// until every source has sent one.
+		return newFanInWatch(ctx, sources, ptr.Deref(opts.SendInitialEvents, false)), nil
+	}
+}
+
+// emptyWatchOrNotFound returns the watch to use when this shard serves the
+// resource under no identity at all. A WatchList client must not be given an
+// empty watch: it would wait forever for an "initial-events-end" bookmark that
+// never arrives. Surfacing NotFound makes it retry instead. See the
+// single-identity branch of WatcherFunc for the full reasoning.
+func emptyWatchOrNotFound(ctx context.Context, opts metav1.ListOptions, gr schema.GroupResource) (watch.Interface, error) {
+	if ptr.Deref(opts.SendInitialEvents, false) {
+		return nil, apierrors.NewNotFound(gr, "")
+	}
+	return newEmptyWatch(ctx), nil
+}
+
+// fanInWatch merges the events of several source watches into one result
+// channel. It stops - stopping every source and closing the result channel
+// exactly once - when Stop is called, when its context is done, or when any
+// source closes its own result channel (so the consumer relists instead of
+// silently missing that source's events).
+type fanInWatch struct {
+	sources []watch.Interface
+	result  chan watch.Event
+
+	done     chan struct{}
+	stopOnce sync.Once
+	wg       sync.WaitGroup
+
+	// coalesceInitialEvents is set for a WatchList request. Each source ends
+	// its initial list with its own "initial-events-end" bookmark; only the
+	// last one may reach the client, so that the client is told it is synced
+	// once every identity has delivered its initial events.
+	coalesceInitialEvents bool
+	initialEventsMu       sync.Mutex
+	initialEventsSeen     int
+}
+
+func newFanInWatch(ctx context.Context, sources []watch.Interface, coalesceInitialEvents bool) *fanInWatch {
+	w := &fanInWatch{
+		sources:               sources,
+		result:                make(chan watch.Event),
+		done:                  make(chan struct{}),
+		coalesceInitialEvents: coalesceInitialEvents,
+	}
+
+	w.wg.Add(len(sources))
+	for _, source := range sources {
+		go w.forward(source)
+	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			w.Stop()
+		case <-w.done:
+		}
+	}()
+
+	go func() {
+		// Only close the result channel once no forwarder can send anymore.
+		w.wg.Wait()
+		close(w.result)
+	}()
+
+	return w
+}
+
+func (w *fanInWatch) forward(source watch.Interface) {
+	defer w.wg.Done()
+	for {
+		select {
+		case <-w.done:
+			return
+		case event, ok := <-source.ResultChan():
+			if !ok {
+				w.Stop()
+				return
+			}
+			if w.withholdInitialEventsEnd(event) {
+				continue
+			}
+			select {
+			case w.result <- event:
+			case <-w.done:
+				return
+			}
+		}
+	}
+}
+
+// withholdInitialEventsEnd reports whether event is an "initial-events-end"
+// bookmark that must not be forwarded yet. On a WatchList request every source
+// sends one when it finishes its initial list; the client treats the first one
+// it sees as "my store is synced", so only the last may pass. Any other event,
+// and every event once all sources have reported, is forwarded untouched.
+func (w *fanInWatch) withholdInitialEventsEnd(event watch.Event) bool {
+	if !w.coalesceInitialEvents || event.Type != watch.Bookmark {
+		return false
+	}
+	accessor, err := meta.Accessor(event.Object)
+	if err != nil {
+		return false
+	}
+	if _, ok := accessor.GetAnnotations()[metav1.InitialEventsAnnotationKey]; !ok {
+		return false
+	}
+
+	w.initialEventsMu.Lock()
+	defer w.initialEventsMu.Unlock()
+	w.initialEventsSeen++
+	// Once every source has reported, this bookmark and any later one are
+	// forwarded: the counter only ever grows, so the check stays false.
+	return w.initialEventsSeen < len(w.sources)
+}
+
+func (w *fanInWatch) Stop() {
+	w.stopOnce.Do(func() {
+		close(w.done)
+		for _, source := range w.sources {
+			source.Stop()
+		}
+	})
+}
+
+func (w *fanInWatch) ResultChan() <-chan watch.Event { return w.result }
 
 // emptyWatch is a watch.Interface that produces no events and closes when its
 // context is done. It is returned when a forwarded resource is not served on the
