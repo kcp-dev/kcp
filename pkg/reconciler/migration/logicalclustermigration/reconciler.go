@@ -277,7 +277,8 @@ func (c *Controller) reconcileOriginCleanup(ctx context.Context, migration *migr
 		return true, err
 	}
 
-	// lc is gone from shard
+	// Drop the cancelled context so the cluster can migrate back to this shard.
+	c.deleteLogicalClusterContext(lcName.Path(), errors.New("logical cluster migrated away"))
 	c.migratingLogicalClusters.Remove(lcName)
 
 	// Transition to DestinationFinalize.
@@ -375,6 +376,7 @@ func (c *Controller) reconcileAborting(ctx context.Context, migration *migration
 		if err := c.deleteOriginData(ctx, lcName); err != nil {
 			return true, err
 		}
+		c.deleteLogicalClusterContext(lcName.Path(), errors.New("logical cluster migration aborted"))
 		c.migratingLogicalClusters.Remove(lcName)
 	}
 

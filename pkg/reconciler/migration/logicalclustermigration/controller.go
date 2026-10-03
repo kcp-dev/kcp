@@ -84,6 +84,7 @@ func NewController(
 	apiResourceSchemaInformer, globalAPIResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	migratingLogicalClusters *MigratingLogicalClusters,
 	cancelLogicalClusterConnections func(logicalcluster.Path, error),
+	deleteLogicalClusterContext func(logicalcluster.Path, error),
 	ddsif *informer.DiscoveringDynamicSharedInformerFactory,
 ) (*Controller, error) {
 	c := &Controller{
@@ -105,6 +106,7 @@ func NewController(
 		migrationIndexer:                  cachedLogicalClusterMigrationInformer.Informer().GetIndexer(),
 		migratingLogicalClusters:          migratingLogicalClusters,
 		cancelLogicalClusterConnections:   cancelLogicalClusterConnections,
+		deleteLogicalClusterContext:       deleteLogicalClusterContext,
 		ddsif:                             ddsif,
 		commit:                            committer.NewCommitter[*migrationv1alpha1.LogicalClusterMigration, migrationv1alpha1client.LogicalClusterMigrationInterface, *migrationv1alpha1.LogicalClusterMigrationSpec, *migrationv1alpha1.LogicalClusterMigrationStatus](kcpClusterClient.MigrationV1alpha1().LogicalClusterMigrations()),
 		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
@@ -174,6 +176,7 @@ type Controller struct {
 
 	migratingLogicalClusters        *MigratingLogicalClusters
 	cancelLogicalClusterConnections func(logicalcluster.Path, error)
+	deleteLogicalClusterContext     func(logicalcluster.Path, error)
 	ddsif                           *informer.DiscoveringDynamicSharedInformerFactory
 
 	commit func(ctx context.Context, old, new *logicalClusterMigrationResource) error
