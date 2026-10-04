@@ -17,6 +17,7 @@ limitations under the License.
 package logicalclustermigration
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -116,4 +117,67 @@ func TestApplyDumpPageResult_resumesAfterSimulatedRestart(t *testing.T) {
 	require.Equal(t, int64(50), restarted.Status.EntriesCopied, "entries from before and after the restart must both be counted")
 	require.Empty(t, restarted.Status.DumpContinue)
 	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseOriginCleanup, restarted.Status.Phase)
+}
+
+func TestAddFinalizer(t *testing.T) {
+	t.Parallel()
+
+	migration := &migrationv1alpha1.LogicalClusterMigration{}
+	migration.Finalizers = []string{"other"}
+
+	require.True(t, addFinalizer(migration))
+	require.Equal(t, []string{"other", MigrationFinalizer}, migration.Finalizers)
+
+	require.False(t, addFinalizer(migration), "adding the finalizer twice must be a noop")
+	require.Equal(t, []string{"other", MigrationFinalizer}, migration.Finalizers)
+}
+
+func TestReconcile_removesFinalizerInTerminalPhases(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		shard              string
+		phase              migrationv1alpha1.LogicalClusterMigrationPhaseType
+		expectedFinalizers []string
+	}{
+		"completed on destination removes finalizer": {
+			shard:              "destination",
+			phase:              migrationv1alpha1.LogicalClusterMigrationPhaseCompleted,
+			expectedFinalizers: []string{"other"},
+		},
+		"completed on origin keeps finalizer": {
+			shard:              "origin",
+			phase:              migrationv1alpha1.LogicalClusterMigrationPhaseCompleted,
+			expectedFinalizers: []string{"other", MigrationFinalizer},
+		},
+		"failed on origin removes finalizer": {
+			shard:              "origin",
+			phase:              migrationv1alpha1.LogicalClusterMigrationPhaseFailed,
+			expectedFinalizers: []string{"other"},
+		},
+		"failed on destination removes finalizer": {
+			shard:              "destination",
+			phase:              migrationv1alpha1.LogicalClusterMigrationPhaseFailed,
+			expectedFinalizers: []string{"other"},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			migration := &migrationv1alpha1.LogicalClusterMigration{}
+			migration.Finalizers = []string{"other", MigrationFinalizer}
+			migration.Spec.DestinationShard = "destination"
+			migration.Status.OriginShard = "origin"
+			migration.Status.Phase = tc.phase
+
+			c := &Controller{shardName: tc.shard}
+			requeue, err := c.reconcile(context.Background(), migration)
+
+			require.NoError(t, err)
+			require.False(t, requeue)
+			require.Equal(t, tc.expectedFinalizers, migration.Finalizers)
+		})
+	}
 }

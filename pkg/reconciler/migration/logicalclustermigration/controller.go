@@ -66,6 +66,11 @@ const (
 	// indicate it is currently being migrated. The value is the cluster path
 	// of the LogicalClusterMigration object that triggered the migration.
 	MigratingAnnotationKey = "internal.kcp.io/migrating"
+
+	// MigrationFinalizer is set on the LogicalClusterMigration by the origin
+	// shard to prevent its deletion while the migration is in progress. It
+	// is removed once the migration reaches a terminal phase.
+	MigrationFinalizer = "internal.kcp.io/logicalclustermigration"
 )
 
 func NewController(
