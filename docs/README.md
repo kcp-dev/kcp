@@ -2,34 +2,34 @@
 
 ## Overview
 
-Our documentation is powered by [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) with some
-additional plugins and tools:
+Our documentation is powered by [Zensical](https://zensical.org/) (Material for MkDocs compatible theme) with some
+additional tools:
 
-- [awesome-pages plugin](https://github.com/lukasgeiter/mkdocs-awesome-pages-plugin)
-- [macros plugin](https://mkdocs-macros-plugin.readthedocs.io/en/latest/)
-- [mike](https://github.com/jimporter/mike) for multiple version support
+- [awesome-nav](https://lukasgeiter.github.io/mkdocs-awesome-nav/) (native Zensical implementation) for navigation,
+  configured via `.nav.yml` files
+- [mike](https://github.com/squidfunk/mike) (Zensical-compatible fork) for multiple version support
 
-We have support in place for multiple languages (i18n), although we currently only have documentation in English. If
-you're interested in contributing translations, please let us know!
+Dependencies are managed with [uv](https://docs.astral.sh/uv/) (`pyproject.toml`, `uv.lock`).
 
 ## File structure
 
 All documentation-related items live in `docs` (with the small exception of various `make` targets and some helper
 scripts in `hack`).
 
-The structure of `docs` is as follows:
+| Path                | Description                                                                 |
+|---------------------|-----------------------------------------------------------------------------|
+| content             | Website content. Navigation is configured with `.nav.yml` files.            |
+| generated           | Generated site. Never added to git.                                         |
+| overrides           | Theme overrides, stylesheets, scripts and static assets.                    |
+| generators          | Generators for CLI and API reference docs.                                  |
+| mkdocs.yml          | Zensical configuration (also read by `mike`).                               |
+| pyproject.toml      | Python dependencies used to build the site.                                 |
 
-| Path                        | Description                                                                       |
-|-----------------------------|-----------------------------------------------------------------------------------|
-| config/$language/mkdocs.yml | Language-specific `mkdocs` configuration.                                         |
-| content/$language           | Language-specific website content.                                                |
-| generated/branch            | All generated content for all languages for the current version.                  |
-| generated/branch/$language  | Generated content for a single language. Never added to git.                      |
-| generated/branch/index.html | Minimal index for the current version that redirects to the default language (en) |
-| overrides                   | Global (not language-specific) content.                                           |
-| Dockerfile                  | Builds the kcp-docs image containing mkdocs + associated tooling.                 |
-| mkdocs.yml                  | Minimal `mkdocs` configuration for `mike` for multi-version support.              |
-| requirements.txt            | List of Python modules used to build the site.                                    |
+## Local preview
+
+```sh
+make local-docs
+```
 
 ## Publishing Workflow
 
@@ -38,11 +38,8 @@ All documentation building and publishing is done using GitHub Actions in
 
 1. Generate CLI docs
 2. Generate API docs
-3. Run `mkdocs build` for all languages
-4. Run `mike deploy --push`
+3. Run `mike deploy --push`, which builds the site with Zensical
 
 ## Theme Overrides
 
-The goal is to have no full overrides of any theme partials. We currently override `header.html` to customize the
-way the language selection dropdown is rendered. We are working with the theme developers to see if we can help make
-some changes upstream that don't require an override.
+We override `partials/outdated.html` to customize the outdated version warning.
