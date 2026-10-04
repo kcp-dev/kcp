@@ -39,10 +39,11 @@ jobs:
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 #tag=v7.0.0
         with:
-          python-version: "3.10"
-          cache: "pip"
+          python-version: "3.13"
 
-      # mike does not support giving CLI flags for mkdocs, but we also do not
+      - run: pip install uv
+
+      # mike does not support giving CLI flags for zensical, but we also do not
       # want to permanently enable strict mode, so here we enable it just for this
       # task
       - run: |
