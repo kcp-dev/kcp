@@ -101,6 +101,9 @@ markdown_extensions:
   - pymdownx.snippets
   # Enable note/warning/etc. callouts
   - admonition
+  # Render "- [ ]" / "- [x]" items as checkboxes
+  - pymdownx.tasklist:
+      custom_checkbox: true
   # Add permalinks to all headlines
   - toc:
       permalink: true
