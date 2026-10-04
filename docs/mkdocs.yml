@@ -72,26 +72,11 @@ extra:
       link: https://www.youtube.com/@kcp-dev
 
 plugins:
-  # https://github.com/lukasgeiter/mkdocs-awesome-pages-plugin
-  # Greater control over how navigation links are shown
-  - awesome-pages
+  # https://lukasgeiter.github.io/mkdocs-awesome-nav/
+  # Greater control over how navigation links are shown (configured via .nav.yml files)
+  - awesome-nav
   # Docs site search
   - search
-  # Use Jinja macros in .md files
-  - macros:
-      include_dir: "overrides"
-      module_name: "main"
-  # Configure multiple language support
-  - i18n:
-      docs_structure: suffix
-      fallback_to_default: true
-      languages:
-        - build: true
-          default: true
-          locale: en
-          name: English
-      reconfigure_material: true
-      reconfigure_search: true
   # Configure multi-version plugin
   - mike:
       alias_type: redirect
