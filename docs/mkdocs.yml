@@ -88,19 +88,17 @@ markdown_extensions:
   - pymdownx.highlight:
       # Allows linking directly to specific lines in code blocks
       anchor_linenums: true
+  # Arbitrary nesting of code/content blocks inside each other
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
           format:
-            !!python/name:pymdownx.superfences.fence_code_format # Inline code block highlighting
-
-
+            !!python/name:pymdownx.superfences.fence_code_format
+  # Inline code block highlighting
   - pymdownx.inlinehilite
   # Lets you embed content from another file
   - pymdownx.snippets
-  # Arbitrary nesting of code/content blocks inside each other
-  - pymdownx.superfences
   # Enable note/warning/etc. callouts
   - admonition
   # Add permalinks to all headlines
