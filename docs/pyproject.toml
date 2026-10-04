@@ -8,5 +8,9 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-    "zensical>=0.0.30",
+    "mike",
+    "zensical>=0.0.67",
 ]
+
+[tool.uv.sources]
+mike = { git = "https://github.com/squidfunk/mike.git" }
