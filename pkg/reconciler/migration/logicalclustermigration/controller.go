@@ -70,7 +70,7 @@ const (
 	// MigrationFinalizer is set on the LogicalClusterMigration by the origin
 	// shard to prevent its deletion while the migration is in progress. It
 	// is removed once the migration reaches a terminal phase.
-	MigrationFinalizer = "migration.kcp.io/logicalclustermigration"
+	MigrationFinalizer = "internal.kcp.io/logicalclustermigration"
 )
 
 func NewController(
