@@ -1211,6 +1211,7 @@ func (s *Server) installLogicalClusterMigrationController(ctx context.Context, c
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.MigratingLogicalClusters,
 		s.ClusterContextManager.Cancel,
+		s.ClusterContextManager.Delete,
 		s.PartialMetadataDDSIF,
 	)
 	if err != nil {
