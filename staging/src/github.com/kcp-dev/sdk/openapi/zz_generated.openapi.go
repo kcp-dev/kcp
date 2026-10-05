@@ -4239,6 +4239,13 @@ func schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref common.ReferenceCallback) 
 							Format:      "byte",
 						},
 					},
+					"ttlSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ttlSeconds is the remaining lease TTL on the origin shard, or zero for no lease.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 				},
 				Required: []string{"key", "value"},
 			},

@@ -95,4 +95,8 @@ type EtcdEntry struct {
 
 	// value is the raw etcd value bytes. JSON-encoded as base64 on the wire.
 	Value []byte `json:"value"`
+
+	// ttlSeconds is the remaining lease TTL on the origin shard, or zero for no lease.
+	// +optional
+	TTLSeconds int64 `json:"ttlSeconds,omitempty"`
 }

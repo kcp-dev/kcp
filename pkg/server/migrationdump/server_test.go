@@ -43,7 +43,7 @@ func TestScanEtcdEntries_singlePageReturnsEverythingWhenItFits(t *testing.T) {
 		"/registry/apps/deployments/root:other/default/x": "v3",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 0, 0)
+	entries, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, "", 0, 0)
 	require.NoError(t, err)
 	require.Empty(t, next)
 
@@ -77,7 +77,7 @@ func TestScanEtcdEntries_limitPaginatesAndCoversAllEntriesAcrossPages(t *testing
 		pages++
 		require.LessOrEqual(t, pages, len(kvs)+1, "too many pages, pagination is likely stuck")
 
-		entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, continueToken, 2, 0)
+		entries, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, continueToken, 2, 0)
 		require.NoError(t, err)
 		require.LessOrEqual(t, len(entries), 2)
 
@@ -114,7 +114,7 @@ func TestScanEtcdEntries_maxBytesStopsPageBeforeLimit(t *testing.T) {
 		"/registry/apps/deployments/root:ws/default/c": "0123456789",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 1000, 25)
+	entries, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, "", 1000, 25)
 	require.NoError(t, err)
 	require.Len(t, entries, 2)
 	require.NotEmpty(t, next)
@@ -132,7 +132,7 @@ func TestScanEtcdEntries_singleEntryLargerThanMaxBytesIsStillReturnedAlone(t *te
 		"/registry/apps/deployments/root:ws/default/small2": "v",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 1000, 10)
+	entries, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, "", 1000, 10)
 	require.NoError(t, err)
 	require.Len(t, entries, 1, "the oversized entry must be returned alone, not dropped")
 	require.NotEmpty(t, next, "pagination must continue after the oversized entry")
@@ -151,12 +151,12 @@ func TestScanEtcdEntries_resumesFromContinueTokenWithoutDuplicatesOrGaps(t *test
 		"/registry/apps/deployments/root:ws/default/d": "v",
 	})
 
-	first, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 2, 0)
+	first, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, "", 2, 0)
 	require.NoError(t, err)
 	require.Len(t, first, 2)
 	require.NotEmpty(t, next)
 
-	second, next2, err := scanEtcdEntries(context.Background(), kv, prefix, target, next, 1000, 0)
+	second, next2, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, next, 1000, 0)
 	require.NoError(t, err)
 	require.Empty(t, next2)
 
@@ -181,10 +181,47 @@ func TestScanEtcdEntries_ignoresOtherClusters(t *testing.T) {
 		"/registry/core/configmaps/root:other/default/b":  "v",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 0, 0)
+	entries, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, "", 0, 0)
 	require.NoError(t, err)
 	require.Empty(t, next)
 	require.Empty(t, entries)
+}
+
+func TestScanEtcdEntries_carriesRemainingLeaseTTLAndSkipsExpired(t *testing.T) {
+	t.Parallel()
+
+	prefix := "/registry/"
+	target := logicalcluster.Name("root:ws")
+
+	kv := newFakeKV(map[string]string{
+		"/registry/core/configmaps/root:ws/default/cm": "v",
+		"/registry/core/events/root:ws/default/e1":     "v",
+		"/registry/core/events/root:ws/default/e2":     "v",
+		"/registry/core/events/root:ws/default/e3":     "v",
+	})
+	kv.leases = map[string]int64{
+		"/registry/core/events/root:ws/default/e1": 1,
+		"/registry/core/events/root:ws/default/e2": 1,
+		"/registry/core/events/root:ws/default/e3": 2,
+	}
+	leases := &fakeLeases{ttls: map[clientv3.LeaseID]int64{
+		1: 3000,
+		2: -1, // expired
+	}}
+
+	entries, _, err := scanEtcdEntries(context.Background(), kv, leases, prefix, target, "", 0, 0)
+	require.NoError(t, err)
+
+	ttls := map[string]int64{}
+	for _, e := range entries {
+		ttls[e.Key] = e.TTLSeconds
+	}
+	require.Equal(t, map[string]int64{
+		"core/configmaps/root:ws/default/cm": 0,
+		"core/events/root:ws/default/e1":     3000,
+		"core/events/root:ws/default/e2":     3000,
+	}, ttls, "entries with an expired lease must not be copied")
+	require.Equal(t, 2, leases.calls, "each lease should only be looked up once")
 }
 
 func entryKeys(entries []migrationv1alpha1.EtcdEntry) []string {
@@ -202,7 +239,8 @@ func entryKeys(entries []migrationv1alpha1.EtcdEntry) []string {
 // and an optional limit. Other methods are not implemented and panic if
 // called.
 type fakeKV struct {
-	kvs map[string]string
+	kvs    map[string]string
+	leases map[string]int64
 }
 
 func newFakeKV(kvs map[string]string) *fakeKV { return &fakeKV{kvs: kvs} }
@@ -228,7 +266,7 @@ func (f *fakeKV) Get(_ context.Context, key string, opts ...clientv3.OpOption) (
 
 	resp := &clientv3.GetResponse{More: more}
 	for _, k := range keys {
-		resp.Kvs = append(resp.Kvs, &mvccpb.KeyValue{Key: []byte(k), Value: []byte(f.kvs[k])})
+		resp.Kvs = append(resp.Kvs, &mvccpb.KeyValue{Key: []byte(k), Value: []byte(f.kvs[k]), Lease: f.leases[k]})
 	}
 	return resp, nil
 }
@@ -246,3 +284,13 @@ func (f *fakeKV) Do(context.Context, clientv3.Op) (clientv3.OpResponse, error) {
 	panic("not implemented")
 }
 func (f *fakeKV) Txn(context.Context) clientv3.Txn { panic("not implemented") }
+
+type fakeLeases struct {
+	ttls  map[clientv3.LeaseID]int64
+	calls int
+}
+
+func (f *fakeLeases) TimeToLive(_ context.Context, id clientv3.LeaseID, _ ...clientv3.LeaseOption) (*clientv3.LeaseTimeToLiveResponse, error) {
+	f.calls++
+	return &clientv3.LeaseTimeToLiveResponse{ID: id, TTL: f.ttls[id]}, nil
+}

@@ -17,9 +17,11 @@ limitations under the License.
 package logicalclustermigration
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	clientv3 "go.etcd.io/etcd/client/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -28,6 +30,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 )
 
@@ -165,4 +168,46 @@ func TestReleaseOriginClient_neverAcquiredIsANoop(t *testing.T) {
 	require.NotPanics(t, func() {
 		c.releaseOriginClient(logicalcluster.Name("lc-1"), "shard-that-does-not-exist")
 	})
+}
+
+func TestWriteDumpEntries_attachesSharedLeasesToEntriesWithTTL(t *testing.T) {
+	t.Parallel()
+
+	kv := &recordingKV{puts: map[string]int{}}
+	leases := &fakeLeaseGranter{}
+
+	err := writeDumpEntries(context.Background(), kv, leases, "/dest/", []migrationv1alpha1.EtcdEntry{
+		{Key: "core/configmaps/lc/default/cm", Value: []byte("v")},
+		{Key: "core/events/lc/default/e1", Value: []byte("v"), TTLSeconds: 3541},
+		{Key: "core/events/lc/default/e2", Value: []byte("v"), TTLSeconds: 3599},
+		{Key: "core/events/lc/default/e3", Value: []byte("v"), TTLSeconds: 1},
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, []int64{3600, 60}, leases.granted)
+	require.Equal(t, map[string]int{
+		"/dest/core/configmaps/lc/default/cm": 0,
+		"/dest/core/events/lc/default/e1":     1,
+		"/dest/core/events/lc/default/e2":     1,
+		"/dest/core/events/lc/default/e3":     1,
+	}, kv.puts)
+}
+
+type recordingKV struct {
+	clientv3.KV
+	puts map[string]int
+}
+
+func (r *recordingKV) Put(_ context.Context, key, _ string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error) {
+	r.puts[key] = len(opts)
+	return &clientv3.PutResponse{}, nil
+}
+
+type fakeLeaseGranter struct {
+	granted []int64
+}
+
+func (f *fakeLeaseGranter) Grant(_ context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error) {
+	f.granted = append(f.granted, ttl)
+	return &clientv3.LeaseGrantResponse{ID: clientv3.LeaseID(len(f.granted)), TTL: ttl}, nil
 }

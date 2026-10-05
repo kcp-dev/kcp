@@ -6,7 +6,7 @@ spec:
   resources:
   - group: migration.kcp.io
     name: logicalclusterdumps
-    schema: v260702-7381341f5.logicalclusterdumps.migration.kcp.io
+    schema: v261005-de2de70b9.logicalclusterdumps.migration.kcp.io
     storage:
       crd: {}
   - group: migration.kcp.io
