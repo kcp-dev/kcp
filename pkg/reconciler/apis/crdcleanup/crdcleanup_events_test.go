@@ -51,7 +51,7 @@ func TestDeletionEvents(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name    string
-		object  interface{}
+		object  any
 		binding bool
 		want    []string
 	}{
