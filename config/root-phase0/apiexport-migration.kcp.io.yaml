@@ -11,7 +11,7 @@ spec:
       crd: {}
   - group: migration.kcp.io
     name: logicalclusterdumps
-    schema: v261014-8a1a11ca0.logicalclusterdumps.migration.kcp.io
+    schema: v261015-c6aa67685.logicalclusterdumps.migration.kcp.io
     storage:
       crd: {}
   - group: migration.kcp.io
