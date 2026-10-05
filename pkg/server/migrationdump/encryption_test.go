@@ -54,7 +54,7 @@ func TestScanDecryptsUsingOriginalKey(t *testing.T) {
 	require.Error(t, err)
 	transformers := encryptionconfig.StaticTransformers{schema.GroupResource{Resource: "secrets"}: transformer}
 	kv := newFakeKV(map[string]string{key: string(encrypted)})
-	entries, next, err := scanEtcdEntries(ctx, kv, "/shard/source", logicalcluster.Name("cluster"), "", 0, 0, transformers)
+	entries, next, err := scanEtcdEntries(ctx, kv, nil, "/shard/source", logicalcluster.Name("cluster"), "", 0, 0, transformers)
 	require.NoError(t, err)
 	require.Empty(t, next)
 	require.Len(t, entries, 1)
@@ -62,7 +62,7 @@ func TestScanDecryptsUsingOriginalKey(t *testing.T) {
 	require.Equal(t, plain, entries[0].Value)
 	// A failed decrypt must not return a page that the destination can acknowledge.
 	kv.kvs[key] = "corrupt ciphertext"
-	entries, next, err = scanEtcdEntries(ctx, kv, "/shard/source", logicalcluster.Name("cluster"), "", 0, 0, transformers)
+	entries, next, err = scanEtcdEntries(ctx, kv, nil, "/shard/source", logicalcluster.Name("cluster"), "", 0, 0, transformers)
 	require.Error(t, err)
 	require.Empty(t, entries)
 	require.Empty(t, next)

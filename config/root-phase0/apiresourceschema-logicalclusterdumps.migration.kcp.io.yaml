@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v261014-8a1a11ca0.logicalclusterdumps.migration.kcp.io
+  name: v261015-c6aa67685.logicalclusterdumps.migration.kcp.io
 spec:
   group: migration.kcp.io
   names:
@@ -103,6 +103,11 @@ spec:
                       key is the etcd key with the origin shard's storage prefix stripped.
                       The destination shard prepends its own storage prefix before writing.
                     type: string
+                  ttlSeconds:
+                    description: ttlSeconds is the remaining lease TTL on the origin
+                      shard, or zero for no lease.
+                    format: int64
+                    type: integer
                   value:
                     description: |-
                       value is the serialized object with storage encryption removed, encoded
