@@ -18,6 +18,7 @@ package permissionclaimlabel
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -57,17 +58,31 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 		return nil
 	}
 
+	// A deleting APIBinding no longer grants anything: every applied claim must
+	// be withdrawn, i.e. the claim labels removed from the claimed objects, before
+	// the binding is finalized. Otherwise the labels outlive the binding and the
+	// APIExport virtual workspace keeps serving the objects on wildcard requests,
+	// which are scoped by label only. The apibindingdeletion controller holds the
+	// finalizer until status.appliedPermissionClaims is empty.
+	deleting := !apiBinding.DeletionTimestamp.IsZero()
+
 	exportPath := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
 	if exportPath.Empty() {
 		exportPath = logicalcluster.From(apiBinding).Path()
 	}
 	apiExport, err := c.getAPIExport(exportPath, apiBinding.Spec.Reference.Export.Name)
 	if err != nil {
-		logger.Error(err, "error getting APIExport", "apiExportWorkspace", exportPath, "apiExportName", apiBinding.Spec.Reference.Export.Name)
-		return nil // nothing we can do
+		if !deleting {
+			logger.Error(err, "error getting APIExport", "apiExportWorkspace", exportPath, "apiExportName", apiBinding.Spec.Reference.Export.Name)
+			return nil // nothing we can do
+		}
+		// Withdrawing claims does not need the export: the labeler already
+		// ignores bindings whose export is gone, so relabeling drops the labels.
+		logger.V(2).Info("APIExport not found, withdrawing applied permission claims of deleting APIBinding", "apiExportWorkspace", exportPath, "apiExportName", apiBinding.Spec.Reference.Export.Name)
+		apiExport = &apisv1alpha2.APIExport{}
+	} else {
+		logger = logging.WithObject(logger, apiExport)
 	}
-
-	logger = logging.WithObject(logger, apiExport)
 
 	exportedClaims := sets.New[string]()
 	exportedClaimsMap := make(map[string]apisv1alpha2.PermissionClaim)
@@ -79,11 +94,13 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 
 	acceptedClaims := sets.New[string]()
 	acceptedClaimsMap := make(map[string]apisv1alpha2.ScopedPermissionClaim)
-	for _, claim := range apiBinding.Spec.PermissionClaims {
-		if claim.State == apisv1alpha2.ClaimAccepted {
-			key := setKeyForClaim(claim.PermissionClaim)
-			acceptedClaims.Insert(key)
-			acceptedClaimsMap[key] = claim.ScopedPermissionClaim
+	if !deleting {
+		for _, claim := range apiBinding.Spec.PermissionClaims {
+			if claim.State == apisv1alpha2.ClaimAccepted {
+				key := setKeyForClaim(claim.PermissionClaim)
+				acceptedClaims.Insert(key)
+				acceptedClaimsMap[key] = claim.ScopedPermissionClaim
+			}
 		}
 	}
 
@@ -114,6 +131,18 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 
 	var allErrs []error
 	applyErrors := sets.New[string]()
+	// removeErrors tracks applied claims whose labels could not be withdrawn.
+	// They stay in status.appliedPermissionClaims so that the removal is
+	// retried on the next reconcile instead of being forgotten.
+	removeErrors := sets.New[string]()
+	recordClaimError := func(s string) {
+		if acceptedClaims.Has(s) {
+			applyErrors.Insert(s)
+		}
+		if needToRemove.Has(s) {
+			removeErrors.Insert(s)
+		}
+	}
 
 	for _, s := range sets.List[string](allChanges) {
 		claim := claimFromSetKey(s)
@@ -129,10 +158,16 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 
 		informer, gvr, err := c.getInformerForGroupResource(claim.Group, claim.Resource)
 		if err != nil {
-			allErrs = append(allErrs, fmt.Errorf("error getting informer for group=%q, resource=%q: %w", claim.Group, claim.Resource, err))
-			if acceptedClaims.Has(s) {
-				applyErrors.Insert(s)
+			if deleting && claim.IdentityHash != "" && goerrors.Is(err, errInformerAbsent) {
+				// The claimed resource is no longer served on this shard, so there are
+				// no instances left to withdraw labels from. Built-in resources (empty
+				// identity hash) are always served, there an absent informer means
+				// discovery has not run yet and we wait instead.
+				claimLogger.V(2).Info("claimed resource no longer served, nothing to withdraw")
+				continue
 			}
+			allErrs = append(allErrs, fmt.Errorf("error getting informer for group=%q, resource=%q: %w", claim.Group, claim.Resource, err))
+			recordClaimError(s)
 			continue
 		}
 		claimLogger = claimLogger.WithValues("gvr", gvr)
@@ -141,9 +176,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 		objs, err := informer.Lister().ByCluster(clusterName).List(labels.Everything())
 		if err != nil {
 			allErrs = append(allErrs, fmt.Errorf("error listing group=%q, resource=%q: %w", claim.Group, claim.Resource, err))
-			if acceptedClaims.Has(s) {
-				applyErrors.Insert(s)
-			}
+			recordClaimError(s)
 			continue
 		}
 
@@ -193,9 +226,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 		if len(claimErrs) > 0 {
 			allErrs = append(allErrs, claimErrs...)
 
-			if acceptedClaims.Has(s) {
-				applyErrors.Insert(s)
-			}
+			recordClaimError(s)
 		}
 	}
 
@@ -269,6 +300,11 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 		// hence s must be in acceptedClaims (and exportedClaims).
 		apiBinding.Status.AppliedPermissionClaims = append(apiBinding.Status.AppliedPermissionClaims, acceptedClaimsMap[s])
 	}
+	for _, s := range sets.List[string](removeErrors) {
+		// the labels of these claims are still (partially) in place: keep
+		// reporting them as applied so the withdrawal is retried.
+		apiBinding.Status.AppliedPermissionClaims = append(apiBinding.Status.AppliedPermissionClaims, appliedClaimsMap[s])
+	}
 
 	if len(allErrs) > 0 {
 		i := len(allErrs)
@@ -336,7 +372,7 @@ func (c *controller) getInformerForGroupResource(group, resource string) (kcpkub
 			return nil, schema.GroupVersionResource{}, fmt.Errorf("%w for %s.%s: not synced yet", errInformerNotReady, group, resource)
 		}
 	}
-	return nil, schema.GroupVersionResource{}, fmt.Errorf("%w for %s.%s", errInformerNotReady, group, resource)
+	return nil, schema.GroupVersionResource{}, fmt.Errorf("%w: %w for %s.%s", errInformerAbsent, errInformerNotReady, group, resource)
 }
 
 func (c *controller) patchGenericObject(ctx context.Context, obj metav1.Object, gvr schema.GroupVersionResource, lc logicalcluster.Path) error {

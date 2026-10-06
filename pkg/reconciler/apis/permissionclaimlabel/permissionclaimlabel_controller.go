@@ -63,6 +63,11 @@ const (
 // discovery and needs a moment to list.
 var errInformerNotReady = errors.New("unable to find informer")
 
+// errInformerAbsent is wrapped (together with errInformerNotReady) when the
+// dynamic informer factory knows nothing about the claimed resource at all,
+// as opposed to having an informer for it that is not synced yet.
+var errInformerAbsent = errors.New("informer absent")
+
 // informerNotReadyError is returned by reconcile when every failure was a
 // missing informer. It tells the queue to wait on a fixed delay instead of
 // counting a failure: a burst of unrelated updates to the binding (status
