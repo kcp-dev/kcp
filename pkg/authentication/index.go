@@ -31,7 +31,6 @@ import (
 	kubeauthenticator "k8s.io/kubernetes/pkg/kubeapiserver/authenticator"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/kcp-dev/sdk/apis/core"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 )
 
@@ -43,14 +42,12 @@ import (
 // an authenticator is updated.
 const authenticatorSetupTimeout = 10 * time.Second
 
+// controllerName is the logger name for workspace authentication.
+const controllerName = "kcp-workspace-authentication-index"
+
 // AuthenticatorIndex implements a mapping from workspace type to authenticator.Request.
 type AuthenticatorIndex interface {
 	Lookup(wsType logicalcluster.Path) (authenticator.Request, bool)
-}
-
-type authenticatorKey struct {
-	cluster logicalcluster.Name
-	name    string
 }
 
 type authenticatorState struct {
@@ -63,33 +60,16 @@ type authenticatorState struct {
 	wacResourceVersions map[string]string
 }
 
-func getWorkspaceTypeKey(wst *tenancyv1alpha1.WorkspaceType) logicalcluster.Path {
-	return logicalcluster.NewPath(wst.Annotations[core.LogicalClusterPathAnnotationKey]).Join(wst.Name)
-}
-
 var (
-	errCauseUpsert      = errors.New("authentication configuration has changed")
-	errCauseDelete      = errors.New("authentication configuration has been deleted")
-	errCauseDeleteShard = errors.New("shard has been deleted")
-	errCauseEmpty       = errors.New("no valid authentication methods configured")
-	errCauseEvict       = errors.New("cache entry evicted")
+	errCauseEmpty = errors.New("no valid authentication methods configured")
+	errCauseEvict = errors.New("cache entry evicted")
 )
-
-func getAuthConfigKey(authConfig *tenancyv1alpha1.WorkspaceAuthenticationConfiguration) authenticatorKey {
-	return authenticatorKey{
-		cluster: logicalcluster.From(authConfig),
-		name:    authConfig.Name,
-	}
-}
 
 // buildAuthenticator builds a JWT authenticator from the provided WAC.
 //
 // The returned authenticator is not necessarily initialized yet; the upstream
-// JWT authenticator performs OIDC discovery asynchronously. Callers on the
-// request hot path (lazy index) should waitForAuthenticatorInit before serving
-// requests. Callers driven by informer events (eager index) intentionally do
-// not wait, so that a slow discovery does not block the informer event handler
-// or silently drop the authenticator on timeout.
+// JWT authenticator performs OIDC discovery asynchronously. Callers should
+// waitForAuthenticatorInit before serving requests.
 func buildAuthenticator(
 	lifecycleCtx context.Context,
 	baseAudiences authenticator.Audiences,

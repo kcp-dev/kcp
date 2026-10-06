@@ -614,14 +614,6 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		apiHandler = kcpfilters.WithImpersonationGatekeeper(apiHandler)
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromStartToBeforeImpersonation(apiHandler, genericConfig)
 
-		// When workspace auth is enabled, it depends on the target cluster whether
-		// a custom authenticator exists or not. This needs to be determined before
-		// the authentication middleware can run, as it needs to know about the
-		// workspace authenticator.
-		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
-			apiHandler = authentication.WithWorkspaceAuthResolver(apiHandler, authIndex)
-		}
-
 		// this will be replaced in DefaultBuildHandlerChain. So at worst we get twice as many warning.
 		// But this is not harmful as the kcp warnings are not many.
 		apiHandler = filters.WithWarningRecorder(apiHandler)

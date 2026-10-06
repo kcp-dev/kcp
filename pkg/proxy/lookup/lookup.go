@@ -237,8 +237,6 @@ func resolveClusterName(w http.ResponseWriter, req *http.Request, index proxyind
 		return nil, nil
 	}
 
-	ctx = WithClusterName(ctx, result.Cluster)
-	ctx = WithWorkspaceType(ctx, result.Type)
 	ctx = WithShardName(ctx, result.Shard)
 
 	return req.WithContext(ctx), &result
@@ -250,8 +248,6 @@ const (
 	shardContextKey lookupKey = iota
 	shardNameContextKey
 	shardNameHolderContextKey
-	clusterContextKey
-	workspaceTypeContextKey
 )
 
 func WithShardURL(parent context.Context, shardURL *url.URL) context.Context {
@@ -296,28 +292,4 @@ type ShardNameHolder struct {
 func WithShardNameHolder(parent context.Context) (context.Context, *ShardNameHolder) {
 	holder := &ShardNameHolder{}
 	return context.WithValue(parent, shardNameHolderContextKey, holder), holder
-}
-
-func WithClusterName(parent context.Context, cluster logicalcluster.Name) context.Context {
-	return context.WithValue(parent, clusterContextKey, cluster)
-}
-
-func ClusterNameFrom(ctx context.Context) logicalcluster.Name {
-	cluster, ok := ctx.Value(clusterContextKey).(logicalcluster.Name)
-	if !ok {
-		return ""
-	}
-	return cluster
-}
-
-func WithWorkspaceType(parent context.Context, wsType logicalcluster.Path) context.Context {
-	return context.WithValue(parent, workspaceTypeContextKey, wsType)
-}
-
-func WorkspaceTypeFrom(ctx context.Context) logicalcluster.Path {
-	cluster, ok := ctx.Value(workspaceTypeContextKey).(logicalcluster.Path)
-	if !ok {
-		return logicalcluster.None
-	}
-	return cluster
 }

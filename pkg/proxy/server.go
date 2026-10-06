@@ -45,9 +45,7 @@ import (
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
-	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
-	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
@@ -62,7 +60,6 @@ type Server struct {
 	CompletedConfig
 	Handler                  http.Handler
 	IndexController          *index.Controller
-	AuthController           *authentication.Controller
 	KcpSharedInformerFactory kcpinformers.SharedScopedInformerFactory
 }
 
@@ -149,35 +146,11 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	}
 
 	// The optional auth handler will call the underlying authenticator only if
-	// auth methods are configured directly on the front-proxy *or* if there is
-	// a custom workspace authenticator, i.e. the AdditionalAuthEnabled field
-	// only represents the CLI flag state.
-	failedHandler := frontproxyfilters.NewUnauthorizedHandler()
+	// auth methods are configured directly on the front-proxy.
 	handler = frontproxyfilters.WithOptionalAuthentication(
 		handler,
-		failedHandler,
 		s.completedConfig.AuthenticationInfo.Authenticator,
 		s.CompletedConfig.AdditionalAuthEnabled)
-
-	// Make the per-workspace authenticator available to the previous middleware
-	// by hooking up a handler and a runtime index.
-	hasWorkspaceAuth := hasShardMapping && kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication)
-
-	if hasWorkspaceAuth {
-		// This controller is similar to the index controller, but keeps track of the per-workspace authenticators.
-		ctrl, err := authentication.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to start authentication controller: %w", err)
-		}
-
-		s.AuthController = ctrl
-
-		// When workspace auth is enabled, it depends on the target cluster whether
-		// a custom authenticator exists or not. This needs to be determined before
-		// the optionalAuthentication middleware can run, as it needs to know about
-		// the workspace authenticator.
-		handler = authentication.WithWorkspaceAuthResolver(handler, s.AuthController)
-	}
 
 	if hasShardMapping {
 		// This middleware must happen before the authentication.
@@ -271,10 +244,6 @@ func (s preparedServer) Run(ctx context.Context) error {
 
 	// start indexes
 	go s.IndexController.Start(ctx, 2)
-
-	if s.AuthController != nil {
-		go s.AuthController.Start(ctx, 2)
-	}
 
 	s.KcpSharedInformerFactory.Start(ctx.Done())
 	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())

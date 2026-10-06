@@ -34,7 +34,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/shardlookup"
 )
 
-// lazyIndex, like eagerIndex, keeps track of authenticators for
+// lazyIndex keeps track of authenticators for
 // workspace types - but only builds them on demand and caches them for
 // a fixed duration.
 //
