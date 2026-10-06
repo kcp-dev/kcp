@@ -245,6 +245,12 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+	if c.GenericConfig.Authentication.RequestHeaderConfig != nil {
+		c.GenericConfig.Authentication.Authenticator = authentication.WithoutProxyPeerIdentity(
+			c.GenericConfig.Authentication.Authenticator,
+			c.GenericConfig.Authentication.RequestHeaderConfig,
+		)
+	}
 
 	// break connections on the tcp layer. Setting the client timeout would
 	// also apply to watches, which we don't want.
