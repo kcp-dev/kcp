@@ -107,6 +107,14 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 	logger := klog.FromContext(ctx)
 
 	for _, binding := range bindings {
+		if !binding.DeletionTimestamp.IsZero() {
+			// A deleting APIBinding no longer grants access to claimed
+			// resources. Dropping its labels here (on any write, and on the
+			// relabel pass the permissionclaimlabel controller triggers during
+			// deletion) is what revokes wildcard access in the APIExport
+			// virtual workspace, which is scoped by these labels only.
+			continue
+		}
 		logger := logging.WithObject(logger, binding)
 
 		path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)

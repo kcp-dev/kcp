@@ -18,6 +18,7 @@ package permissionclaimlabel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -51,6 +52,11 @@ import (
 const (
 	ControllerName = "kcp-permissionclaimlabel"
 )
+
+// errInformerAbsent is wrapped by getInformerForGroupResource when the dynamic
+// informer factory knows nothing about the claimed resource at all, as opposed
+// to having an informer for it that is not synced yet.
+var errInformerAbsent = errors.New("informer absent")
 
 // NewController returns a new controller for handling permission claims for an APIBinding.
 // it will own the AppliedPermissionClaims and will own the accepted permission claim condition.
