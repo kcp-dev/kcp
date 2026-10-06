@@ -39,25 +39,15 @@ import (
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
 
+// WithClusterResolver resolves /clusters/ requests to the owning shard.
+// Other paths are passed to delegate unchanged.
 func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, index proxyindex.Index) http.Handler {
 	mux := http.NewServeMux()
 
 	// fallback for all unrecognized URLs
 	mux.Handle("/", delegate)
 
-	// Use the extra path mappings as an additional source of cluster names in URLs;
-	// it's okay for a virtual workspace URL to not match here or to not have a
-	// cluster placeholder in its URL pattern, since the default handler will simply
-	// forward the request unchanged (and most likely, unauthenticated).
-
-	// We can use the same handler for all mappings, since the actual muxing to
-	// the destinations happens later in proxy.HttpHandler; here we only care about
-	// detecting the cluster name.
-	mappingHandler := newMappingHandler(delegate, index)
-
 	for _, mapping := range mappings {
-		p := strings.TrimRight(mapping.Path, "/")
-
 		// Even though we know how to handle the "special" core clusters path,
 		// the mapping provides additional PKI configuration that is not available
 		// by just looking up the cluster in the index and figuring out the
@@ -65,17 +55,10 @@ func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, in
 		// front-proxy mappings and since admins could choose not to include it,
 		// we only enable the built-in clusterResolveHandler if we actually find
 		// an appropriate mapping.
-		if p == "/clusters" {
-			// we know how to parse cluster URLs
+		if strings.TrimRight(mapping.Path, "/") == "/clusters" {
 			resolveHandler := newClusterResolveHandler(delegate, index)
 			mux.HandleFunc("/clusters/{cluster}", resolveHandler)
 			mux.HandleFunc("/clusters/{cluster}/{trail...}", resolveHandler)
-		} else {
-			// mappings are configured with *prefixes*; in order to match both exact matches
-			// and prefix matches (i.e. if "/foo" is configured, both "/foo" and "/foo/bar"
-			// must match), each mapping is added twice to the mux.
-			mux.HandleFunc(p, mappingHandler)
-			mux.HandleFunc(p+"/{trail...}", mappingHandler)
 		}
 	}
 
@@ -153,60 +136,6 @@ func isInProgressWatch(req *http.Request) bool {
 	}
 
 	return isWatchRequest(req)
-}
-
-func newMappingHandler(delegate http.Handler, index proxyindex.Index) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		// Not every virtual workspace and/or every mapping has a {cluster} in its URL;
-		// also wildcard requests have to be passed without lookup.
-		//
-		// For /clusters paths, the mux pattern is /clusters/{cluster}/{trail...}, so
-		// req.PathValue("cluster") returns the cluster name directly.
-		//
-		// For /services/... paths, the mux pattern is /services/<name>/{trail...} - there's
-		// no {cluster} placeholder. The entire "clusters/root:orgs:bob/apis/..." is captured
-		// as {trail...}, so req.PathValue("cluster") returns empty. In this case, we need to
-		// parse the cluster from the URL path using extractClusterFromPath.
-		clusterName := req.PathValue("cluster")
-
-		// If no cluster from path pattern, try to extract from URL path.
-		// Virtual workspace URLs often have the pattern: /services/<name>/clusters/<cluster>/...
-		if clusterName == "" {
-			clusterName = extractClusterFromPath(req.URL.Path)
-		}
-
-		if clusterName == "" || clusterName == "*" {
-			delegate.ServeHTTP(w, req)
-			return
-		}
-
-		req, _ = resolveClusterName(w, req, index, clusterName)
-		if req == nil {
-			return
-		}
-
-		delegate.ServeHTTP(w, req)
-	}
-}
-
-// extractClusterFromPath extracts the cluster name from URLs containing /clusters/<cluster>/
-// For example: /services/foo/clusters/root:orgs:bob/apis/... -> root:orgs:bob.
-func extractClusterFromPath(path string) string {
-	const clustersPrefix = "/clusters/"
-	idx := strings.Index(path, clustersPrefix)
-	if idx == -1 {
-		return ""
-	}
-
-	// Get everything after /clusters/
-	rest := path[idx+len(clustersPrefix):]
-
-	// Find the end of the cluster name (next / or end of string)
-	endIdx := strings.Index(rest, "/")
-	if endIdx == -1 {
-		return rest
-	}
-	return rest[:endIdx]
 }
 
 func resolveClusterName(w http.ResponseWriter, req *http.Request, index proxyindex.Index, clusterName string) (*http.Request, *index.Result) {
