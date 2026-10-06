@@ -56,6 +56,11 @@ type authenticatorKey struct {
 type authenticatorState struct {
 	cancel        context.CancelCauseFunc
 	authenticator authenticator.Request
+
+	// wstResourceVersion is the WorkspaceType version the authenticator was built from.
+	wstResourceVersion string
+	// wacResourceVersions maps WAC name to the version the authenticator was built from.
+	wacResourceVersions map[string]string
 }
 
 func getWorkspaceTypeKey(wst *tenancyv1alpha1.WorkspaceType) logicalcluster.Path {
