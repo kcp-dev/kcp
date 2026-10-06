@@ -142,8 +142,13 @@ func NewController(
 		},
 	}
 
+	logger := logging.WithReconciler(klog.Background(), ControllerName)
 	_, _ = crdInformer.Informer().AddEventHandler(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
+			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				logger.V(4).Info("Received CRD deletion tombstone", "key", tombstone.Key)
+				obj = tombstone.Obj
+			}
 			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
 			return logicalcluster.From(crd) == apibinding.SystemBoundCRDsClusterName
 		},
@@ -155,6 +160,9 @@ func NewController(
 				c.enqueueCRD(obj.(*apiextensionsv1.CustomResourceDefinition))
 			},
 			DeleteFunc: func(obj interface{}) {
+				if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+					obj = tombstone.Obj
+				}
 				c.enqueueCRD(obj.(*apiextensionsv1.CustomResourceDefinition))
 			},
 		},
@@ -165,6 +173,10 @@ func NewController(
 			c.enqueueFromAPIBinding(oldObj.(*apisv1alpha2.APIBinding), newObj.(*apisv1alpha2.APIBinding))
 		},
 		DeleteFunc: func(obj interface{}) {
+			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				logger.V(4).Info("Received APIBinding deletion tombstone", "key", tombstone.Key)
+				obj = tombstone.Obj
+			}
 			c.enqueueFromAPIBinding(nil, obj.(*apisv1alpha2.APIBinding))
 		},
 	}))
