@@ -362,6 +362,13 @@ func InstallIndexers(
 			Global: globalKubeInformers.Admissionregistration().V1().MutatingAdmissionPolicyBindings().Informer(),
 		}
 	}
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
+		gvrs[tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaceauthenticationconfigurations")] = ReplicatedGVR{
+			Kind:   "WorkspaceAuthenticationConfiguration",
+			Local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceAuthenticationConfigurations().Informer(),
+			Global: globalKcpInformers.Tenancy().V1alpha1().WorkspaceAuthenticationConfigurations().Informer(),
+		}
+	}
 	for _, info := range gvrs {
 		indexers.AddIfNotPresentOrDie(
 			info.Global.GetIndexer(),
