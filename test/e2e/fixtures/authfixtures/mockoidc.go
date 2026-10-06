@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
@@ -125,9 +126,14 @@ func MockJWTAuthenticator(t *testing.T, m *mockoidc.MockOIDC, ca *crypto.CA, use
 var tokenLock sync.Mutex
 
 func CreateOIDCToken(t *testing.T, mock *mockoidc.MockOIDC, subject, email string, groups []string) string {
+	return CreateOIDCTokenWithExpiry(t, mock, subject, email, groups, mockoidc.NowFunc().Add(mock.Config().AccessTTL))
+}
+
+// CreateOIDCTokenWithExpiry creates a token signed by mock that expires at expiresAt.
+func CreateOIDCTokenWithExpiry(t *testing.T, mock *mockoidc.MockOIDC, subject, email string, groups []string, expiresAt time.Time) string {
 	var (
 		cfg                 = mock.Config()
-		now                 = mockoidc.NowFunc()
+		issuedAt            = expiresAt.Add(-cfg.AccessTTL)
 		scope               = "openid groups email"
 		nonce               = "noften"
 		codeChallenge       = "nothing-to-see-here"
@@ -154,11 +160,11 @@ func CreateOIDCToken(t *testing.T, mock *mockoidc.MockOIDC, subject, email strin
 				cfg.ClientID,
 				"https://kcp.default.svc",
 			},
-			ExpiresAt: jwt.NewNumericDate(now.Add(cfg.AccessTTL)),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			ID:        session.SessionID,
-			IssuedAt:  jwt.NewNumericDate(now),
+			IssuedAt:  jwt.NewNumericDate(issuedAt),
 			Issuer:    cfg.Issuer,
-			NotBefore: jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(issuedAt),
 			Subject:   session.User.ID(),
 		},
 		Nonce: nonce,
