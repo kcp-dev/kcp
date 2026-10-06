@@ -838,6 +838,53 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 	}
 	_, err = kubeVWClusterClient.Cluster(logicalcluster.NewPath(consumer1.Spec.Cluster)).AuthorizationV1().LocalSubjectAccessReviews("default").Create(t.Context(), lsar, metav1.CreateOptions{})
 	require.NoError(t, err)
+
+	t.Logf("Creating a secret in %s that is covered by the accepted secrets claim", consumer1Path)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+	secretsGVR := schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
+	_, err = kubeClusterClient.Cluster(consumer1Path).CoreV1().Secrets("default").Create(t.Context(), &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "claimed-secret"},
+		StringData: map[string]string{"password": "s3cr3t"},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	t.Logf("Verify the secret is served by the virtual workspace wildcard list")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		list, err := dynamicVWClusterClient.Resource(secretsGVR).List(t.Context(), metav1.ListOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		for _, item := range list.Items {
+			if item.GetName() == "claimed-secret" {
+				return true, ""
+			}
+		}
+		return false, fmt.Sprintf("claimed-secret not in wildcard list of %d items", len(list.Items))
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected the claimed secret to be listed through the virtual workspace")
+
+	t.Logf("Deleting the apibinding in %s, the claimed secret must stop being served", consumer1Path)
+	err = kcpClusterClient.Cluster(consumer1Path).ApisV1alpha2().APIBindings().Delete(t.Context(), "cowboys", metav1.DeleteOptions{})
+	require.NoError(t, err)
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := kcpClusterClient.Cluster(consumer1Path).ApisV1alpha2().APIBindings().Get(t.Context(), "cowboys", metav1.GetOptions{})
+		return apierrors.IsNotFound(err), fmt.Sprintf("waiting for the apibinding to be gone: %v", err)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "apibinding was not deleted")
+
+	t.Logf("Verify the claim labels were withdrawn from the secret before the apibinding was finalized")
+	secret, err := kubeClusterClient.Cluster(consumer1Path).CoreV1().Secrets("default").Get(t.Context(), "claimed-secret", metav1.GetOptions{})
+	require.NoError(t, err)
+	for key := range secret.Labels {
+		require.False(t, strings.HasPrefix(key, apisv1alpha2.APIExportPermissionClaimLabelPrefix), "claim label %q survived the deletion of the apibinding", key)
+	}
+
+	t.Logf("Verify the secret is no longer served by the virtual workspace wildcard list")
+	list, err := dynamicVWClusterClient.Resource(secretsGVR).List(t.Context(), metav1.ListOptions{})
+	if err == nil {
+		for _, item := range list.Items {
+			require.NotEqual(t, "claimed-secret", item.GetName(), "claimed secret is still served after the apibinding was deleted")
+		}
+	}
 }
 
 // TestAPIExportPermissionClaimsDefaultSelector is a regression test for
