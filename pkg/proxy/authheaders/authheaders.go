@@ -38,12 +38,17 @@ const (
 	DefaultUserHeader        = "X-Remote-User"
 	DefaultGroupHeader       = "X-Remote-Group"
 	DefaultExtraHeaderPrefix = "X-Remote-Extra-"
+	// front-proxy doesn't stamp uid header, only strips it
+	// The uid header is informational but webhooks can receive it and
+	// make decisions on it.
+	DefaultUIDHeader = "X-Remote-Uid"
 )
 
 // ClearAuthHeaders deletes any inbound copies of the request-header identity
 // headers.
 func ClearAuthHeaders(header http.Header, userHeader, groupHeader, extraHeaderPrefix string) {
 	header.Del(userHeader)
+	header.Del(DefaultUIDHeader)
 	header.Del(groupHeader)
 	lowerPrefix := strings.ToLower(extraHeaderPrefix)
 	for key := range header {
