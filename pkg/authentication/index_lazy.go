@@ -141,8 +141,6 @@ func (idx *lazyIndex) Lookup(wsType logicalcluster.Path) (authenticator.Request,
 //  2. Redirecting per-workspace auth entirely to front-proxy just loads
 //     more things off to the front-proxy, leading to more single point
 //     of failure
-//  3. Caching WACs in the cache server: Also leads to more single point
-//     of failure and pushes even more resources into the cache server.
 //
 // The only option I could somewhat see is an informer that can watch
 // and update only requested resources. Then a shard could simply setup
