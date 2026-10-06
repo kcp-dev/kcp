@@ -71,8 +71,12 @@ type ExtraOptions struct {
 	// (signed by the front-proxy requestheader CA) that the local proxy presents when it
 	// forwards a request for a mounted workspace back to the front-proxy. This lets the
 	// front-proxy trust the forwarded identity headers instead of clearing them.
-	MountProxyClientCertFile              string
-	MountProxyClientKeyFile               string
+	MountProxyClientCertFile string
+	MountProxyClientKeyFile  string
+	// MountProxyServerCAFile points to an optional CA bundle that is trusted, in
+	// addition to the system roots, when the local proxy connects to a mount
+	// target. TLS verification of mount targets is mandatory.
+	MountProxyServerCAFile                string
 	ShardReplicaCount                     int
 	DiscoveryPollInterval                 time.Duration
 	ExperimentalBindFreePort              bool
@@ -197,6 +201,7 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.StringVar(&o.Extra.ShardClientKeyFile, "shard-client-key-file", o.Extra.ShardClientKeyFile, "Path to a client certificate key file the shard uses to communicate with other system components.")
 	fs.StringVar(&o.Extra.MountProxyClientCertFile, "mount-proxy-client-cert-file", o.Extra.MountProxyClientCertFile, "Path to a client certificate file (signed by the front-proxy requestheader CA) the local proxy presents when forwarding a request for a mounted workspace back to the front-proxy.")
 	fs.StringVar(&o.Extra.MountProxyClientKeyFile, "mount-proxy-client-key-file", o.Extra.MountProxyClientKeyFile, "Path to the key file for --mount-proxy-client-cert-file.")
+	fs.StringVar(&o.Extra.MountProxyServerCAFile, "mount-proxy-server-ca-file", o.Extra.MountProxyServerCAFile, "Path to a CA bundle that is trusted in addition to the system roots when the local proxy connects to the target of a mounted workspace. Mount targets must serve https with a certificate that chains to the system roots or this bundle.")
 	fs.StringVar(&o.Extra.LogicalClusterAdminKubeconfig, "logical-cluster-admin-kubeconfig", o.Extra.LogicalClusterAdminKubeconfig, "Kubeconfig holding system:kcp:logical-cluster-admin credentials for connecting to other shards. Defaults to the loopback client")
 	fs.StringVar(&o.Extra.ExternalLogicalClusterAdminKubeconfig, "external-logical-cluster-admin-kubeconfig", o.Extra.ExternalLogicalClusterAdminKubeconfig, "Kubeconfig holding system:kcp:external-logical-cluster-admin credentials for connecting to the external address (e.g. the front-proxy). Defaults to the loopback client")
 	fs.StringVar(&o.Extra.RootIdentitiesFile, "root-identities-file", "", "Path to a YAML file used to bootstrap APIExport identities inside the root workspace. The YAML file must be structured as {\"identities\": [ {\"export\": \"<APIExport name>\", \"identity\": \"<APIExport identity>\"}, ... ]}. If a secret with matching APIExport name already exists inside kcp-system namespace, it will be left unchanged. Defaults to empty, i.e. no identities are bootstrapped.")

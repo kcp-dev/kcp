@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
 	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/informerfactoryhack"
@@ -461,24 +460,14 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		virtualWorkspaceServerProxyTransport = transport
 	}
 
-	// Transport used by the local proxy when it forwards a request for a mounted
-	// workspace back to the front-proxy. It presents a requestheader-CA-signed client
-	// certificate so the front-proxy authenticates the forwarded identity headers
-	// (via its requestheader authenticator) instead of clearing them.
-	var mountProxyTransport http.RoundTripper
-	if opts.Extra.MountProxyClientCertFile != "" && opts.Extra.MountProxyClientKeyFile != "" {
-		cert, err := tls.LoadX509KeyPair(opts.Extra.MountProxyClientCertFile, opts.Extra.MountProxyClientKeyFile)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load mount proxy client certificate %q or key %q: %w", opts.Extra.MountProxyClientCertFile, opts.Extra.MountProxyClientKeyFile, err)
-		}
-
-		transport := http.DefaultTransport.(*http.Transport).Clone()
-		transport.TLSClientConfig = &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			// TODO: verify the front-proxy serving cert here instead of skipping, once a CA is wired through in dev mode.
-			InsecureSkipVerify: true,
-		}
-		mountProxyTransport = transport
+	// Transport used by the mount proxy when it forwards a request for a mounted
+	// workspace to its target. The target's serving certificate is always verified.
+	// If configured, it presents a requestheader-CA-signed client certificate so a
+	// target inside kcp (e.g. the front-proxy) authenticates the forwarded identity
+	// headers instead of clearing them.
+	mountProxyTransport, err := newMountProxyTransport(opts.Extra.MountProxyClientCertFile, opts.Extra.MountProxyClientKeyFile, opts.Extra.MountProxyServerCAFile)
+	if err != nil {
+		return nil, err
 	}
 
 	// Prepare a local cluster index that can be used both by the LocalProxy, as well as the authenticator
@@ -578,7 +567,8 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// First, remember authorizer chain with audit logging disabled.
 		authorizerWithoutAudit := genericConfig.Authorization.Authorizer
 		// configure audit logging enabled authorizer chain and build the apiHandler using this configuration.
-		genericConfig.Authorization.Authorizer = authorization.WithAuditLogging("request.auth.kcp.io", genericConfig.Authorization.Authorizer)
+		authorizerWithAudit := authorization.WithAuditLogging("request.auth.kcp.io", genericConfig.Authorization.Authorizer)
+		genericConfig.Authorization.Authorizer = authorizerWithAudit
 		apiHandler = genericapiserver.DefaultBuildHandlerChainFromAuthzToCompletion(apiHandler, genericConfig)
 		// reset authorizer chain with audit logging disabled.
 		genericConfig.Authorization.Authorizer = authorizerWithoutAudit
@@ -611,6 +601,14 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			// is only available after DefaultBuildHandlerChainBeforeAuthz.
 			apiHandler = WithVirtualWorkspacesProxy(apiHandler, shardVirtualWorkspaceURL, virtualWorkspaceServerProxyTransport, proxy)
 		}
+
+		// Requests for mounted workspaces are resolved by WithLocalProxy in front of
+		// the chain and forwarded here, after authentication, audit, flow control
+		// and impersonation, and before authorization (there is no logical cluster
+		// to authorize against; the caller is instead required to be able to get
+		// the Workspace object of the mount in its parent). Like the virtual
+		// workspace proxy above, this needs the user info in the context.
+		apiHandler = WithMountProxy(apiHandler, mountProxyTransport, authorizerWithAudit)
 
 		// Wrap authenticator with a per-workspace authenticator if desired. This authenticator
 		// requires the WorkspaceAuth middleware to have looked up and injected the relevant
@@ -658,7 +656,9 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		mux := http.NewServeMux()
 		mux.Handle("/", apiHandler)
 		*c.preHandlerChainMux = []*http.ServeMux{mux}
-		apiHandler = mux
+		// Requests for mounted workspaces bypass the mux: their remaining path
+		// belongs to the mount target and must not be captured by e.g. /services/.
+		apiHandler = kcpfilters.WithMountBypass(mux, apiHandler)
 
 		apiHandler = filters.WithAuditInit(apiHandler) // Must run before any audit annotation is made
 		// Defense-in-depth: after WithLocalProxy has resolved the workspace path to
@@ -670,19 +670,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// whether shard-wide URLs like /metrics may be served. Workspace-scoped
 		// requests are 501'd; top-level requests are evaluated against root RBAC.
 		apiHandler = kcpfilters.WithShardLevelPaths(apiHandler)
-		// The local proxy forwards requests for mounted workspaces before the
-		// authentication filter runs, so it authenticates those itself and only
-		// forwards the resulting identity, never the inbound identity headers.
-		mountAuthenticator := authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
-			if genericConfig.Authentication.Authenticator == nil {
-				return nil, false, nil
-			}
-			if auds := genericConfig.Authentication.APIAudiences; len(auds) > 0 {
-				req = req.WithContext(authenticator.WithAudiences(req.Context(), auds))
-			}
-			return genericConfig.Authentication.Authenticator.AuthenticateRequest(req)
-		})
-		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile, clusterIndex, mountProxyTransport, mountAuthenticator)
+		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile, clusterIndex)
 		if err != nil {
 			panic(err) // shouldn't happen due to flag validation
 		}

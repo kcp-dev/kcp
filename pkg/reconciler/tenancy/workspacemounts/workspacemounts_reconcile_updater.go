@@ -29,6 +29,8 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
+
+	"github.com/kcp-dev/kcp/pkg/mounts"
 )
 
 // workspaceStatusUpdater updates the status of the workspace based on the mount status.
@@ -85,6 +87,24 @@ func (r *workspaceStatusUpdater) reconcile(ctx context.Context, workspace *tenan
 	// This is a loose coupling, we are not interested in the rest of the status.
 	switch tenancyv1alpha1.MountPhaseType(statusPhase) {
 	case tenancyv1alpha1.MountPhaseReady:
+		// The mount object is controlled by the owner of the workspace. A mount is
+		// only ready if its URL is an acceptable target (admission enforces the
+		// same rule on spec.URL); otherwise the workspace must not be Ready.
+		statusURL, _, _ := unstructured.NestedString(obj.Object, "status", "URL")
+		if _, err := mounts.ValidateURL(statusURL); err != nil {
+			conditions.MarkFalse(
+				workspace,
+				tenancyv1alpha1.MountConditionReady,
+				tenancyv1alpha1.MountObjectInvalidURLReason,
+				conditionsv1alpha1.ConditionSeverityError,
+				"%s %q reports an invalid mount target URL: %v",
+				obj.GroupVersionKind().Kind, obj.GetName(), err,
+			)
+			if workspace.Status.Phase == corev1alpha1.LogicalClusterPhaseReady {
+				workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseUnavailable
+			}
+			return reconcileStatusContinue, nil
+		}
 		conditions.MarkTrue(workspace, tenancyv1alpha1.MountConditionReady)
 		workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
 	default:
@@ -126,6 +146,13 @@ func (r *workspaceSpecUpdater) reconcile(ctx context.Context, workspace *tenancy
 	statusURL, found, err := unstructured.NestedString(obj.Object, "status", "URL")
 	if !found || err != nil {
 		return reconcileStatusStopAndRequeue, fmt.Errorf("unable to read .status.URL, found %v, err: %w", found, err)
+	}
+
+	// Only acceptable mount targets are copied into spec.URL (admission enforces
+	// the same rule). The status updater reports an invalid URL on the workspace
+	// conditions; here the previous spec.URL is simply kept.
+	if _, err := mounts.ValidateURL(statusURL); err != nil {
+		return reconcileStatusContinue, nil //nolint:nilerr // reported via the WorkspaceMountReady condition by the status updater.
 	}
 	workspace.Spec.URL = statusURL
 

@@ -563,6 +563,243 @@ func TestValidate(t *testing.T) {
 			expectedErrors: []string{"spec.URL must be set for phase Ready"},
 		},
 		{
+			name: "mounted: rejects spec.URL change by non-privileged users",
+			a: updateAttr(&tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "mount",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "https://attacker.example.com",
+					Cluster: "",
+					Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+			},
+				&tenancyv1alpha1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "mount",
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+					},
+					Spec: tenancyv1alpha1.WorkspaceSpec{
+						URL:     "https://kcp.bigcorp.com/clusters/org:dest",
+						Cluster: "",
+						Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+					},
+					Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+				}),
+			expectedErrors: []string{"spec.URL can only be changed by system privileged users"},
+		},
+		{
+			name: "mounted: rejects spec.cluster change by non-privileged users",
+			a: updateAttr(&tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "mount",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "https://kcp.bigcorp.com/clusters/org:dest",
+					Cluster: "somewhere",
+					Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+			},
+				&tenancyv1alpha1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "mount",
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+					},
+					Spec: tenancyv1alpha1.WorkspaceSpec{
+						URL:     "https://kcp.bigcorp.com/clusters/org:dest",
+						Cluster: "",
+						Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+					},
+					Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+				}),
+			expectedErrors: []string{"spec.cluster can only be changed by system privileged users"},
+		},
+		{
+			name: "mounted: rejects spec.cluster even for privileged users",
+			a: updateAttrWithUser(&tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "mount",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "https://kcp.bigcorp.com/clusters/org:dest",
+					Cluster: "somewhere",
+					Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+			},
+				&tenancyv1alpha1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "mount",
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+					},
+					Spec: tenancyv1alpha1.WorkspaceSpec{
+						URL:     "https://kcp.bigcorp.com/clusters/org:dest",
+						Cluster: "",
+						Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+					},
+					Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+				}, &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}),
+			expectedErrors: []string{"spec.cluster cannot be set for mounted workspaces"},
+		},
+		{
+			name: "mounted: rejects http spec.URL even for privileged users",
+			a: updateAttrWithUser(&tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "mount",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://kcp.bigcorp.com/clusters/org:dest",
+					Cluster: "",
+					Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+			},
+				&tenancyv1alpha1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "mount",
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+					},
+					Spec: tenancyv1alpha1.WorkspaceSpec{
+						URL:     "",
+						Cluster: "",
+						Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+					},
+					Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseUnavailable},
+				}, &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}),
+			expectedErrors: []string{"spec.URL is not a valid mount target", "scheme must be https"},
+		},
+		{
+			name: "mounted: rejects spec.URL with user info even for privileged users",
+			a: updateAttrWithUser(&tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "mount",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "https://user:pass@kcp.bigcorp.com/clusters/org:dest",
+					Cluster: "",
+					Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+			},
+				&tenancyv1alpha1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "mount",
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+					},
+					Spec: tenancyv1alpha1.WorkspaceSpec{
+						URL:     "",
+						Cluster: "",
+						Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+					},
+					Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseUnavailable},
+				}, &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}),
+			expectedErrors: []string{"spec.URL is not a valid mount target", "must not contain user info"},
+		},
+		{
+			name: "mounted: rejects transition to Ready without spec.URL",
+			a: updateAttrWithUser(&tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "mount",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "",
+					Cluster: "",
+					Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+			},
+				&tenancyv1alpha1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "mount",
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+					},
+					Spec: tenancyv1alpha1.WorkspaceSpec{
+						URL:     "",
+						Cluster: "",
+						Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+					},
+					Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseUnavailable},
+				}, &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}),
+			expectedErrors: []string{"spec.URL must be set for phase Ready"},
+		},
+		{
+			name: "mounted: rejects unsetting spec.mount",
+			a: updateAttrWithUser(&tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "mount",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{URL: "https://kcp.bigcorp.com/clusters/org:dest"},
+			},
+				&tenancyv1alpha1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "mount",
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+					},
+					Spec: tenancyv1alpha1.WorkspaceSpec{
+						URL:     "https://kcp.bigcorp.com/clusters/org:dest",
+						Cluster: "",
+						Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+					},
+					Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+				}, &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}),
+			expectedErrors: []string{"spec.mount cannot be unset"},
+		},
+		{
+			name: "mounted: allows privileged users to set a valid https spec.URL and go Ready",
+			a: updateAttrWithUser(&tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "mount",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "https://kcp.bigcorp.com/clusters/org:dest",
+					Cluster: "",
+					Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
+			},
+				&tenancyv1alpha1.Workspace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "mount",
+						Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+					},
+					Spec: tenancyv1alpha1.WorkspaceSpec{
+						URL:     "",
+						Cluster: "",
+						Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+					},
+					Status: tenancyv1alpha1.WorkspaceStatus{Phase: corev1alpha1.LogicalClusterPhaseUnavailable},
+				}, &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}),
+		},
+		{
+			name: "mounted: rejects http spec.URL on create even for privileged users",
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
+			},
+			a: createAttrWithUser(&tenancyv1alpha1.Workspace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "mount",
+					Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+				},
+				Spec: tenancyv1alpha1.WorkspaceSpec{
+					URL:     "http://kcp.bigcorp.com/clusters/org:dest",
+					Cluster: "",
+					Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+				},
+				Status: tenancyv1alpha1.WorkspaceStatus{Phase: ""},
+			}, &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}),
+			expectedErrors: []string{"spec.URL is not a valid mount target"},
+		},
+		{
 			name: "ignores different resources",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,

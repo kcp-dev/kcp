@@ -217,32 +217,32 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	// because the spec and status are both being updated here
 	// they need to be updated separately through the patch committer
 
-	// reconcile the status
-	statusUpdater := &workspaceStatusUpdater{
+	// reconcile the spec first: admission only lets a mounted workspace become
+	// Ready once spec.URL is set, so the URL has to be committed before the
+	// status update below can mirror the mount's Ready phase.
+	specUpdater := &workspaceSpecUpdater{
 		getMountObject: getMountObjectFunc,
 	}
-
-	status, err := statusUpdater.reconcile(ctx, workspace)
+	status, err := specUpdater.reconcile(ctx, workspace)
 	if err != nil {
 		return false, err
 	}
-
 	if status == reconcileStatusStopAndRequeue {
 		return true, nil
 	}
 
 	// If the object being reconciled changed as a result, update it.
 	oldResource := &workspaceResource{ObjectMeta: old.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource := &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &old.Spec, Status: &workspace.Status}
+	newResource := &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &workspace.Spec, Status: &old.Status}
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		return false, err
 	}
 
-	// reconcile the spec
-	specUpdater := &workspaceSpecUpdater{
+	// reconcile the status
+	statusUpdater := &workspaceStatusUpdater{
 		getMountObject: getMountObjectFunc,
 	}
-	status, err = specUpdater.reconcile(ctx, workspace)
+	status, err = statusUpdater.reconcile(ctx, workspace)
 	if err != nil {
 		return false, err
 	}
@@ -251,8 +251,8 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 	}
 
 	// If the object being reconciled changed as a result, update it.
-	oldResource = &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &old.Spec, Status: &old.Status}
-	newResource = &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &workspace.Spec, Status: &old.Status}
+	oldResource = &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &workspace.Spec, Status: &old.Status}
+	newResource = &workspaceResource{ObjectMeta: workspace.ObjectMeta, Spec: &workspace.Spec, Status: &workspace.Status}
 	if err := c.commit(ctx, oldResource, newResource); err != nil {
 		return false, err
 	}

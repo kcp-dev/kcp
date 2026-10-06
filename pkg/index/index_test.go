@@ -269,7 +269,7 @@ func TestLookup(t *testing.T) {
 			targetPath:      logicalcluster.NewPath("one:mount"),
 			expectFound:     true,
 			expectedCluster: "",
-			expectedShard:   "",
+			expectedShard:   "beta",
 			expectedURL:     "https://kcp.dev.local/services/custom-url/proxy",
 		},
 		{
@@ -305,7 +305,7 @@ func TestLookup(t *testing.T) {
 			expectFound:     true,
 			expectedError:   503,
 			expectedCluster: "",
-			expectedShard:   "",
+			expectedShard:   "beta",
 			expectedURL:     "https://kcp.dev.local/services/custom-url/proxy",
 		},
 	}
@@ -815,5 +815,75 @@ func TestMigrationForceClosesInflightWatches(t *testing.T) {
 	case <-otherCtx.Done():
 		t.Fatal("expected watch context for unrelated cluster to stay open")
 	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestLookupMountRequiresAcceptableURL(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
+	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+
+	ref := tenancyv1alpha1.ObjectReference{Kind: "KubeCluster", Name: "prod-cluster", APIVersion: "proxy.kcp.dev/v1alpha1"}
+	for _, insecure := range []string{
+		"http://kcp.dev.local/services/custom-url/proxy",
+		"https://user:pass@kcp.dev.local/services/custom-url/proxy",
+		"https://kcp.dev.local/services/custom-url/proxy?watch=true",
+		"kcp.dev.local/services/custom-url/proxy",
+	} {
+		target.UpsertWorkspace("root", withURL(withPhase(newWorkspaceWithMount("mount", "34", "", ref), "Ready"), insecure))
+		if r, found := target.Lookup(logicalcluster.NewPath("root:org:mount")); found {
+			t.Errorf("mount with URL %q must not be routable, got %+v", insecure, r)
+		}
+		if r, found := target.LookupURL(logicalcluster.NewPath("root:org:mount")); found {
+			t.Errorf("mount with URL %q must not be routable, got %+v", insecure, r)
+		}
+	}
+
+	target.UpsertWorkspace("root", withURL(withPhase(newWorkspaceWithMount("mount", "34", "", ref), "Ready"), "https://kcp.dev.local/services/custom-url/proxy"))
+	r, found := target.Lookup(logicalcluster.NewPath("root:org:mount"))
+	if !found {
+		t.Fatal("expected to find the mount")
+	}
+	if !r.IsMount() {
+		t.Fatalf("expected a mount result, got %+v", r)
+	}
+	if r.URL != "https://kcp.dev.local/services/custom-url/proxy" || r.Shard != "root" {
+		t.Fatalf("unexpected result %+v", r)
+	}
+}
+
+func TestLookupURLRoutesMountsToParentShard(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertShard("beta", "https://beta.io/")
+	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
+	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
+	target.UpsertLogicalCluster("beta", newLogicalCluster("34"))
+	target.UpsertWorkspace("beta", withURL(withPhase(newWorkspaceWithMount("mount", "34", "", tenancyv1alpha1.ObjectReference{
+		Kind: "KubeCluster", Name: "prod-cluster", APIVersion: "proxy.kcp.dev/v1alpha1",
+	}), "Ready"), "https://kcp.dev.local/services/custom-url/proxy"))
+
+	// Mount traffic is not sent to the mount target by the front-proxy. It is sent
+	// to the shard hosting the parent workspace, where it is authenticated and
+	// audited before the shard's mount proxy forwards it to the target. The shard
+	// resolves the mount relative to the parent's logical cluster name.
+	r, found := target.LookupURL(logicalcluster.NewPath("root:org:mount"))
+	if !found {
+		t.Fatal("expected to find a URL for the mount")
+	}
+	if r.URL != "https://beta.io/clusters/34:mount" {
+		t.Fatalf("unexpected url = %v, expected = %v", r.URL, "https://beta.io/clusters/34:mount")
+	}
+	if r.Shard != "beta" {
+		t.Fatalf("unexpected shard = %v, expected = %v", r.Shard, "beta")
+	}
+	if r.Cluster != "" {
+		t.Fatalf("unexpected cluster = %v for a mount", r.Cluster)
 	}
 }

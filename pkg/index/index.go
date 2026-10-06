@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +31,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/contextmanager"
+	"github.com/kcp-dev/kcp/pkg/mounts"
 )
 
 // defaultMigrationGracePeriod is the period during which a cluster is considered "recently migrated".
@@ -62,6 +62,12 @@ type Result struct {
 	// ErrorCode is the HTTP error code to return for the request.
 	// If this is set, the URL and Shard fields are ignored.
 	ErrorCode int
+}
+
+// IsMount returns true if the result describes a mounted workspace: it has a
+// mount target URL but no logical cluster.
+func (r Result) IsMount() bool {
+	return r.URL != "" && r.Cluster.Empty()
 }
 
 // PathRewriter can rewrite a logical cluster path before the actual mapping through
@@ -520,9 +526,11 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 			wsSpec, foundMount := c.shardClusterWorkspaceMount[shard][originalCluster][s] // experimental feature
 			if foundMount {
 				if wsSpec.Mount != nil && wsSpec.URL != "" {
-					u, err := url.Parse(wsSpec.URL)
-					if err == nil {
-						return Result{URL: u.String(), ErrorCode: errorCode}, true
+					// Only route to mount targets that pass the same validation
+					// admission applies; objects written before that validation
+					// existed must not become reachable.
+					if u, err := mounts.ValidateURL(wsSpec.URL); err == nil {
+						return Result{Shard: shard, URL: u.String(), ErrorCode: errorCode}, true
 					}
 				}
 			}
@@ -554,13 +562,27 @@ func (c *State) LookupURL(path logicalcluster.Path) (Result, bool) {
 		return result, true
 	}
 
-	if result.URL != "" && result.Shard == "" && result.Cluster == "" {
-		return result, true
-	}
-
 	baseURL, found := c.shardBaseURLs[result.Shard]
 	if !found {
 		return Result{}, false
+	}
+
+	if result.IsMount() {
+		// The path is a mounted workspace. Mount traffic is not forwarded to the
+		// mount target from here: it goes to the shard hosting the parent
+		// workspace, whose handler chain authenticates, audits and flow-controls
+		// the request before its mount proxy forwards it to the target. The
+		// shard's local index resolves paths relative to logical clusters it
+		// hosts, so the request is addressed as <parent cluster>:<mount name>.
+		parentPath, name := path.Split()
+		parent, found := c.Lookup(parentPath)
+		if !found || parent.Cluster.Empty() {
+			return Result{}, false
+		}
+		return Result{
+			Shard: result.Shard,
+			URL:   strings.TrimSuffix(baseURL, "/") + parent.Cluster.Path().Join(name).RequestPath(),
+		}, true
 	}
 
 	return Result{
