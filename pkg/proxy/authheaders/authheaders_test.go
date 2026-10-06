@@ -31,6 +31,7 @@ const (
 
 	warrantHeader = "X-Remote-Extra-Authorization.kcp.io%2fwarrant"
 	scopesHeader  = "X-Remote-Extra-Authentication.kcp.io%2fscopes"
+	uidHeader     = "X-Remote-Uid"
 )
 
 // TestSetAuthHeaders_StripsForgedIdentityHeaders is the regression test for the
@@ -81,6 +82,16 @@ func TestSetAuthHeaders_StripsForgedIdentityHeaders(t *testing.T) {
 			wantGroups: []string{"team:a"},
 		},
 		{
+			name: "forged uid dropped",
+			user: &userinfo.DefaultInfo{Name: "alice", UID: "alice-uid", Groups: []string{"system:authenticated"}},
+			inbound: http.Header{
+				uidHeader: {"admin-uid"},
+			},
+			wantUser:         []string{"alice"},
+			wantGroups:       []string{"system:authenticated"},
+			forbiddenHeaders: []string{uidHeader},
+		},
+		{
 			name: "real extras are stamped (encoded), forged extras dropped",
 			user: &userinfo.DefaultInfo{
 				Name:   "alice",
@@ -123,6 +134,15 @@ func TestSetAuthHeaders_StripsForgedIdentityHeaders(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestClearAuthHeaders_StripsUID(t *testing.T) {
+	t.Parallel()
+	h := http.Header{uidHeader: {"admin-uid"}}
+	ClearAuthHeaders(h, userHeader, groupHeader, extraPrefix)
+	if v := h.Values(uidHeader); len(v) != 0 {
+		t.Errorf("forged header %q leaked: %v", uidHeader, v)
 	}
 }
 

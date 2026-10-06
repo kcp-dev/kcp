@@ -207,9 +207,11 @@ func TestWithLocalProxy_MountStripsForgedIdentityHeaders(t *testing.T) {
 		userHeader    = "X-Remote-User"
 		groupHeader   = "X-Remote-Group"
 		warrantHeader = "X-Remote-Extra-Authorization.kcp.io%2fwarrant"
+		uidHeader     = "X-Remote-Uid"
 	)
 	forgedHeaders := http.Header{
 		userHeader:      {"admin"},
+		uidHeader:       {"admin-uid"},
 		groupHeader:     {"system:masters", "system:kcp:external-logical-cluster-admin"},
 		warrantHeader:   {`{"user":"attacker","groups":["system:masters"]}`},
 		"Authorization": {"Bearer some-token"},
@@ -310,6 +312,7 @@ func TestWithLocalProxy_MountStripsForgedIdentityHeaders(t *testing.T) {
 			require.Equal(t, tc.wantUser, got.Values(userHeader), "user header")
 			require.Equal(t, tc.wantGroups, got.Values(groupHeader), "group header")
 			require.Empty(t, got.Values(warrantHeader), "forged warrant must not be forwarded")
+			require.Empty(t, got.Values(uidHeader), "forged uid must not be forwarded")
 			require.Equal(t, "Bearer some-token", got.Get("Authorization"), "credentials must still reach the mount target")
 		})
 	}
