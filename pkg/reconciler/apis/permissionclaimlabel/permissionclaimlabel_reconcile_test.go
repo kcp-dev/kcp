@@ -24,9 +24,13 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	apisv1alpha2listers "github.com/kcp-dev/sdk/client/listers/apis/v1alpha2"
 )
 
 func TestClaimSetKeys(t *testing.T) {
@@ -295,6 +299,64 @@ func TestDetectClaimMismatches(t *testing.T) {
 			} else {
 				require.Empty(t, mismatches, "Expected no mismatches")
 			}
+		})
+	}
+}
+
+func TestClaimedResourceServed(t *testing.T) {
+	t.Parallel()
+
+	consumer := logicalcluster.Name("consumer")
+	newBinding := func(name string, bound ...apisv1alpha2.BoundAPIResource) *apisv1alpha2.APIBinding {
+		return &apisv1alpha2.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Annotations: map[string]string{logicalcluster.AnnotationKey: consumer.String()},
+			},
+			Status: apisv1alpha2.APIBindingStatus{BoundResources: bound},
+		}
+	}
+	cowboys := apisv1alpha2.BoundAPIResource{Group: "wildwest.dev", Resource: "cowboys"}
+
+	tests := map[string]struct {
+		claim    apisv1alpha2.PermissionClaim
+		bindings []*apisv1alpha2.APIBinding
+		want     bool
+	}{
+		"built-in resources are always served": {
+			claim: apisv1alpha2.PermissionClaim{GroupResource: apisv1alpha2.GroupResource{Resource: "secrets"}},
+			want:  true,
+		},
+		"identity claim served through a binding in the workspace": {
+			claim:    apisv1alpha2.PermissionClaim{GroupResource: apisv1alpha2.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}, IdentityHash: "abc"},
+			bindings: []*apisv1alpha2.APIBinding{newBinding("other"), newBinding("wildwest", cowboys)},
+			want:     true,
+		},
+		"identity claim with no binding serving it": {
+			claim:    apisv1alpha2.PermissionClaim{GroupResource: apisv1alpha2.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}, IdentityHash: "abc"},
+			bindings: []*apisv1alpha2.APIBinding{newBinding("other"), newBinding("sheriffs", apisv1alpha2.BoundAPIResource{Group: "wildwest.dev", Resource: "sheriffs"})},
+			want:     false,
+		},
+		"binding in another workspace does not count": {
+			claim: apisv1alpha2.PermissionClaim{GroupResource: apisv1alpha2.GroupResource{Group: "wildwest.dev", Resource: "cowboys"}, IdentityHash: "abc"},
+			bindings: []*apisv1alpha2.APIBinding{func() *apisv1alpha2.APIBinding {
+				b := newBinding("wildwest", cowboys)
+				b.Annotations[logicalcluster.AnnotationKey] = "elsewhere"
+				return b
+			}()},
+			want: false,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			indexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{kcpcache.ClusterIndexName: kcpcache.ClusterIndexFunc})
+			for _, b := range tc.bindings {
+				require.NoError(t, indexer.Add(b))
+			}
+			c := &controller{apiBindingsLister: apisv1alpha2listers.NewAPIBindingClusterLister(indexer)}
+			require.Equal(t, tc.want, c.claimedResourceServed(consumer, tc.claim))
 		})
 	}
 }

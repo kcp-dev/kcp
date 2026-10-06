@@ -154,12 +154,12 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 
 		informer, gvr, err := c.getInformerForGroupResource(claim.Group, claim.Resource)
 		if err != nil {
-			if deleting && claim.IdentityHash != "" && goerrors.Is(err, errInformerAbsent) {
-				// The claimed resource is no longer served on this shard, so there are
-				// no instances left to withdraw labels from. Built-in resources (empty
-				// identity hash) are always served, there an absent informer means
-				// discovery has not run yet and we wait instead.
-				claimLogger.V(2).Info("claimed resource no longer served, nothing to withdraw")
+			if deleting && goerrors.Is(err, errInformerAbsent) && !c.claimedResourceServed(clusterName, claim) {
+				// The claimed resource is not served in the workspace anymore, so
+				// there are no instances left to withdraw labels from. If it is
+				// still served, the informer just has not been discovered yet (e.g.
+				// right after boot) and we keep waiting instead of skipping.
+				claimLogger.V(2).Info("claimed resource not served in workspace, nothing to withdraw")
 				continue
 			}
 			allErrs = append(allErrs, fmt.Errorf("error getting informer for group=%q, resource=%q: %w", claim.Group, claim.Resource, err))
@@ -345,6 +345,31 @@ func claimFromSetKey(key string) apisv1alpha2.PermissionClaim {
 		},
 		IdentityHash: parts[2],
 	}
+}
+
+// claimedResourceServed reports whether the claimed group/resource is served in
+// the given workspace, based on the synced APIBinding lister rather than on the
+// dynamic informer factory, which may not have discovered the resource yet.
+// Built-in resources (no identity hash) are served everywhere. Any other
+// claimable resource carries an identity hash (enforced by APIExport admission)
+// and is served only through an APIBinding whose bound resources list it.
+func (c *controller) claimedResourceServed(clusterName logicalcluster.Name, claim apisv1alpha2.PermissionClaim) bool {
+	if claim.IdentityHash == "" {
+		return true
+	}
+	bindings, err := c.apiBindingsLister.Cluster(clusterName).List(labels.Everything())
+	if err != nil {
+		// cannot tell, err on the side of waiting
+		return true
+	}
+	for _, binding := range bindings {
+		for _, bound := range binding.Status.BoundResources {
+			if bound.Group == claim.Group && bound.Resource == claim.Resource {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (c *controller) getInformerForGroupResource(group, resource string) (kcpkubernetesinformers.GenericClusterInformer, schema.GroupVersionResource, error) {
