@@ -19,6 +19,8 @@ package authorization
 import "testing"
 
 func TestLifecycleProxyPathEscapesWorkspace(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		path string
@@ -48,6 +50,7 @@ func TestLifecycleProxyPathEscapesWorkspace(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			if got := LifecycleProxyPathEscapesWorkspace(tc.path); got != tc.want {
 				t.Errorf("LifecycleProxyPathEscapesWorkspace(%q) = %v, want %v", tc.path, got, tc.want)
 			}
