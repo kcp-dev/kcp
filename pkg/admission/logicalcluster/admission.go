@@ -42,7 +42,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
-// Protects deletion of LogicalCluster if spec.directlyDeletable is false.
+// Restricts writes to LogicalClusters to kcp admins and system identities, and
+// protects deletion of LogicalCluster if spec.directlyDeletable is false.
 
 const (
 	PluginName = "core.kcp.io/LogicalCluster"
@@ -137,6 +138,12 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 	groups := sets.New[string](a.GetUserInfo().GetGroups()...)
 	if groups.Has(kuser.SystemPrivilegedGroup) || groups.Has(bootstrap.SystemLogicalClusterAdmin) || groups.Has(bootstrap.SystemExternalLogicalClusterAdmin) || groups.Has(bootstrap.SystemKcpWorkspaceBootstrapper) {
 		return nil
+	}
+
+	// Only kcp admins may write LogicalClusters besides the system identities above.
+	// They are still subject to the validations below.
+	if !groups.Has(bootstrap.SystemKcpAdminGroup) {
+		return admission.NewForbidden(a, fmt.Errorf("only members of %q or system identities may write LogicalClusters", bootstrap.SystemKcpAdminGroup))
 	}
 
 	switch a.GetOperation() {
