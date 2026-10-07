@@ -251,10 +251,17 @@ mounting machinery therefore enforces the following:
 - **Callers must be able to see the mount.** The caller needs `get` on the mount's Workspace object in
   the parent workspace, otherwise the request is rejected with `403`.
 - **Impersonation is not supported** for mounted workspaces and is rejected with `403`.
+- **Loops are bounded.** A mount target may be kcp itself, which is how a workspace is mounted onto
+  another workspace, so a mount can be pointed at a path that resolves back to a mount. kcp counts the
+  mount hops a request has taken in the `X-Kcp-Mount-Hops` header and refuses a request that has taken
+  too many with `508 Loop Detected`. A short chain of mounted workspaces still works. The header is
+  replaced on every hop, so a value sent by a client is ignored.
 - **Targets must serve https** and present a certificate the shard trusts: either one chaining to the
   system roots or to the bundle given with `--mount-proxy-server-ca-file`. TLS verification cannot be
   disabled. `status.URL` values that are not `https://`, carry user info, a query or a fragment are
-  rejected by the controller and by admission, and are never routed.
+  rejected by the controller and by admission, and are never routed. A `spec.URL` written before these
+  rules existed is not routed either, but it does not make the workspace unwritable: it can still be
+  fixed, cleared or deleted, and only a *change* to another unacceptable value is rejected.
 - **The shard identifies itself to the target** with the client certificate given with
   `--mount-proxy-client-cert-file` and `--mount-proxy-client-key-file`, if configured. For targets
   inside kcp (e.g. the front proxy) this is a certificate signed by the requestheader CA, so the target

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -77,6 +78,12 @@ func withUser(u userinfo.Info, next http.Handler) http.Handler {
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+// allowAll is an authorizer that permits everything, for tests that are not
+// about the access decision itself.
+var allowAll = authorizer.AuthorizerFunc(func(context.Context, authorizer.Attributes) (authorizer.Decision, string, error) {
+	return authorizer.DecisionAllow, "", nil
+})
 
 func TestWithLocalProxy_MountIsResolvedNotForwarded(t *testing.T) {
 	t.Parallel()
@@ -301,9 +308,7 @@ func TestWithMountProxy_Errors(t *testing.T) {
 	t.Parallel()
 
 	alice := &userinfo.DefaultInfo{Name: "alice", Groups: []string{userinfo.AllAuthenticated}}
-	allow := authorizer.AuthorizerFunc(func(context.Context, authorizer.Attributes) (authorizer.Decision, string, error) {
-		return authorizer.DecisionAllow, "", nil
-	})
+	allow := allowAll
 
 	tests := []struct {
 		name       string
@@ -388,11 +393,120 @@ func TestWithMountProxy_PassesNonMountRequestsThrough(t *testing.T) {
 		called = true
 		w.WriteHeader(http.StatusTeapot)
 	})
-	h := WithMountProxy(downstream, http.DefaultTransport, nil)
+	h := WithMountProxy(downstream, http.DefaultTransport, allowAll)
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/secrets", http.NoBody)
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
 	require.True(t, called)
 	require.Equal(t, http.StatusTeapot, rr.Code)
+}
+
+// TestWithMountProxy_RequiresAuthorizer makes sure a missing authorizer is a
+// programming error rather than a silent allow-everything path: entering a
+// mounted workspace is an access decision.
+func TestWithMountProxy_RequiresAuthorizer(t *testing.T) {
+	t.Parallel()
+
+	downstream := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+	require.PanicsWithValue(t, "an authorizer is required for the mount proxy", func() {
+		WithMountProxy(downstream, http.DefaultTransport, nil)
+	})
+	require.PanicsWithValue(t, "a transport is required for the mount proxy", func() {
+		WithMountProxy(downstream, nil, allowAll)
+	})
+}
+
+// TestWithMountProxy_CountsMountHops verifies the loop guard. A mount target may
+// be kcp itself, so a mount can be pointed at a path that resolves back to a
+// mount. Each hop must be counted, and a request that has already taken the
+// maximum number of hops must be refused instead of forwarded again.
+func TestWithMountProxy_CountsMountHops(t *testing.T) {
+	t.Parallel()
+
+	alice := &userinfo.DefaultInfo{Name: "alice", Groups: []string{userinfo.AllAuthenticated}}
+
+	tests := []struct {
+		name       string
+		inbound    []string // values of the hop header on the incoming request
+		wantStatus int
+		wantHops   string // value forwarded to the target, empty when not forwarded
+	}{
+		{
+			name:       "a fresh request is the first hop",
+			wantStatus: http.StatusOK,
+			wantHops:   "1",
+		},
+		{
+			name:       "a request that already took a hop is counted on",
+			inbound:    []string{"1"},
+			wantStatus: http.StatusOK,
+			wantHops:   "2",
+		},
+		{
+			name:       "a request at the limit is refused as a loop",
+			inbound:    []string{strconv.Itoa(maxMountHops)},
+			wantStatus: http.StatusLoopDetected,
+		},
+		{
+			name:       "a request past the limit is refused as a loop",
+			inbound:    []string{strconv.Itoa(maxMountHops + 7)},
+			wantStatus: http.StatusLoopDetected,
+		},
+		{
+			// A client cannot hide hops: the proxy replaces the header, so a
+			// forged value only ever applies to that client's own request.
+			name:       "a forged value is replaced, not appended",
+			inbound:    []string{"0", "2"},
+			wantStatus: http.StatusOK,
+			wantHops:   "1",
+		},
+		{
+			name:       "an unparsable value counts as no hops",
+			inbound:    []string{"not-a-number"},
+			wantStatus: http.StatusOK,
+			wantHops:   "1",
+		},
+		{
+			name:       "a negative value counts as no hops",
+			inbound:    []string{"-5"},
+			wantStatus: http.StatusOK,
+			wantHops:   "1",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			forwarded := make(chan http.Header, 1)
+			backend := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				forwarded <- r.Header.Clone()
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(backend.Close)
+
+			downstream := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				t.Error("request for a mounted workspace must not reach the shard API handler")
+			})
+			h := withUser(alice, WithMountProxy(downstream, backend.Client().Transport, allowAll))
+			h, err := WithLocalProxy(h, "test-shard", "", newMountIndex(backend.URL))
+			require.NoError(t, err)
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/root:mnt/api/v1/secrets", http.NoBody)
+			for _, v := range tc.inbound {
+				req.Header.Add(mountHopsHeader, v)
+			}
+			rr := httptest.NewRecorder()
+			h.ServeHTTP(rr, req)
+			require.Equal(t, tc.wantStatus, rr.Code, "body=%s", rr.Body.String())
+
+			if tc.wantHops == "" {
+				require.Empty(t, forwarded, "a looping request must not be forwarded")
+				return
+			}
+			got := <-forwarded
+			require.Equal(t, []string{tc.wantHops}, got.Values(mountHopsHeader), "hop count forwarded to the mount target")
+		})
+	}
 }

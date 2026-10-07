@@ -184,13 +184,17 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			return fmt.Errorf("failed to convert unstructured to Workspace: %w", err)
 		}
 
+		// Unsetting spec.cluster would orphan the logical cluster behind the
+		// workspace. A mounted workspace has none, and must have an empty
+		// spec.cluster, so there clearing it is the remediation, not an error.
+		if old.Spec.Mount == nil && old.Spec.Cluster != "" && ws.Spec.Cluster == "" {
+			return admission.NewForbidden(a, errors.New("spec.cluster cannot be unset"))
+		}
+
 		// spec.cluster and spec.URL decide where requests for the workspace are
 		// routed. Only the system may change them, for mounted workspaces too:
 		// the mounts controller sets spec.URL from the mount object, a tenant
 		// must not be able to point the workspace anywhere else.
-		if old.Spec.Cluster != "" && ws.Spec.Cluster == "" {
-			return admission.NewForbidden(a, errors.New("spec.cluster cannot be unset"))
-		}
 		if old.Spec.Cluster != ws.Spec.Cluster && !isSystemPrivileged {
 			return admission.NewForbidden(a, errors.New("spec.cluster can only be changed by system privileged users"))
 		}
@@ -221,7 +225,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 			if ws.Spec.Mount == nil {
 				return admission.NewForbidden(a, errors.New("spec.mount cannot be unset"))
 			}
-			if err := validateMountSpec(ws); err != nil {
+			if err := validateMountSpec(ws, old); err != nil {
 				return admission.NewForbidden(a, err)
 			}
 			// If we're transitioning to "Ready", make sure that spec.URL is set.
@@ -292,7 +296,7 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 		}
 
 		if ws.Spec.Mount != nil {
-			if err := validateMountSpec(ws); err != nil {
+			if err := validateMountSpec(ws, nil); err != nil {
 				return admission.NewForbidden(a, err)
 			}
 			if ws.Spec.Mount.Reference.Kind == "" {
@@ -319,11 +323,18 @@ func (o *workspace) Validate(ctx context.Context, a admission.Attributes, _ admi
 // where every caller entering the workspace is forwarded to, so it must be an
 // acceptable mount target. This applies to system privileged writers too: the
 // mounts controller copies the URL from a tenant-controlled mount object.
-func validateMountSpec(ws *tenancyv1alpha1.Workspace) error {
-	if ws.Spec.Cluster != "" {
+//
+// old is the existing object on update, and nil on create. A field is only
+// checked when it changes, so that a workspace written before these rules
+// existed stays editable (and therefore fixable) instead of rejecting every
+// update, including the status updates its own controller needs to make. Such a
+// grandfathered value is inert rather than dangerous: the index and the mount
+// proxy refuse to route a target that is not an acceptable URL.
+func validateMountSpec(ws, old *tenancyv1alpha1.Workspace) error {
+	if ws.Spec.Cluster != "" && (old == nil || old.Spec.Cluster != ws.Spec.Cluster) {
 		return errors.New("spec.cluster cannot be set for mounted workspaces")
 	}
-	if ws.Spec.URL != "" {
+	if ws.Spec.URL != "" && (old == nil || old.Spec.URL != ws.Spec.URL) {
 		if _, err := mounts.ValidateURL(ws.Spec.URL); err != nil {
 			return fmt.Errorf("spec.URL is not a valid mount target: %w", err)
 		}

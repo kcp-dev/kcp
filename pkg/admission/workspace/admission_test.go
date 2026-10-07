@@ -978,6 +978,119 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+// TestValidateGrandfatheredMount covers a workspace whose spec.URL was written
+// before mount targets had to be acceptable URLs, e.g. by an older kcp with the
+// WorkspaceMounts gate on. Such a value must not make the object unwritable:
+// its own controller still has to update status, and an operator still has to be
+// able to fix or remove it. Routing safety does not depend on this check, since
+// the index and the mount proxy refuse to route a target that is not https.
+func TestValidateGrandfatheredMount(t *testing.T) {
+	t.Parallel()
+
+	const (
+		legacyURL = "http://legacy.example.com/ingest"
+		validURL  = "https://good.example.com/clusters/root:dest"
+	)
+	mounted := func(url, cluster string, phase corev1alpha1.LogicalClusterPhaseType, labels map[string]string) *tenancyv1alpha1.Workspace {
+		return &tenancyv1alpha1.Workspace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "mount",
+				Labels:      labels,
+				Annotations: map[string]string{"experimental.tenancy.kcp.io/owner": "{}"},
+			},
+			Spec: tenancyv1alpha1.WorkspaceSpec{
+				URL:     url,
+				Cluster: cluster,
+				Mount:   &tenancyv1alpha1.Mount{Reference: tenancyv1alpha1.ObjectReference{APIVersion: "contrib.kcp.io/v1alpha1", Kind: "KubeCluster", Name: "proxy-cluster"}},
+			},
+			Status: tenancyv1alpha1.WorkspaceStatus{Phase: phase},
+		}
+	}
+	priv := &kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}}
+
+	tests := []struct {
+		name           string
+		a              admission.Attributes
+		expectedErrors []string
+	}{
+		{
+			// What the mounts controller does when it reports the mount as no
+			// longer usable. If this is rejected the controller cannot publish
+			// the condition and retries forever.
+			name: "allows a status-only update",
+			a: updateAttrWithUser(
+				mounted(legacyURL, "", corev1alpha1.LogicalClusterPhaseUnavailable, nil),
+				mounted(legacyURL, "", corev1alpha1.LogicalClusterPhaseReady, nil), priv),
+		},
+		{
+			name: "allows a metadata-only update",
+			a: updateAttrWithUser(
+				mounted(legacyURL, "", corev1alpha1.LogicalClusterPhaseReady, map[string]string{"a": "b"}),
+				mounted(legacyURL, "", corev1alpha1.LogicalClusterPhaseReady, nil), priv),
+		},
+		{
+			name: "allows replacing it with a valid URL",
+			a: updateAttrWithUser(
+				mounted(validURL, "", corev1alpha1.LogicalClusterPhaseReady, nil),
+				mounted(legacyURL, "", corev1alpha1.LogicalClusterPhaseReady, nil), priv),
+		},
+		{
+			name: "allows clearing it",
+			a: updateAttrWithUser(
+				mounted("", "", corev1alpha1.LogicalClusterPhaseUnavailable, nil),
+				mounted(legacyURL, "", corev1alpha1.LogicalClusterPhaseReady, nil), priv),
+		},
+		{
+			// A grandfathered spec.cluster must be clearable too: a mount has no
+			// logical cluster, so clearing it is the remediation, not an error.
+			name: "allows clearing a grandfathered spec.cluster",
+			a: updateAttrWithUser(
+				mounted(validURL, "", corev1alpha1.LogicalClusterPhaseReady, nil),
+				mounted(validURL, "somewhere", corev1alpha1.LogicalClusterPhaseReady, nil), priv),
+		},
+		{
+			// Keeping a grandfathered value is tolerated; writing a new bad one
+			// is not, whoever does it.
+			name: "still rejects changing it to another unacceptable URL",
+			a: updateAttrWithUser(
+				mounted("http://attacker.example.com", "", corev1alpha1.LogicalClusterPhaseReady, nil),
+				mounted(legacyURL, "", corev1alpha1.LogicalClusterPhaseReady, nil), priv),
+			expectedErrors: []string{"spec.URL is not a valid mount target", "scheme must be https"},
+		},
+		{
+			name: "still rejects a tenant changing it",
+			a: updateAttr(
+				mounted(validURL, "", corev1alpha1.LogicalClusterPhaseReady, nil),
+				mounted(legacyURL, "", corev1alpha1.LogicalClusterPhaseReady, nil)),
+			expectedErrors: []string{"spec.URL can only be changed by system privileged users"},
+		},
+		{
+			name:           "still rejects an unacceptable URL on create",
+			a:              createAttrWithUser(mounted(legacyURL, "", "", nil), priv),
+			expectedErrors: []string{"spec.URL is not a valid mount target"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			o := &workspace{
+				Handler: admission.NewHandler(admission.Create, admission.Update),
+				logicalClusterLister: fakeLogicalClusterClusterLister{
+					newLogicalCluster(logicalcluster.NewPath("root:org")).LogicalCluster,
+				},
+			}
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: "root:org"})
+			err := o.Validate(ctx, tt.a, nil)
+			t.Logf("%v", err)
+			require.Equal(t, len(tt.expectedErrors) > 0, err != nil, "expected errors %v, got: %v", tt.expectedErrors, err)
+			for _, expected := range tt.expectedErrors {
+				require.ErrorContains(t, err, expected)
+			}
+		})
+	}
+}
+
 type builder struct {
 	*tenancyv1alpha1.WorkspaceType
 }
