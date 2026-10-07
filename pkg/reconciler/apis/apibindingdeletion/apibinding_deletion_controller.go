@@ -75,6 +75,10 @@ const (
 	// CRs still exist.
 	ResourceFinalizersRemainReason = "SomeFinalizersRemain"
 
+	// PermissionClaimLabelsRemainReason is the reason for condition BindingResourceDeleteSuccess that the
+	// permission claim labels of this APIBinding have not been withdrawn from the claimed resources yet.
+	PermissionClaimLabelsRemainReason = "PermissionClaimLabelsRemain"
+
 	// WaitingForSuccessorReason is the reason for condition BindingResourceDeleteSuccess that instances of some
 	// bound resources are intentionally kept per deletionPolicy=WaitForSuccessor, holding the finalizer until a
 	// successor APIBinding adopts them.
@@ -299,6 +303,26 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		}
 
 		return remainingErr
+	}
+
+	// The permissionclaimlabel controller withdraws the claim labels of a deleting APIBinding from
+	// the claimed resources and clears status.appliedPermissionClaims once that is done. Hold the
+	// finalizer until then: the labels are the only thing scoping wildcard access to claimed
+	// resources in the APIExport virtual workspace, so they must not outlive the binding.
+	if remaining := len(apibindingCopy.Status.AppliedPermissionClaims); remaining > 0 {
+		conditions.MarkFalse(
+			apibindingCopy,
+			apisv1alpha2.BindingResourceDeleteSuccess,
+			PermissionClaimLabelsRemainReason,
+			conditionsv1alpha1.ConditionSeverityError,
+			"waiting for %d permission claim(s) to be withdrawn from the claimed resources",
+			remaining,
+		)
+		newResource := &Resource{ObjectMeta: apibindingCopy.ObjectMeta, Spec: &apibindingCopy.Spec, Status: &apibindingCopy.Status}
+		if err := c.commit(ctx, oldResource, newResource); err != nil {
+			return err
+		}
+		return fmt.Errorf("%d permission claim(s) of APIBinding %s|%s still applied", remaining, clusterName, name)
 	}
 
 	// Commit the status update from mutateResourceRemainingStatus first.
