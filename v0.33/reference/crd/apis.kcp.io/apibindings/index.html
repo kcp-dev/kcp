@@ -6555,6 +6555,44 @@ delete, deletecollection, and proxy).</p>
 
 <div class="property depth-3">
 <div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.boundResources[*].identityHashes">.status.boundResources[*].identityHashes</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>identityHashes lists every identity hash under which instances of this
+resource may exist in storage. It mirrors storageVersions for identity
+rotation: the drain target is always the schema&rsquo;s current identityHash;
+every other entry is a drain source that the identity migrator empties
+and then prunes from this list. Normally it contains exactly the
+schema&rsquo;s current identityHash.</p>
+
+<p>Hashes may not be removed while instances exist under them in storage.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-4">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.boundResources[*].identityHashes[*]">.status.boundResources[*].identityHashes[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-3">
+<div class="property-header">
 <h3 class="property-path" id="v1alpha2-.status.boundResources[*].resource">.status.boundResources[*].resource</h3>
 </div>
 <div class="property-body">

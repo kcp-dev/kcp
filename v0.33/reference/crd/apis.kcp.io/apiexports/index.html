@@ -5815,6 +5815,42 @@ can be useful (see .node.status.conditions), the ability to deconflict is import
 
 <div class="property depth-1">
 <div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.identityAliasHashes">.status.identityAliasHashes</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">array</span>
+
+</div>
+
+<div class="property-description">
+<p>identityAliasHashes lists previous identity hashes of this APIExport
+that are still honored as equivalents of the current identityHash
+while a rotation&rsquo;s alias window is active. Permission claims and
+wildcard consumers referencing an alias hash keep resolving to this
+export until the alias is retired. Managed by the identity rotation
+controller.</p>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-2">
+<div class="property-header">
+<h3 class="property-path" id="v1alpha2-.status.identityAliasHashes[*]">.status.identityAliasHashes[*]</h3>
+</div>
+<div class="property-body">
+<div class="property-meta">
+<span class="property-type">string</span>
+
+</div>
+
+</div>
+</div>
+
+<div class="property depth-1">
+<div class="property-header">
 <h3 class="property-path" id="v1alpha2-.status.identityHash">.status.identityHash</h3>
 </div>
 <div class="property-body">
@@ -5825,7 +5861,8 @@ can be useful (see .node.status.conditions), the ability to deconflict is import
 
 <div class="property-description">
 <p>identityHash is the hash of the API identity key of this APIExport. This value
-is immutable as soon as it is set.</p>
+is only changed by the identity rotation controller, as part of a tracked
+rotation; it is immutable for users.</p>
 
 </div>
 
