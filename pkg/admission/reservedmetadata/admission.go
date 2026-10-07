@@ -36,58 +36,96 @@ const (
 	PluginName = "apis.kcp.io/ReservedMetadata"
 )
 
+// reservation classifies a metadata key by who is allowed to modify it.
+// higher tiers include all permissions from lower tiers.
+type reservation int
+
+const (
+	// unreserved keys may be modified by anyone.
+	unreserved reservation = iota
+	// adminReserved keys may only be modified by kcp admins
+	// (system:kcp:admin) and the control-plane system identities.
+	adminReserved
+	// systemReserved keys may only be modified by control-plane system identities.
+	systemReserved
+)
+
+func (r reservation) String() string {
+	switch r {
+	case unreserved:
+		return "unreserved"
+	case adminReserved:
+		return "admin-reserved"
+	case systemReserved:
+		return "system-reserved"
+	default:
+		return fmt.Sprintf("unknown reservation (%d)", r)
+	}
+}
+
+type rule struct {
+	pattern     *regexp.Regexp
+	reservation reservation
+}
+
 var (
-	annotationAllowList = []*regexp.Regexp{
+	annotationRules = []rule{
 		// storage layer annotations. Unfortunately these are also being written by
 		// the following clients we are using:
 		// * server bootstrap and bootstrap identity
 		// * cache server replication
-		regexp.MustCompile(`^kcp\.io/(cluster|shard|original-api-version)$`),
+		{regexp.MustCompile(`^kcp\.io/(cluster|shard|original-api-version)$`), unreserved},
 
 		// pathAnnotation webhook sets this using user credentials
-		regexp.MustCompile(`^kcp\.io/path$`),
+		{regexp.MustCompile(`^kcp\.io/path$`), unreserved},
 
 		// workspace mutating webhook sets these on logicalclusters using user credentials
-		regexp.MustCompile(`^authorization\.kcp\.io/required-groups$`),
-		regexp.MustCompile(`^experimental\.tenancy\.kcp\.io/owner$`),
+		{regexp.MustCompile(`^authorization\.kcp\.io/required-groups$`), unreserved},
+		{regexp.MustCompile(`^experimental\.tenancy\.kcp\.io/owner$`), unreserved},
 
 		// note: combined together to reduce number of individual regexps
 		// workspace mount hook or WorkspaceType controller set these annotations.
-		regexp.MustCompile(`^experimental\.tenancy\.kcp\.io/(mount|default-api-binding-lifecycle)$`),
+		{regexp.MustCompile(`^experimental\.tenancy\.kcp\.io/(mount|default-api-binding-lifecycle)$`), unreserved},
 
-		// set on ResourceQuotas by workspace admin, not privileged group (see isPrivilegedUser())
-		regexp.MustCompile(`^experimental\.quota\.kcp\.io/cluster-scoped$`),
+		// set on ResourceQuotas by workspace admin, not privileged group (see userClearance())
+		{regexp.MustCompile(`^experimental\.quota\.kcp\.io/cluster-scoped$`), unreserved},
 
 		// set by APIExport owners (which don't have to be privileged users) directly on the object
-		regexp.MustCompile(`^apiexports\.apis\.kcp\.io/skip-endpointslice$`),
+		{regexp.MustCompile(`^apiexports\.apis\.kcp\.io/skip-endpointslice$`), unreserved},
 
-		// note: combined together to reduce number of individual regexps
-		// * max-total-objects is being set by workspace admin directly
-		// * inactive needs to be let through here, since it is guarded by
-		//   logicalcluster admission plugin
-		regexp.MustCompile(`^core\.kcp\.io/(max-total-objects|inactive)$`),
+		// inactive needs to be let through here, since it is guarded by
+		// logicalcluster admission plugin
+		{regexp.MustCompile(`^core\.kcp\.io/(inactive)$`), unreserved},
 
 		// free-form annotations set by APIExport owners, synced to APIBindings
-		regexp.MustCompile(`^extra\.apis\.kcp\.io/`),
+		{regexp.MustCompile(`^extra\.apis\.kcp\.io/`), unreserved},
 
 		// v1alpha1<->v1alpha2 conversion round-trip annotations, which can use
 		// user credentials
-		regexp.MustCompile(`^apis\.v1alpha2\.kcp\.io/`),
+		{regexp.MustCompile(`^apis\.v1alpha2\.kcp\.io/`), unreserved},
+
+		// set manually by kcp admins on LogicalClusters, read by the
+		// objectcountlimit admission plugin
+		{regexp.MustCompile(`^core\.kcp\.io/max-total-objects$`), adminReserved},
+
+		// set manually by kcp admins on Shards to exclude them from
+		// workspace scheduling
+		{regexp.MustCompile(`^experimental\.core\.kcp\.io/unschedulable$`), adminReserved},
 	}
 
-	labelAllowList = []*regexp.Regexp{
+	labelRules = []rule{
 		// stamped by the permissionclaims mutating admission plugin on claimed
 		// objects inside the end user's own request
 		// we need to match the full suffix here as they are hash generated
-		regexp.MustCompile(`^claimed\.internal\.apis\.kcp\.io/`),
+		{regexp.MustCompile(`^claimed\.internal\.apis\.kcp\.io/`), unreserved},
 
 		// set and validated by the ApiBinding admission plugin, so we need
 		// to pass it here
-		regexp.MustCompile(`^internal\.apis\.kcp\.io/export$`),
+		{regexp.MustCompile(`^internal\.apis\.kcp\.io/export$`), unreserved},
 
 		// currently used by our tests for marking objects;
 		// These could potentially be moved out
-		regexp.MustCompile(`^internal\.kcp\.io/(e2e-test|test-initializer)$`),
+		{regexp.MustCompile(`^internal\.kcp\.io/(e2e-test|test-initializer)$`), unreserved},
 	}
 )
 
@@ -110,7 +148,8 @@ type reservedMetadata struct {
 var _ = admission.ValidationInterface(&reservedMetadata{})
 
 // Validate asserts the underlying object for changes in labels and annotations to reserved kcp.io metadata.
-// If the user is member of the privileged system group, all mutations are allowed.
+// Every key is classified into a reservation tier and every user into a clearance on the same
+// scale; a change is allowed if the user's clearance covers the key's reservation.
 func (o *reservedMetadata) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) (err error) {
 	newMeta, err := meta.Accessor(a.GetObject())
 	//nolint:nilerr
@@ -125,69 +164,90 @@ func (o *reservedMetadata) Validate(ctx context.Context, a admission.Attributes,
 		oldMeta = &metav1.ObjectMeta{}
 	}
 
-	// allow privileged users to change any reserved metadata
-	if isPrivilegedUser(a.GetUserInfo().GetGroups()) {
+	clearance := userClearance(a.GetUserInfo().GetGroups())
+	if clearance == systemReserved {
+		// the control plane may change any reserved metadata, so skip more expensive per-field diffs
 		return nil
 	}
 
-	if k, ok := hasPrivilegedModification(newMeta.GetAnnotations(), oldMeta.GetAnnotations(), annotationAllowList); ok {
-		return admission.NewForbidden(a, fmt.Errorf("modification of reserved annotation: %q", k))
+	if k, res := reservedModification(newMeta.GetAnnotations(), oldMeta.GetAnnotations(), annotationRules, clearance); k != "" {
+		return admission.NewForbidden(a, fmt.Errorf("modification of %s annotation: %q", res, k))
 	}
 
-	if k, ok := hasPrivilegedModification(newMeta.GetLabels(), oldMeta.GetLabels(), labelAllowList); ok {
-		return admission.NewForbidden(a, fmt.Errorf("modification of reserved label: %q", k))
+	if k, res := reservedModification(newMeta.GetLabels(), oldMeta.GetLabels(), labelRules, clearance); k != "" {
+		return admission.NewForbidden(a, fmt.Errorf("modification of %s label: %q", res, k))
 	}
 
 	return nil
 }
 
-func hasPrivilegedModification(new, old map[string]string, allowList []*regexp.Regexp) (key string, modified bool) {
-	hasChanged := func(k, v1, v2 string, v2present bool) bool {
-		return (!v2present || v1 != v2) && isPrivileged(k, allowList)
+// reservedModification returns the first changed key between old and new whose
+// reservation exceeds the given clearance. An empty key means no clearance
+// exceeding modification occurred.
+func reservedModification(new, old map[string]string, rules []rule, clearance reservation) (key string, res reservation) {
+	changed := func(k, v1, v2 string, v2present bool) (reservation, bool) {
+		if v2present && v1 == v2 {
+			return unreserved, false
+		}
+		if r := reservationOf(k, rules); r > clearance {
+			return r, true
+		}
+		return unreserved, false
 	}
 
 	for k, v1 := range old {
 		v2, ok := new[k]
 
-		if hasChanged(k, v1, v2, ok) {
-			return k, true
+		if r, bad := changed(k, v1, v2, ok); bad {
+			return k, r
 		}
 	}
 
 	for k, v1 := range new {
 		v2, ok := old[k]
 
-		if hasChanged(k, v1, v2, ok) {
-			return k, true
+		if r, bad := changed(k, v1, v2, ok); bad {
+			return k, r
 		}
 	}
 
-	return "", false
+	return "", unreserved
 }
 
-func isPrivileged(key string, allowList []*regexp.Regexp) bool {
+// reservationOf classifies a metadata key. Keys outside the kcp.io domain are
+// never reserved; kcp.io-domain keys default to systemReserved unless a rule
+// classifies them otherwise.
+func reservationOf(key string, rules []rule) reservation {
 	// exit early if the key is not kcp.io or a subdomain of it.
 	// Doing this first saves us running through all the Regexes
-	// for non privileged keys.
+	// for non reserved keys.
 	domain, _, _ := strings.Cut(key, "/")
 	if domain != "kcp.io" && !strings.HasSuffix(domain, ".kcp.io") {
-		return false
+		return unreserved
 	}
 
-	for _, re := range allowList {
-		if re.MatchString(key) {
-			return false
+	for _, r := range rules {
+		if r.pattern.MatchString(key) {
+			return r.reservation
 		}
 	}
 
-	return true
+	return systemReserved
 }
 
-func isPrivilegedUser(groups []string) bool {
-	return slices.Contains(groups, user.SystemPrivilegedGroup) ||
-		slices.Contains(groups, bootstrap.SystemLogicalClusterAdmin) ||
-		slices.Contains(groups, bootstrap.SystemExternalLogicalClusterAdmin) ||
-		slices.Contains(groups, bootstrap.SystemKcpWorkspaceBootstrapper)
-	// note: workspaceadmins are purposefully not considered to be privileged users for this plugin
-	// as this would lead to cross-workspace privileged escalations.
+// userClearance returns the highest reservation tier the user is allowed to modify.
+// note: workspaceadmins are purposefully not considered to have any clearance for
+// this plugin as this would lead to cross-workspace privileged escalations.
+func userClearance(groups []string) reservation {
+	switch {
+	case slices.Contains(groups, user.SystemPrivilegedGroup),
+		slices.Contains(groups, bootstrap.SystemLogicalClusterAdmin),
+		slices.Contains(groups, bootstrap.SystemExternalLogicalClusterAdmin),
+		slices.Contains(groups, bootstrap.SystemKcpWorkspaceBootstrapper):
+		return systemReserved
+	case slices.Contains(groups, bootstrap.SystemKcpAdminGroup):
+		return adminReserved
+	}
+
+	return unreserved
 }
