@@ -255,7 +255,8 @@ mounting machinery therefore enforces the following:
   another workspace, so a mount can be pointed at a path that resolves back to a mount. kcp counts the
   mount hops a request has taken in the `X-Kcp-Mount-Hops` header and refuses a request that has taken
   too many with `508 Loop Detected`. A short chain of mounted workspaces still works. The header is
-  replaced on every hop, so a value sent by a client is ignored.
+  replaced on every hop, so a value sent by a client is ignored. Components that are never a legitimate
+  mount target, such as the cache server, reject any request carrying that header outright.
 - **Targets must serve https** and present a certificate the shard trusts: either one chaining to the
   system roots or to the bundle given with `--mount-proxy-server-ca-file`. TLS verification cannot be
   disabled. `status.URL` values that are not `https://`, carry user info, a query or a fragment are

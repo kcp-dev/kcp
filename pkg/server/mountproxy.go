@@ -24,9 +24,7 @@ import (
 	"net/http/httputil"
 	"os"
 	"strconv"
-	"strings"
 
-	authenticationv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -39,6 +37,9 @@ import (
 
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 
+	"github.com/kcp-dev/kcp/pkg/authentication"
+	"github.com/kcp-dev/kcp/pkg/logging"
+	"github.com/kcp-dev/kcp/pkg/mounts"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
@@ -53,25 +54,6 @@ const (
 	// mountLoopAuditAnnotation records the hop count of a request that was
 	// refused because the mount targets form a loop.
 	mountLoopAuditAnnotation = "mount.tenancy.kcp.io/loop-detected-at-hop"
-
-	// mountHopsHeader counts how many mount targets a request has already been
-	// forwarded to. A mount target may be kcp itself (that is how a workspace is
-	// mounted onto another workspace), so a mount can be pointed at a path that
-	// resolves back to a mount, directly or through a chain. Without a bound such
-	// a request would be forwarded shard to target to shard indefinitely, holding
-	// a connection at every hop.
-	//
-	// The mount proxy replaces this header on every hop, so a value a client sends
-	// is overwritten on the first hop and can only ever deny that client's own
-	// request. A value arriving from kcp is therefore the real hop count. A mount
-	// target that is not kcp can strip the header, which only permits loops that
-	// pass through that target.
-	mountHopsHeader = "X-Kcp-Mount-Hops"
-
-	// maxMountHops is how many mount hops a single request may take. Chaining a
-	// mount onto a mounted workspace is legitimate, so this allows a short chain
-	// and rejects anything longer as a loop.
-	maxMountHops = 3
 )
 
 // newMountProxyTransport returns the transport the local proxy uses to connect
@@ -157,8 +139,8 @@ func WithMountProxy(apiHandler http.Handler, transport http.RoundTripper, authz 
 			return
 		}
 
-		hops := mountHopsFrom(req.Header)
-		if hops >= maxMountHops {
+		hops := mounts.HopsFrom(req.Header)
+		if hops >= mounts.MaxHops {
 			logger.WithValues("hops", hops).Info("refusing to forward request to mount target: too many mount hops, the mount targets likely form a loop")
 			audit.AddAuditAnnotation(ctx, mountLoopAuditAnnotation, strconv.Itoa(hops))
 			responsewriters.ErrorNegotiated(
@@ -205,6 +187,13 @@ func WithMountProxy(apiHandler http.Handler, transport http.RoundTripper, authz 
 				setMountProxyHeaders(pr.Out.Header, u, hops+1)
 			},
 			ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+				if logging.IsClientDisconnect(r.Context(), err) {
+					// Routine for a long-running request such as a watch: there is
+					// no client left to answer, and this is not a fault of ours or
+					// of the mount target.
+					logger.V(4).Info("client went away while forwarding request to mount target", "err", err)
+					return
+				}
 				logger.Error(err, "failed to forward request to mount target")
 				responsewriters.ErrorNegotiated(
 					&apierrors.StatusError{ErrStatus: metav1.Status{
@@ -230,47 +219,14 @@ func WithMountProxy(apiHandler http.Handler, transport http.RoundTripper, authz 
 func setMountProxyHeaders(header http.Header, u user.Info, hops int) {
 	// Set, not Add: this replaces any value the client sent, so only a count this
 	// shard or another kcp shard wrote is ever forwarded.
-	header.Set(mountHopsHeader, strconv.Itoa(hops))
+	header.Set(mounts.HopsHeader, strconv.Itoa(hops))
 
 	header.Del("Authorization")
-	header.Del(authenticationv1.ImpersonateUserHeader)
-	header.Del(authenticationv1.ImpersonateUIDHeader)
-	header.Del(authenticationv1.ImpersonateGroupHeader)
-	for key := range header {
-		if strings.HasPrefix(key, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
-			header.Del(key)
-		}
-	}
+	authentication.ScrubImpersonationHeaders(header)
 
 	if u == nil || u.GetName() == user.Anonymous {
 		authheaders.ClearAuthHeaders(header, authheaders.DefaultUserHeader, authheaders.DefaultGroupHeader, authheaders.DefaultExtraHeaderPrefix)
 		return
 	}
 	authheaders.SetAuthHeaders(header, u, authheaders.DefaultUserHeader, authheaders.DefaultGroupHeader, authheaders.DefaultExtraHeaderPrefix)
-}
-
-// mountHopsFrom returns how many mount targets the request has already been
-// forwarded to. A missing or unparsable value counts as none, which is what a
-// request that has not passed through a mount proxy yet looks like.
-func mountHopsFrom(header http.Header) int {
-	hops, err := strconv.Atoi(header.Get(mountHopsHeader))
-	if err != nil || hops < 0 {
-		return 0
-	}
-	return hops
-}
-
-// hasImpersonationHeaders reports whether the request asks for impersonation.
-func hasImpersonationHeaders(header http.Header) bool {
-	if header.Get(authenticationv1.ImpersonateUserHeader) != "" ||
-		header.Get(authenticationv1.ImpersonateUIDHeader) != "" ||
-		len(header.Values(authenticationv1.ImpersonateGroupHeader)) > 0 {
-		return true
-	}
-	for key := range header {
-		if strings.HasPrefix(key, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
-			return true
-		}
-	}
-	return false
 }

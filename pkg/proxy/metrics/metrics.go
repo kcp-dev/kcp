@@ -31,6 +31,7 @@ import (
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
@@ -151,6 +152,13 @@ func isTLSError(err error) bool {
 func NewProxyErrorHandler() func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
 		logger := klog.FromContext(r.Context())
+
+		if logging.IsClientDisconnect(r.Context(), err) {
+			// Routine for a long-running request such as a watch: there is no
+			// client left to answer, and the backend did not fail.
+			logger.V(4).Info("client went away while proxying request", "err", err)
+			return
+		}
 
 		if isTLSError(err) {
 			shardName := lookup.ShardNameFrom(r.Context())

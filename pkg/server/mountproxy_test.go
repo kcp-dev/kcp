@@ -38,6 +38,7 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/index"
+	"github.com/kcp-dev/kcp/pkg/mounts"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
 )
 
@@ -385,6 +386,51 @@ func TestWithMountProxy_Errors(t *testing.T) {
 	}
 }
 
+// TestWithMountProxy_ClientDisconnectIsNotAnError checks that a client going
+// away mid-request is not reported as the mount target failing. A cancelled watch
+// is ordinary client behaviour, so it must not be logged as an error, and there
+// is nobody left to send a 502 to.
+func TestWithMountProxy_ClientDisconnectIsNotAnError(t *testing.T) {
+	t.Parallel()
+
+	alice := &userinfo.DefaultInfo{Name: "alice", Groups: []string{userinfo.AllAuthenticated}}
+
+	// A backend that never answers, so the round trip ends only when the request
+	// context is cancelled, which is what a client hanging up looks like.
+	block := make(chan struct{})
+	t.Cleanup(func() { close(block) })
+	backend := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-block:
+		case <-r.Context().Done():
+		}
+	}))
+	t.Cleanup(backend.Close)
+
+	downstream := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("request for a mounted workspace must not reach the shard API handler")
+	})
+	h := withUser(alice, WithMountProxy(downstream, backend.Client().Transport, allowAll))
+	h, err := WithLocalProxy(h, "test-shard", "", newMountIndex(backend.URL))
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clusters/root:mnt/api/v1/secrets", http.NoBody)
+	rr := httptest.NewRecorder()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		h.ServeHTTP(rr, req)
+	}()
+	cancel()
+	<-done
+
+	// Nothing was written: no 502 for a client that is no longer there.
+	require.Equal(t, http.StatusOK, rr.Code, "body=%s", rr.Body.String())
+	require.Empty(t, rr.Body.String())
+}
+
 func TestWithMountProxy_PassesNonMountRequestsThrough(t *testing.T) {
 	t.Parallel()
 
@@ -445,12 +491,12 @@ func TestWithMountProxy_CountsMountHops(t *testing.T) {
 		},
 		{
 			name:       "a request at the limit is refused as a loop",
-			inbound:    []string{strconv.Itoa(maxMountHops)},
+			inbound:    []string{strconv.Itoa(mounts.MaxHops)},
 			wantStatus: http.StatusLoopDetected,
 		},
 		{
 			name:       "a request past the limit is refused as a loop",
-			inbound:    []string{strconv.Itoa(maxMountHops + 7)},
+			inbound:    []string{strconv.Itoa(mounts.MaxHops + 7)},
 			wantStatus: http.StatusLoopDetected,
 		},
 		{
@@ -495,7 +541,7 @@ func TestWithMountProxy_CountsMountHops(t *testing.T) {
 
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/root:mnt/api/v1/secrets", http.NoBody)
 			for _, v := range tc.inbound {
-				req.Header.Add(mountHopsHeader, v)
+				req.Header.Add(mounts.HopsHeader, v)
 			}
 			rr := httptest.NewRecorder()
 			h.ServeHTTP(rr, req)
@@ -506,7 +552,7 @@ func TestWithMountProxy_CountsMountHops(t *testing.T) {
 				return
 			}
 			got := <-forwarded
-			require.Equal(t, []string{tc.wantHops}, got.Values(mountHopsHeader), "hop count forwarded to the mount target")
+			require.Equal(t, []string{tc.wantHops}, got.Values(mounts.HopsHeader), "hop count forwarded to the mount target")
 		})
 	}
 }

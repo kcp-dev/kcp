@@ -34,6 +34,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/shardpaths"
+	"github.com/kcp-dev/kcp/pkg/mounts"
 )
 
 var (
@@ -168,6 +169,20 @@ func WithCacheShardLevelPaths(handler http.Handler) http.Handler {
 		if !shardScope.Empty() || (cluster != nil && !cluster.Name.Empty()) {
 			audit.AddAuditAnnotation(req.Context(), "shardpaths.kcp.io/rejected", req.URL.Path)
 			http.Error(w, "shard-level endpoint not available at shard or workspace scope", http.StatusNotImplemented)
+			return
+		}
+		handler.ServeHTTP(w, req)
+	})
+}
+
+// WithRejectMountForwardedRequests rejects any request that arrived through a
+// workspace mount proxy, which a request carrying the mount hop header did.
+// Used in places where mounts traffic should not be forwarded.
+func WithRejectMountForwardedRequests(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if mounts.IsForwardedByMountProxy(req.Header) {
+			audit.AddAuditAnnotation(req.Context(), "mount.tenancy.kcp.io/rejected", req.URL.Path)
+			http.Error(w, "the cache server cannot be the target of a workspace mount", http.StatusBadRequest)
 			return
 		}
 		handler.ServeHTTP(w, req)
