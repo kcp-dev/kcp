@@ -34,6 +34,23 @@ import (
 // apiGroup / resource / resourceName / namespace from an incoming HTTP request.
 var requestInfoFactory = requestinfo.NewFactory()
 
+// LifecycleProxyPathEscapesWorkspace reports whether reqPath — as seen by an
+// initializing/terminating virtual workspace content proxy, which retains the kcp
+// "/clusters/<id>/" prefix so the request can be reverse-proxied verbatim — targets
+// another virtual workspace by re-entering "/services/".
+func LifecycleProxyPathEscapesWorkspace(reqPath string) bool {
+	rest := reqPath
+	if after, ok := strings.CutPrefix(reqPath, "/clusters/"); ok {
+		// Drop the "<id>" segment, keeping whatever path follows it.
+		if i := strings.Index(after, "/"); i >= 0 {
+			rest = after[i:]
+		} else {
+			rest = "/"
+		}
+	}
+	return rest == "/services" || strings.HasPrefix(rest, "/services/")
+}
+
 // EvaluateLifecyclePermissions checks whether the supplied user / HTTP request would
 // be allowed by the given RBAC PolicyRules. It is the in-process RBAC evaluator used
 // by the initializing/terminating virtual workspace content proxies when a
