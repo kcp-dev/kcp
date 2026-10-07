@@ -19,6 +19,7 @@ package crdpuller
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"k8s.io/apiextensions-apiserver/pkg/apihelpers"
@@ -496,6 +497,27 @@ func (sc *SchemaConverter) VisitReference(r proto.Reference) {
 		*sc.errors = append(*sc.errors, fmt.Errorf("recursive schema are not supported: %s", reference))
 		return
 	}
+
+	for extensionName, extension := range r.GetExtensions() {
+		switch extensionName {
+		case "x-kubernetes-preserve-unknown-fields":
+			switch extensionValue := extension.(type) {
+			case bool:
+				sc.schemaProps.XPreserveUnknownFields = boolPtr(extensionValue)
+			case string:
+				if value, err := strconv.ParseBool(extensionValue); err != nil {
+					err := fmt.Errorf("failed to parse 'x-kubernetes-preserve-unknown-fields' value: %w", err)
+					*sc.errors = append(*sc.errors, err)
+				} else {
+					sc.schemaProps.XPreserveUnknownFields = boolPtr(value)
+				}
+			default:
+				err := fmt.Errorf("unsupported 'x-kubernetes-preserve-unknown-fields' value type '%T'", extensionValue)
+				*sc.errors = append(*sc.errors, err)
+			}
+		}
+	}
+
 	if knownSchema, schemaIsKnown := knownSchemas[reference]; schemaIsKnown {
 		knownSchema.DeepCopyInto(sc.schemaProps)
 		if sc.description != "" {
