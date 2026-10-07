@@ -276,6 +276,13 @@ func BuildVirtualWorkspace(
 					return
 				}
 
+				// Refuse to proxy a request that re-enters "/services/" (another virtual
+				// workspace, e.g. /services/admin).
+				if authorization.LifecycleProxyPathEscapesWorkspace(request.URL.Path) {
+					http.Error(writer, fmt.Sprintf("initializer %q may not access virtual workspace endpoints (/services/...) outside the workspace being initialized", initializer), http.StatusForbidden)
+					return
+				}
+
 				// Fetch the WorkspaceType the initializer originates from. If it
 				// declares initializerPermissions, evaluate the request in-process
 				// against those rules and forward with the controller's own identity
@@ -501,6 +508,12 @@ func (a *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(ctx context
 var _ apidefinition.APIDefinitionSetGetter = &singleResourceAPIDefinitionSetProvider{}
 
 func authorizerWithCache(ctx context.Context, cache delegated.Cache, attr authorizer.Attributes) (authorizer.Decision, string, error) {
+	// No impersonation is allowed through this virtual workspace. Any request attempting
+	// to use the "impersonate" verb will be denied outright.
+	if attr.GetVerb() == "impersonate" {
+		return authorizer.DecisionDeny, "impersonation is not permitted on the initializingworkspaces virtual workspace", nil
+	}
+
 	clusterName, name, err := initialization.TypeFrom(corev1alpha1.LogicalClusterInitializer(dynamiccontext.APIDomainKeyFrom(ctx)))
 	if err != nil {
 		klog.FromContext(ctx).V(2).Info(err.Error())
