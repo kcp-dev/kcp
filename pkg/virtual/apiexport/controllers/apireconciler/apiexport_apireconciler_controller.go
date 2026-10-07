@@ -47,6 +47,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
+	"github.com/kcp-dev/kcp/pkg/tombstone"
 )
 
 const (
@@ -107,7 +108,7 @@ func NewAPIReconciler(
 			c.enqueueAPIExport(obj.(*apisv1alpha2.APIExport), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIExport(obj.(*apisv1alpha2.APIExport), logger)
+			c.enqueueAPIExport(tombstone.Obj[*apisv1alpha2.APIExport](obj), logger)
 		},
 	})
 
@@ -116,7 +117,7 @@ func NewAPIReconciler(
 			c.enqueueAPIResourceSchema(obj.(*apisv1alpha1.APIResourceSchema), logger)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAPIResourceSchema(obj.(*apisv1alpha1.APIResourceSchema), logger)
+			c.enqueueAPIResourceSchema(tombstone.Obj[*apisv1alpha1.APIResourceSchema](obj), logger)
 		},
 	}))
 
