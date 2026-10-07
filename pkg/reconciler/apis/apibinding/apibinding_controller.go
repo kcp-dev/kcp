@@ -232,7 +232,7 @@ func NewController(
 	// CRD handlers
 	_, _ = crdInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			crd := obj.(*apiextensionsv1.CustomResourceDefinition)
+			crd := tombstone.Obj[*apiextensionsv1.CustomResourceDefinition](obj)
 			return logicalcluster.From(crd) == SystemBoundCRDsClusterName
 		},
 		Handler: cache.ResourceEventHandlerFuncs{

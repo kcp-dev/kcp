@@ -172,7 +172,7 @@ func NewController(
 			c.enqueueSecret(newObj.(*corev1.Secret))
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueSecret(obj.(*corev1.Secret))
+			c.enqueueSecret(tombstone.Obj[*corev1.Secret](obj))
 		},
 	}))
 
@@ -184,14 +184,14 @@ func NewController(
 			c.enqueueAllAPIExports(newObj.(*corev1alpha1.Shard))
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAllAPIExports(obj.(*corev1alpha1.Shard))
+			c.enqueueAllAPIExports(tombstone.Obj[*corev1alpha1.Shard](obj))
 		},
 	},
 	))
 
 	_, _ = apiExportEndpointSliceInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj interface{}) {
-			c.enqueueAllApiExportEndpointSlices(obj.(*apisv1alpha1.APIExportEndpointSlice))
+			c.enqueueAllApiExportEndpointSlices(tombstone.Obj[*apisv1alpha1.APIExportEndpointSlice](obj))
 		},
 	},
 	))
