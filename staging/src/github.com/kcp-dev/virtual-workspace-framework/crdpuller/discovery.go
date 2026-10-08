@@ -498,26 +498,6 @@ func (sc *SchemaConverter) VisitReference(r proto.Reference) {
 		return
 	}
 
-	for extensionName, extension := range r.GetExtensions() {
-		switch extensionName {
-		case "x-kubernetes-preserve-unknown-fields":
-			switch extensionValue := extension.(type) {
-			case bool:
-				sc.schemaProps.XPreserveUnknownFields = boolPtr(extensionValue)
-			case string:
-				if value, err := strconv.ParseBool(extensionValue); err != nil {
-					err := fmt.Errorf("failed to parse 'x-kubernetes-preserve-unknown-fields' value: %w", err)
-					*sc.errors = append(*sc.errors, err)
-				} else {
-					sc.schemaProps.XPreserveUnknownFields = boolPtr(value)
-				}
-			default:
-				err := fmt.Errorf("unsupported 'x-kubernetes-preserve-unknown-fields' value type '%T'", extensionValue)
-				*sc.errors = append(*sc.errors, err)
-			}
-		}
-	}
-
 	if knownSchema, schemaIsKnown := knownSchemas[reference]; schemaIsKnown {
 		knownSchema.DeepCopyInto(sc.schemaProps)
 		if sc.description != "" {
@@ -525,12 +505,28 @@ func (sc *SchemaConverter) VisitReference(r proto.Reference) {
 		} else {
 			sc.schemaProps.Description = r.GetDescription()
 		}
-		return
+	} else {
+		sc.setupDescription(r)
+		sc.visited.Insert(reference)
+		r.SubSchema().Accept(sc)
+		sc.visited.Delete(reference)
 	}
-	sc.setupDescription(r)
-	sc.visited.Insert(reference)
-	r.SubSchema().Accept(sc)
-	sc.visited.Delete(reference)
+
+	if extension, ok := r.GetExtensions()["x-kubernetes-preserve-unknown-fields"]; ok {
+		switch extensionValue := extension.(type) {
+		case bool:
+			sc.schemaProps.XPreserveUnknownFields = boolPtr(extensionValue)
+		case string:
+			value, err := strconv.ParseBool(extensionValue)
+			if err != nil {
+				*sc.errors = append(*sc.errors, fmt.Errorf("failed to parse 'x-kubernetes-preserve-unknown-fields' value: %w", err))
+				return
+			}
+			sc.schemaProps.XPreserveUnknownFields = boolPtr(value)
+		default:
+			*sc.errors = append(*sc.errors, fmt.Errorf("unsupported 'x-kubernetes-preserve-unknown-fields' value type '%T'", extensionValue))
+		}
+	}
 }
 
 func boolPtr(b bool) *bool {
