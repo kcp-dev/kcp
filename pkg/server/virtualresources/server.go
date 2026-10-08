@@ -53,6 +53,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/endpointslice"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/apiexportreference"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 )
@@ -396,9 +398,11 @@ func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster log
 //
 // The resolution has already been done, though, on the shard that does hold the
 // APIExport: the apiexportreference controller resolves each reference there and
-// records the result in a ClusterCachedResource, which IS replicated. So read it
-// from there, and keep the RESTMapper as a fallback for the window before that
-// object exists.
+// records the result in a ClusterCachedResource, which IS replicated -- and the
+// clustercachedresources controller annotates that object with the kind it
+// resolved to, for the cache server's own CRD lister. So the mapping a foreign
+// shard needs is already published; read it from there, and keep the RESTMapper
+// as a fallback for the window before that object exists.
 func (s *Server) resolveReferenceGVR(apiExportCluster logicalcluster.Name, apiExportName string, ref corev1.TypedLocalObjectReference) (schema.GroupVersionResource, error) {
 	group := ptr.Deref(ref.APIGroup, "")
 
@@ -407,8 +411,8 @@ func (s *Server) resolveReferenceGVR(apiExportCluster logicalcluster.Name, apiEx
 		return schema.GroupVersionResource{}, err
 	}
 	for _, cachedResource := range cachedResources {
-		if cachedResource.Annotations[cachev1alpha1.ReferencedByAnnotationKey] != apiExportName ||
-			cachedResource.Annotations[cachev1alpha1.ReferencedKindAnnotationKey] != ref.Kind ||
+		if cachedResource.Annotations[apiexportreference.AnnotationReferencedBy] != apiExportName ||
+			cachedResource.Annotations[clustercachedresources.AnnotationResourceKind] != ref.Kind ||
 			cachedResource.Spec.Group != group {
 			continue
 		}
