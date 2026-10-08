@@ -182,6 +182,7 @@ func TestDesired(t *testing.T) {
 	e := export("wildwest-provider")
 	ref := resolved{
 		gvr:  schema.GroupVersionResource{Group: "wildwest.dev", Version: "v1alpha1", Resource: "sheriffs"},
+		kind: "Sheriff",
 		name: "one",
 	}
 
@@ -197,6 +198,14 @@ func TestDesired(t *testing.T) {
 	require.Equal(t, "sheriffs", *got.Spec.Resource)
 	require.Equal(t, []string{"one"}, got.Spec.Names)
 	require.Nil(t, got.Spec.Identity, "identity is not this controller's to manage")
+
+	// spec only records the resolved resource. Other shards cannot redo
+	// kind -> resource themselves, because the referenced type is usually a
+	// CustomResourceDefinition in the provider's own workspace and CRDs are not
+	// replicated, so the kind has to be readable from the object.
+	require.Equal(t, "wildwest-provider", got.Annotations[cachev1alpha1.ReferencedByAnnotationKey])
+	require.Equal(t, "Sheriff", got.Annotations[cachev1alpha1.ReferencedKindAnnotationKey],
+		"without the kind, a shard that does not serve the APIExport cannot match a reference to this object")
 }
 
 func TestWantedFor(t *testing.T) {
