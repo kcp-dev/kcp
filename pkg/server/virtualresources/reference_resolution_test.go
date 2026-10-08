@@ -32,6 +32,8 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/apiexportreference"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
@@ -45,8 +47,8 @@ func cachedResource(name, referencedBy, referencedKind, group, version, resource
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Annotations: map[string]string{
-				cachev1alpha1.ReferencedByAnnotationKey:   referencedBy,
-				cachev1alpha1.ReferencedKindAnnotationKey: referencedKind,
+				apiexportreference.AnnotationReferencedBy:     referencedBy,
+				clustercachedresources.AnnotationResourceKind: referencedKind,
 			},
 		},
 		Spec: cachev1alpha1.ClusterCachedResourceSpec{
@@ -92,6 +94,45 @@ func TestResolveReferenceGVRFromCachedResourceWithoutARESTMapping(t *testing.T) 
 	require.NoError(t, err, "the reference must resolve without a RESTMapping for a foreign cluster")
 	require.Equal(t, schema.GroupVersionResource{
 		Group:    "dataplane.example.com",
+		Version:  "v1alpha1",
+		Resource: "dataplaneendpointslices",
+	}, gvr)
+}
+
+// The object as it exists on a running installation today, annotations and spec
+// copied verbatim. Nothing has to be rewritten for the lookup to work: the
+// clustercachedresources controller already records the kind, so an existing
+// ClusterCachedResource is enough.
+func TestResolveReferenceGVRMatchesAnExistingClusterCachedResource(t *testing.T) {
+	t.Parallel()
+
+	live := &cachev1alpha1.ClusterCachedResource{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "apiexport-dataplaneendpointslices-s6j45qxx",
+			Annotations: map[string]string{
+				"cache.kcp.io/referenced-by":  "edges.providers.railgrid.ai",
+				"cache.kcp.io/resource-kind":  "DataPlaneEndpointSlice",
+				"cache.kcp.io/resource-scope": "Cluster",
+				"kcp.io/cluster":              "cztw2bfo7ogneqbn",
+				"kcp.io/path":                 "root:railgrid:providers:edges",
+			},
+		},
+		Spec: cachev1alpha1.ClusterCachedResourceSpec{
+			GroupVersionResource: cachev1alpha1.GroupVersionResource{
+				Group:    "dataplane.railgrid.ai",
+				Version:  "v1alpha1",
+				Resource: "dataplaneendpointslices",
+			},
+			Names: []string{"edges.providers.railgrid.ai"},
+		},
+	}
+
+	gvr, err := serverWithCachedResources(live).resolveReferenceGVR(
+		logicalcluster.Name("cztw2bfo7ogneqbn"), "edges.providers.railgrid.ai",
+		reference("dataplane.railgrid.ai", "DataPlaneEndpointSlice", "edges.providers.railgrid.ai"))
+	require.NoError(t, err)
+	require.Equal(t, schema.GroupVersionResource{
+		Group:    "dataplane.railgrid.ai",
 		Version:  "v1alpha1",
 		Resource: "dataplaneendpointslices",
 	}, gvr)
