@@ -18,7 +18,6 @@ package reservedmetadata
 
 import (
 	"context"
-	"regexp"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -388,7 +387,7 @@ func TestReservedModification(t *testing.T) {
 		{
 			name:      "admin clearance covers an admin-reserved change",
 			new:       map[string]string{"unit.kcp.io/admin": "x"},
-			rules:     []rule{{regexp.MustCompile(`^unit\.kcp\.io/admin$`), adminReserved}},
+			rules:     []rule{exact(adminReserved, "unit.kcp.io/admin")},
 			clearance: adminReserved,
 		},
 		{
@@ -401,7 +400,7 @@ func TestReservedModification(t *testing.T) {
 		{
 			name:    "unreserved clearance does not cover an admin-reserved change",
 			new:     map[string]string{"unit.kcp.io/admin": "x"},
-			rules:   []rule{{regexp.MustCompile(`^unit\.kcp\.io/admin$`), adminReserved}},
+			rules:   []rule{exact(adminReserved, "unit.kcp.io/admin")},
 			wantKey: "unit.kcp.io/admin",
 			wantRes: adminReserved,
 		},
