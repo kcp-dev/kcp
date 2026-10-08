@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -28,10 +27,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/apiserver/pkg/endpoints/handlers"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 )
 
+// ReservedMetadata Plugin limits modifications and creation of labels
+// and annotations using the kcp.io domain.
+// Generally the plugin blocks any changes to kcp.io keys from non
+// system privileged identities, with the exception of keys explicitly marked as unreserved.
 const (
 	PluginName = "apis.kcp.io/ReservedMetadata"
 )
@@ -64,8 +77,24 @@ func (r reservation) String() string {
 }
 
 type rule struct {
-	pattern     *regexp.Regexp
+	matches     func(key string) bool
 	reservation reservation
+}
+
+// exact returns a rule classifying exactly the given key.
+func exact(r reservation, key string) rule {
+	return rule{
+		matches:     func(k string) bool { return k == key },
+		reservation: r,
+	}
+}
+
+// prefix returns a rule classifying all keys starting with the given prefix.
+func prefix(r reservation, keyPrefix string) rule {
+	return rule{
+		matches:     func(k string) bool { return strings.HasPrefix(k, keyPrefix) },
+		reservation: r,
+	}
 }
 
 var (
@@ -74,58 +103,61 @@ var (
 		// the following clients we are using:
 		// * server bootstrap and bootstrap identity
 		// * cache server replication
-		{regexp.MustCompile(`^kcp\.io/(cluster|shard|original-api-version)$`), unreserved},
+		exact(unreserved, logicalcluster.AnnotationKey),
+		exact(unreserved, shard.AnnotationKey),
+		exact(unreserved, handlers.KCPOriginalAPIVersionAnnotation),
 
 		// pathAnnotation webhook sets this using user credentials
-		{regexp.MustCompile(`^kcp\.io/path$`), unreserved},
+		exact(unreserved, core.LogicalClusterPathAnnotationKey),
 
 		// workspace mutating webhook sets these on logicalclusters using user credentials
-		{regexp.MustCompile(`^authorization\.kcp\.io/required-groups$`), unreserved},
-		{regexp.MustCompile(`^experimental\.tenancy\.kcp\.io/owner$`), unreserved},
+		exact(unreserved, authorization.RequiredGroupsAnnotationKey),
+		exact(unreserved, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey),
 
-		// note: combined together to reduce number of individual regexps
 		// workspace mount hook or WorkspaceType controller set these annotations.
-		{regexp.MustCompile(`^experimental\.tenancy\.kcp\.io/(mount|default-api-binding-lifecycle)$`), unreserved},
+		exact(unreserved, tenancyv1alpha1.ExperimentalWorkspaceMountAnnotationKey),
+		exact(unreserved, tenancyv1alpha1.ExperimentalDefaultAPIBindingLifecycleAnnotationKey),
 
 		// set on ResourceQuotas by workspace admin, not privileged group (see userClearance())
-		{regexp.MustCompile(`^experimental\.quota\.kcp\.io/cluster-scoped$`), unreserved},
+		exact(unreserved, "experimental.quota.kcp.io/cluster-scoped"),
 
 		// set by APIExport owners (which don't have to be privileged users) directly on the object
-		{regexp.MustCompile(`^apiexports\.apis\.kcp\.io/skip-endpointslice$`), unreserved},
+		exact(unreserved, apisv1alpha2.APIExportEndpointSliceSkipAnnotation),
 
 		// inactive needs to be let through here, since it is guarded by
 		// logicalcluster admission plugin
-		{regexp.MustCompile(`^core\.kcp\.io/(inactive)$`), unreserved},
+		exact(unreserved, corev1alpha1.LogicalClusterInactiveAnnotationKey),
 
 		// free-form annotations set by APIExport owners, synced to APIBindings
-		{regexp.MustCompile(`^extra\.apis\.kcp\.io/`), unreserved},
+		prefix(unreserved, apisv1alpha1.AnnotationAPIExportExtraKeyPrefix),
 
 		// v1alpha1<->v1alpha2 conversion round-trip annotations, which can use
 		// user credentials
-		{regexp.MustCompile(`^apis\.v1alpha2\.kcp\.io/`), unreserved},
+		prefix(unreserved, "apis.v1alpha2.kcp.io/"),
 
 		// set manually by kcp admins on LogicalClusters, read by the
 		// objectcountlimit admission plugin
-		{regexp.MustCompile(`^core\.kcp\.io/max-total-objects$`), adminReserved},
+		exact(adminReserved, corev1alpha1.LogicalClusterMaxTotalObjectsAnnotationKey),
 
 		// set manually by kcp admins on Shards to exclude them from
 		// workspace scheduling
-		{regexp.MustCompile(`^experimental\.core\.kcp\.io/unschedulable$`), adminReserved},
+		exact(adminReserved, corev1alpha1.ShardUnschedulableAnnotationKey),
 	}
 
 	labelRules = []rule{
 		// stamped by the permissionclaims mutating admission plugin on claimed
-		// objects inside the end user's own request
-		// we need to match the full suffix here as they are hash generated
-		{regexp.MustCompile(`^claimed\.internal\.apis\.kcp\.io/`), unreserved},
+		// objects inside the end user's own request;
+		// the suffixes are hash generated, hence the prefix match
+		prefix(unreserved, apisv1alpha1.APIExportPermissionClaimLabelPrefix),
 
 		// set and validated by the ApiBinding admission plugin, so we need
 		// to pass it here
-		{regexp.MustCompile(`^internal\.apis\.kcp\.io/export$`), unreserved},
+		exact(unreserved, apisv1alpha1.InternalAPIBindingExportLabelKey),
 
 		// currently used by our tests for marking objects;
 		// These could potentially be moved out
-		{regexp.MustCompile(`^internal\.kcp\.io/(e2e-test|test-initializer)$`), unreserved},
+		exact(unreserved, "internal.kcp.io/e2e-test"),
+		exact(unreserved, "internal.kcp.io/test-initializer"),
 	}
 )
 
@@ -227,7 +259,7 @@ func reservationOf(key string, rules []rule) reservation {
 	}
 
 	for _, r := range rules {
-		if r.pattern.MatchString(key) {
+		if r.matches(key) {
 			return r.reservation
 		}
 	}
