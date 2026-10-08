@@ -122,6 +122,8 @@ func TestPuller(t *testing.T) {
 }
 
 func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
+	t.Parallel()
+
 	newSwagger := func() spec.Swagger {
 		return spec.Swagger{
 			SwaggerProps: spec.SwaggerProps{
@@ -172,6 +174,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 	}
 
 	t.Run("x-kubernetes-preserve-unknown-fields", func(t *testing.T) {
+		t.Parallel()
 
 		newTestSwagger := func(extensions spec.Extensions) spec.Swagger {
 			swagger := newSwagger()
@@ -211,6 +214,8 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 		}
 
 		t.Run("should error if value is not a valid boolean string", func(t *testing.T) {
+			t.Parallel()
+
 			extensions := spec.Extensions{
 				"x-kubernetes-preserve-unknown-fields": "test",
 			}
@@ -226,6 +231,8 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 		})
 
 		t.Run("should error if value type is not supported", func(t *testing.T) {
+			t.Parallel()
+
 			extensions := spec.Extensions{
 				"x-kubernetes-preserve-unknown-fields": 1,
 			}
@@ -241,6 +248,8 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 		})
 
 		t.Run("should not set JSONSchemaProps.XPreserveUnknownFields if extension is not present", func(t *testing.T) {
+			t.Parallel()
+
 			extensions := spec.Extensions{}
 			swagger := newTestSwagger(extensions)
 			configReference := getTestSwaggerConfigRef(swagger)
@@ -253,6 +262,8 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 		})
 
 		t.Run("should set JSONSchemaProps.XPreserveUnknownFields if extension is a valid boolean", func(t *testing.T) {
+			t.Parallel()
+
 			extensions := spec.Extensions{
 				"x-kubernetes-preserve-unknown-fields": true,
 			}
@@ -267,6 +278,8 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 		})
 
 		t.Run("should set JSONSchemaProps.XPreserveUnknownFields if extension is a valid boolean string", func(t *testing.T) {
+			t.Parallel()
+
 			extensions := spec.Extensions{
 				"x-kubernetes-preserve-unknown-fields": "true",
 			}
