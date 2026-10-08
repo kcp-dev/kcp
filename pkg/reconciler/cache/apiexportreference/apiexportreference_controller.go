@@ -147,6 +147,13 @@ type controller struct {
 	deleteResource     func(ctx context.Context, cluster logicalcluster.Name, name string) error
 }
 
+// AnnotationReferencedBy names the APIExport whose virtual-storage reference a
+// ClusterCachedResource stands for. Together with cache.kcp.io/resource-kind,
+// which the clustercachedresources controller already sets, it is enough to
+// match a reference to the object that resolved it -- from any shard, because
+// ClusterCachedResources are replicated.
+const AnnotationReferencedBy = "cache.kcp.io/referenced-by"
+
 // reference is one object an APIExport points at. It names a kind, because
 // that is what the APIExport carries; resolving it to a resource needs a
 // RESTMapper.
@@ -170,11 +177,7 @@ func (r reference) GroupKind() schema.GroupKind {
 
 // resolved is a reference once its kind has been turned into a resource.
 type resolved struct {
-	gvr schema.GroupVersionResource
-	// kind is what the APIExport reference actually named. spec only holds the
-	// resolved resource, and other shards cannot redo the resolution, so this
-	// is recorded on the object for them to match against.
-	kind string
+	gvr  schema.GroupVersionResource
 	name string
 }
 
@@ -244,8 +247,7 @@ func desired(export *apisv1alpha2.APIExport, ref resolved) *cachev1alpha1apply.C
 			WithName(export.Name).
 			WithUID(export.UID)).
 		WithAnnotations(map[string]string{
-			cachev1alpha1.ReferencedByAnnotationKey:   export.Name,
-			cachev1alpha1.ReferencedKindAnnotationKey: ref.kind,
+			AnnotationReferencedBy: export.Name,
 		}).
 		WithSpec(cachev1alpha1apply.ClusterCachedResourceSpec().
 			WithGroup(ref.gvr.Group).
@@ -410,7 +412,7 @@ func (c *controller) wantedFor(export *apisv1alpha2.APIExport) (map[string]*cach
 			return nil, nil, err
 		}
 
-		r := resolved{gvr: mapping.Resource, kind: ref.kind, name: ref.name}
+		r := resolved{gvr: mapping.Resource, name: ref.name}
 		if seen.Has(r) {
 			continue
 		}
