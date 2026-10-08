@@ -170,7 +170,11 @@ func (r reference) GroupKind() schema.GroupKind {
 
 // resolved is a reference once its kind has been turned into a resource.
 type resolved struct {
-	gvr  schema.GroupVersionResource
+	gvr schema.GroupVersionResource
+	// kind is what the APIExport reference actually named. spec only holds the
+	// resolved resource, and other shards cannot redo the resolution, so this
+	// is recorded on the object for them to match against.
+	kind string
 	name string
 }
 
@@ -240,7 +244,8 @@ func desired(export *apisv1alpha2.APIExport, ref resolved) *cachev1alpha1apply.C
 			WithName(export.Name).
 			WithUID(export.UID)).
 		WithAnnotations(map[string]string{
-			"cache.kcp.io/referenced-by": export.Name,
+			cachev1alpha1.ReferencedByAnnotationKey:   export.Name,
+			cachev1alpha1.ReferencedKindAnnotationKey: ref.kind,
 		}).
 		WithSpec(cachev1alpha1apply.ClusterCachedResourceSpec().
 			WithGroup(ref.gvr.Group).
@@ -405,7 +410,7 @@ func (c *controller) wantedFor(export *apisv1alpha2.APIExport) (map[string]*cach
 			return nil, nil, err
 		}
 
-		r := resolved{gvr: mapping.Resource, name: ref.name}
+		r := resolved{gvr: mapping.Resource, kind: ref.kind, name: ref.name}
 		if seen.Has(r) {
 			continue
 		}

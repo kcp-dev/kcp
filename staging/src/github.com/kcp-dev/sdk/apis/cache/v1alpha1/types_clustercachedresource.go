@@ -25,6 +25,24 @@ import (
 
 const ClusterCachedResourceFinalizer = "cache.kcp.io/clustercachedresource"
 
+const (
+	// ReferencedByAnnotationKey names the APIExport whose virtual-storage
+	// reference this ClusterCachedResource stands for.
+	ReferencedByAnnotationKey = "cache.kcp.io/referenced-by"
+
+	// ReferencedKindAnnotationKey records the kind the APIExport reference
+	// named, which spec only holds the resolved resource for.
+	//
+	// An APIExport reference names a kind; resolving it to a resource needs a
+	// RESTMapper, and only the shard holding the APIExport can do that -- the
+	// type is usually a plain CustomResourceDefinition in the provider's own
+	// workspace, and those are not replicated. Recording the kind here lets any
+	// shard match a reference to its ClusterCachedResource, and so read the
+	// resolved group/version/resource from spec, without needing a RESTMapper
+	// for a logical cluster it does not serve.
+	ReferencedKindAnnotationKey = "cache.kcp.io/referenced-kind"
+)
+
 // ClusterCachedResource defines a resource that should be published to other workspaces
 //
 // +crd
