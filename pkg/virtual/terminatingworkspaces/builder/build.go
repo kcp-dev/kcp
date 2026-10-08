@@ -269,6 +269,13 @@ func BuildVirtualWorkspace(
 					return
 				}
 
+				// Refuse to proxy a request that re-enters "/services/" (another virtual
+				// workspace, e.g. /services/admin).
+				if authorization.LifecycleProxyPathEscapesWorkspace(request.URL.Path) {
+					http.Error(writer, fmt.Sprintf("terminator %q may not access virtual workspace endpoints (/services/...) outside the workspace being terminated", terminator), http.StatusForbidden)
+					return
+				}
+
 				// Fetch the WorkspaceType the terminator originates from. If it
 				// declares terminatorPermissions, evaluate the request in-process
 				// and forward with the controller's identity + synthetic group;
@@ -486,6 +493,12 @@ func (a *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(ctx context
 var _ apidefinition.APIDefinitionSetGetter = &singleResourceAPIDefinitionSetProvider{}
 
 func authorizerWithCache(ctx context.Context, cache delegated.Cache, attr authorizer.Attributes) (authorizer.Decision, string, error) {
+	// No impersonation is allowed through this virtual workspace. Any request attempting
+	// to use the "impersonate" verb will be denied outright.
+	if attr.GetVerb() == "impersonate" {
+		return authorizer.DecisionDeny, "impersonation is not permitted on the terminatingworkspaces virtual workspace", nil
+	}
+
 	clusterName, name, err := termination.TypeFrom(corev1alpha1.LogicalClusterTerminator(dynamiccontext.APIDomainKeyFrom(ctx)))
 	if err != nil {
 		klog.FromContext(ctx).V(2).Info(err.Error())
