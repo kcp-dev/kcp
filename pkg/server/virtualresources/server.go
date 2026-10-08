@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -43,6 +45,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/hops"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
@@ -72,6 +75,7 @@ type Server struct {
 	delegate         http.Handler
 
 	getCRD                       func(cluster logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	listClusterCachedResources   func(cluster logicalcluster.Name) ([]*cachev1alpha1.ClusterCachedResource, error)
 	getUnstructuredEndpointSlice func(ctx context.Context, cluster logicalcluster.Name, shard shard.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error)
 	getAPIExportByPath           func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 }
@@ -91,6 +95,18 @@ func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTa
 		},
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return c.Extra.CRDLister.Lister().Cluster(clusterName).Get(name)
+		},
+		listClusterCachedResources: func(clusterName logicalcluster.Name) ([]*cachev1alpha1.ClusterCachedResource, error) {
+			local, err := c.Extra.LocalClusterCachedResourceInformer.Lister().Cluster(clusterName).List(labels.Everything())
+			if err != nil {
+				return nil, err
+			}
+			if len(local) > 0 {
+				return local, nil
+			}
+			// The APIExport is not on this shard, so its ClusterCachedResources
+			// are only here as replicas.
+			return c.Extra.GlobalClusterCachedResourceInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 		getAPIExportByPath: func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](
@@ -310,7 +326,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	if apiExportShard.Empty() {
 		apiExportShard = shard.New(s.Extra.ShardName)
 	}
-	vrEndpointURL, err := s.getVirtualResourceURL(ctx, logicalcluster.From(apiExport), apiExportShard, virtualStorage)
+	vrEndpointURL, err := s.getVirtualResourceURL(ctx, logicalcluster.From(apiExport), apiExport.Name, apiExportShard, virtualStorage)
 	if err != nil {
 		utilruntime.HandleError(err)
 		if deserializeErr, ok := err.(*endpointslice.DeserializeError); ok {
@@ -342,20 +358,13 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	vrHandler.ServeHTTP(w, r)
 }
 
-func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster logicalcluster.Name, apiExportShard shard.Name, virtual *apisv1alpha2.ResourceSchemaStorageVirtual) (string, error) {
-	sliceMapping, err := s.drm.ForCluster(apiExportCluster).RESTMapping(schema.GroupKind{
-		Group: ptr.Deref(virtual.Reference.APIGroup, ""),
-		Kind:  virtual.Reference.Kind,
-	})
+func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster logicalcluster.Name, apiExportName string, apiExportShard shard.Name, virtual *apisv1alpha2.ResourceSchemaStorageVirtual) (string, error) {
+	gvr, err := s.resolveReferenceGVR(apiExportCluster, apiExportName, virtual.Reference)
 	if err != nil {
 		return "", err
 	}
 
-	slice, err := s.getUnstructuredEndpointSlice(ctx, apiExportCluster, apiExportShard, schema.GroupVersionResource{
-		Group:    sliceMapping.Resource.Group,
-		Version:  sliceMapping.Resource.Version,
-		Resource: sliceMapping.Resource.Resource,
-	}, virtual.Reference.Name)
+	slice, err := s.getUnstructuredEndpointSlice(ctx, apiExportCluster, apiExportShard, gvr, virtual.Reference.Name)
 	if err != nil {
 		return "", err
 	}
@@ -371,6 +380,56 @@ func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster log
 	}
 
 	return endpointslice.PickURL(s.Extra.ShardVirtualWorkspaceURLGetter(), shardLabels, endpoints)
+}
+
+// resolveReferenceGVR turns the kind an APIExport reference names into the
+// resource to fetch it as.
+//
+// The obvious way to do this is a RESTMapper for the APIExport's logical
+// cluster, and that is what this used to do. It only works when the APIExport
+// is on the shard serving the request: the referenced type is typically a plain
+// CustomResourceDefinition in the provider's own workspace, and CRDs are not
+// replicated, so a shard has no mappings for a logical cluster it does not
+// serve. Every custom subresource of an APIExport bound across a shard boundary
+// therefore failed with "no matches for kind", before any endpoint was looked
+// up.
+//
+// The resolution has already been done, though, on the shard that does hold the
+// APIExport: the apiexportreference controller resolves each reference there and
+// records the result in a ClusterCachedResource, which IS replicated. So read it
+// from there, and keep the RESTMapper as a fallback for the window before that
+// object exists.
+func (s *Server) resolveReferenceGVR(apiExportCluster logicalcluster.Name, apiExportName string, ref corev1.TypedLocalObjectReference) (schema.GroupVersionResource, error) {
+	group := ptr.Deref(ref.APIGroup, "")
+
+	cachedResources, err := s.listClusterCachedResources(apiExportCluster)
+	if err != nil {
+		return schema.GroupVersionResource{}, err
+	}
+	for _, cachedResource := range cachedResources {
+		if cachedResource.Annotations[cachev1alpha1.ReferencedByAnnotationKey] != apiExportName ||
+			cachedResource.Annotations[cachev1alpha1.ReferencedKindAnnotationKey] != ref.Kind ||
+			cachedResource.Spec.Group != group {
+			continue
+		}
+		// A ClusterCachedResource standing in for a reference caches exactly the
+		// object that was referenced, so the name has to match too: two
+		// references can share a kind and differ only in which object they name.
+		if !sets.New(cachedResource.Spec.Names...).Has(ref.Name) {
+			continue
+		}
+		return schema.GroupVersionResource{
+			Group:    cachedResource.Spec.Group,
+			Version:  cachedResource.Spec.Version,
+			Resource: cachedResource.Spec.Resource,
+		}, nil
+	}
+
+	mapping, err := s.drm.ForCluster(apiExportCluster).RESTMapping(schema.GroupKind{Group: group, Kind: ref.Kind})
+	if err != nil {
+		return schema.GroupVersionResource{}, err
+	}
+	return mapping.Resource, nil
 }
 
 func (s *Server) getAPIBindingForRequest(
