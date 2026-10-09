@@ -18,6 +18,7 @@ package crdpuller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -194,23 +195,33 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			return swagger
 		}
 
-		getTestSwaggerConfigRef := func(swagger spec.Swagger) proto.Reference {
+		getTestSwaggerConfigRef := func(swagger spec.Swagger) (proto.Reference, error) {
 			models, err := convertSwaggerToProtoModels(&swagger)
-			require.NoError(t, err, "failed to convert Swagger specification")
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert Swagger specification: %w", err)
+			}
 
 			testModel := models.LookupModel("Test")
-			require.NotNil(t, testModel, "test schema should be present")
+			if testModel == nil {
+				return nil, errors.New("test schema should be present")
+			}
 
 			testKind, ok := testModel.(*proto.Kind)
-			require.True(t, ok, "test schema should be proto.Kind")
+			if !ok {
+				return nil, errors.New("test schema type should be proto.Kind")
+			}
 
 			configSchema, present := testKind.Fields["config"]
-			require.True(t, present, "'config' field should be present")
+			if !present {
+				return nil, errors.New("config field should be present")
+			}
 
 			configReference, ok := configSchema.(proto.Reference)
-			require.True(t, ok, "'config' schema should be proto.Reference")
+			if !ok {
+				return nil, errors.New("config schema type should be proto.Reference")
+			}
 
-			return configReference
+			return configReference, nil
 		}
 
 		t.Run("should error if value is not a valid boolean string", func(t *testing.T) {
@@ -220,13 +231,14 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 				"x-kubernetes-preserve-unknown-fields": "test",
 			}
 			swagger := newTestSwagger("RawData", extensions)
-			configReference := getTestSwaggerConfigRef(swagger)
+			configReference, err := getTestSwaggerConfigRef(swagger)
+			require.Nil(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
 			require.NotEmpty(t, schemaConverter.errors)
 
-			err := (*schemaConverter.errors)[0]
+			err = (*schemaConverter.errors)[0]
 			require.ErrorContains(t, err, "failed to parse 'x-kubernetes-preserve-unknown-fields' value")
 		})
 
@@ -237,13 +249,14 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 				"x-kubernetes-preserve-unknown-fields": 1,
 			}
 			swagger := newTestSwagger("RawData", extensions)
-			configReference := getTestSwaggerConfigRef(swagger)
+			configReference, err := getTestSwaggerConfigRef(swagger)
+			require.Nil(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
 			require.NotEmpty(t, schemaConverter.errors)
 
-			err := (*schemaConverter.errors)[0]
+			err = (*schemaConverter.errors)[0]
 			require.ErrorContains(t, err, "unsupported 'x-kubernetes-preserve-unknown-fields' value type")
 		})
 
@@ -252,7 +265,8 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 
 			extensions := spec.Extensions{}
 			swagger := newTestSwagger("RawData", extensions)
-			configReference := getTestSwaggerConfigRef(swagger)
+			configReference, err := getTestSwaggerConfigRef(swagger)
+			require.Nil(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
@@ -268,7 +282,8 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 				"x-kubernetes-preserve-unknown-fields": true,
 			}
 			swagger := newTestSwagger("RawData", extensions)
-			configReference := getTestSwaggerConfigRef(swagger)
+			configReference, err := getTestSwaggerConfigRef(swagger)
+			require.Nil(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
@@ -284,7 +299,8 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 				"x-kubernetes-preserve-unknown-fields": "true",
 			}
 			swagger := newTestSwagger("RawData", extensions)
-			configReference := getTestSwaggerConfigRef(swagger)
+			configReference, err := getTestSwaggerConfigRef(swagger)
+			require.Nil(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
