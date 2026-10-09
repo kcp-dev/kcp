@@ -79,3 +79,21 @@ func TestServeHTTPSkipsSystemBoundCRDs(t *testing.T) {
 		})
 	}
 }
+
+func TestByClusterAndNameSortsBoundFirst(t *testing.T) {
+	t.Parallel()
+
+	bound := &apiextensionsv1.CustomResourceDefinition{}
+	bound.Name = "zzz.example.com"
+	bound.Annotations = map[string]string{BoundAnnotationKey: "true"}
+	plain := &apiextensionsv1.CustomResourceDefinition{}
+	plain.Name = "aaa.example.com"
+
+	crds := byClusterAndName{plain, bound}
+	if !crds.Less(1, 0) {
+		t.Errorf("expected bound CRD to sort before non-bound CRD")
+	}
+	if crds.Less(0, 1) {
+		t.Errorf("expected non-bound CRD not to sort before bound CRD")
+	}
+}
