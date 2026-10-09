@@ -33,10 +33,12 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
@@ -159,6 +161,21 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 
 		if errs := validation.ValidateImmutableField(logicalCluster.Spec.CreatedBy, old.Spec.CreatedBy, field.NewPath("spec", "createdBy")); len(errs) > 0 {
 			return admission.NewForbidden(a, errs.ToAggregate())
+		}
+
+		// These annotations are authorization-relevant: required-groups gates all
+		// access to the workspace and the owner annotation identifies who created it.
+		// They are stamped onto the LogicalCluster by the scheduler at creation and
+		// must not be changed afterwards by anything but system identities (which
+		// return early above). Otherwise a workspace admin could lift restrictions
+		// imposed by a parent workspace.
+		for _, key := range []string{
+			authorization.RequiredGroupsAnnotationKey,
+			tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey,
+		} {
+			if logicalCluster.Annotations[key] != old.Annotations[key] {
+				return admission.NewForbidden(a, fmt.Errorf("annotation %s may only be changed by system identities", key))
+			}
 		}
 
 		oldSpec := toSet(old.Spec.Initializers)
