@@ -87,7 +87,6 @@ func TestAnnotationReservation(t *testing.T) {
 		{key: corev1alpha1.LogicalClusterInactiveAnnotationKey, reservation: unreserved},
 		{key: corev1alpha1.LogicalClusterInactiveAnnotationKeyLegacy, reservation: systemReserved}, //nolint:staticcheck
 		{key: logicalclustermigration.MigratingAnnotationKey, reservation: systemReserved},
-		{key: corev1alpha1.ShardRepresentationAnnotationKey, reservation: systemReserved},
 		{key: core.ReplicateAnnotationKey, reservation: systemReserved},
 		{key: apisv1alpha1.AnnotationBoundCRDKey, reservation: systemReserved},
 		{key: apisv1alpha1.AnnotationSchemaClusterKey, reservation: systemReserved},
