@@ -210,13 +210,21 @@ func (o *plugin) Validate(ctx context.Context, a admission.Attributes, _ admissi
 			return admission.NewForbidden(a, fmt.Errorf("cannot transition from %q to %q", old.Status.Phase, logicalCluster.Status.Phase))
 		}
 
+		wasInactive := corev1alpha1.IsLogicalClusterInactive(old.Annotations)
+		isInactive := corev1alpha1.IsLogicalClusterInactive(logicalCluster.Annotations)
+
 		// Prevent marking a cluster as inactive when it is not in phase ready.
 		// Doing so can lead to undefined behaviour, as the cluster might be in the process of being initialized or terminated.
 		// Both require access to the LC, which the inactive annotation would prevent, deadlocking processes.
-		wasInactive := corev1alpha1.IsLogicalClusterInactive(old.Annotations)
-		isInactive := corev1alpha1.IsLogicalClusterInactive(logicalCluster.Annotations)
 		if logicalCluster.Status.Phase != corev1alpha1.LogicalClusterPhaseReady && !wasInactive && isInactive {
 			return admission.NewForbidden(a, fmt.Errorf("LogicalCluster can only be marked inactive in phase %q, but is in phase %q", corev1alpha1.LogicalClusterPhaseReady, logicalCluster.Status.Phase))
+		}
+
+		// Only system identities (which return early above) may toggle the
+		// inactive annotation: marking a cluster inactive shuts down nearly all
+		// access to it, and reactivating it requires the same privilege.
+		if wasInactive != isInactive {
+			return admission.NewForbidden(a, fmt.Errorf("annotation %s may only be changed by system identities", corev1alpha1.LogicalClusterInactiveAnnotationKey))
 		}
 
 		return nil
