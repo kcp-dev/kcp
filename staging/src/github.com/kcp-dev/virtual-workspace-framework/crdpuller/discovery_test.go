@@ -191,7 +191,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			}
 
 			swagger.SwaggerProps.Definitions["Test"] = testSchema
-			swagger.SwaggerProps.Definitions["RawData"] = newObjectSchema()
+			swagger.SwaggerProps.Definitions[refName] = newObjectSchema()
 			return swagger
 		}
 
@@ -306,6 +306,24 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			schemaConverter.VisitReference(configReference)
 
 			require.Empty(t, schemaConverter.errors)
+			require.True(t, *schemaConverter.schemaProps.XPreserveUnknownFields)
+		})
+
+		t.Run("should set JSONSchemaProps.XPreserveUnknownFields if reference is a known schema", func(t *testing.T) {
+			t.Parallel()
+
+			extensions := spec.Extensions{
+				"x-kubernetes-preserve-unknown-fields": "true",
+			}
+			swagger := newTestSwagger("io.k8s.apimachinery.pkg.runtime.RawExtension", extensions)
+			configReference, err := getTestSwaggerConfigRef(swagger)
+			require.Nil(t, err)
+
+			schemaConverter := newSchemaConverter()
+			schemaConverter.VisitReference(configReference)
+
+			require.Empty(t, schemaConverter.errors)
+			require.Equal(t, "object", schemaConverter.schemaProps.Type)
 			require.True(t, *schemaConverter.schemaProps.XPreserveUnknownFields)
 		})
 	})
