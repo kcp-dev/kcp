@@ -99,7 +99,9 @@ func NewController(
 			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
 				obj = final.Obj
 			}
-			c.onShardDelete(obj.(*corev1alpha1.Shard))
+			s := obj.(*corev1alpha1.Shard)
+			fmt.Printf("### index_controller.go: shardInformer.DeleteFunc shard=%q baseURL=%q annotations=%v\n", s.Name, s.Spec.BaseURL, s.GetAnnotations())
+			c.onShardDelete(s)
 		},
 	})
 
@@ -107,6 +109,7 @@ func NewController(
 }
 
 func (c *Controller) onShardAdd(ctx context.Context, shard *corev1alpha1.Shard) {
+	fmt.Printf("### index_controller.go onShardAdd: shard=%q baseURL=%q annotations=%v\n", shard.Name, shard.Spec.BaseURL, shard.GetAnnotations())
 	c.state.UpsertShard(shard.Name, shard.Spec.BaseURL)
 	c.enqueueShard(ctx, shard)
 }

@@ -20,8 +20,8 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
 	github.com/jellydator/ttlcache/v3 v3.4.0
-	github.com/kcp-dev/apimachinery/v2 v2.31.2-0.20260505083940-abda469632ba
-	github.com/kcp-dev/client-go v0.28.1-0.20260511140521-487de9552c40
+	github.com/kcp-dev/apimachinery/v2 v2.32.3
+	github.com/kcp-dev/client-go v0.32.3
 	github.com/kcp-dev/code-generator/v3 v3.0.0-00010101000000-000000000000
 	github.com/kcp-dev/embeddedetcd v1.1.1-0.20260402110232-2cc5c5cce35e
 	github.com/kcp-dev/logicalcluster/v3 v3.0.5
@@ -156,7 +156,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-runewidth v0.0.12 // indirect
+	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/moby/spdystream v0.5.1 // indirect
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
 	github.com/moby/term v0.5.0 // indirect
@@ -173,7 +173,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
-	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect

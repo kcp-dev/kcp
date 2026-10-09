@@ -28,6 +28,8 @@ import (
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	etcdoptions "github.com/kcp-dev/embeddedetcd/options"
+
+	cacheadmission "github.com/kcp-dev/kcp/pkg/cache/server/admission"
 )
 
 type Options struct {
@@ -37,9 +39,17 @@ type Options struct {
 	Authentication   *Authentication
 	Authorization    *Authorization
 	APIEnablement    *genericoptions.APIEnablementOptions
+	Admission        *genericoptions.AdmissionOptions
 	EmbeddedEtcd     etcdoptions.Options
 	Logs             *logs.Options
 	SyntheticDelay   time.Duration
+	CacheSyncer      *CacheSyncer
+
+	Extra ExtraOptions
+}
+
+type ExtraOptions struct {
+	CacheName string
 }
 
 type completedOptions struct {
@@ -49,9 +59,13 @@ type completedOptions struct {
 	Authentication   *Authentication
 	Authorization    *Authorization
 	APIEnablement    *genericoptions.APIEnablementOptions
+	Admission        *genericoptions.AdmissionOptions
 	EmbeddedEtcd     etcdoptions.CompletedOptions
 	Logs             *logs.Options
 	SyntheticDelay   time.Duration
+	CacheSyncer      *CacheSyncer
+
+	Extra ExtraOptions
 }
 
 type CompletedOptions struct {
@@ -66,7 +80,9 @@ func (o *CompletedOptions) Validate() []error {
 	errors = append(errors, o.Authentication.Validate()...)
 	errors = append(errors, o.Authorization.Validate()...)
 	errors = append(errors, o.APIEnablement.Validate()...)
+	errors = append(errors, o.Admission.Validate()...)
 	errors = append(errors, o.EmbeddedEtcd.Validate()...)
+	errors = append(errors, o.CacheSyncer.Validate()...)
 	return errors
 }
 
@@ -81,7 +97,14 @@ func NewOptions(rootDir string) *Options {
 		APIEnablement:    genericoptions.NewAPIEnablementOptions(),
 		EmbeddedEtcd:     *etcdoptions.NewOptions(rootDir),
 		Logs:             logs.NewOptions(),
+		CacheSyncer:      NewCacheSyncer(),
+
+		Extra: ExtraOptions{
+			CacheName: "cache",
+		},
 	}
+
+	o.Admission = cacheadmission.NewAdmissionOptions()
 
 	o.SecureServing.ServerCert.CertDirectory = rootDir
 	o.SecureServing.BindPort = 6443
@@ -110,8 +133,11 @@ func (o *Options) Complete() (*CompletedOptions, error) {
 		Authentication:   o.Authentication,
 		Authorization:    o.Authorization,
 		APIEnablement:    o.APIEnablement,
+		Admission:        o.Admission,
 		EmbeddedEtcd:     o.EmbeddedEtcd.Complete(o.Etcd),
 		Logs:             o.Logs,
+		CacheSyncer:      o.CacheSyncer,
+		Extra:            o.Extra,
 	}}, nil
 }
 
@@ -121,6 +147,9 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	o.SecureServing.AddFlags(fs)
 	o.Authentication.AddFlags(fs)
 	o.Authorization.AddFlags(fs)
+	o.Admission.AddFlags(fs)
+	o.CacheSyncer.AddFlags(fs)
 	logsapiv1.AddFlags(o.Logs, fs)
 	fs.DurationVar(&o.SyntheticDelay, "synthetic-delay", 0, "The duration of time the cache server will inject a delay for to all inbound requests. Useful for testing.")
+	fs.StringVar(&o.Extra.CacheName, "cache-name", o.Extra.CacheName, "A name of this cache server instance. Defaults to \"cache\".")
 }
