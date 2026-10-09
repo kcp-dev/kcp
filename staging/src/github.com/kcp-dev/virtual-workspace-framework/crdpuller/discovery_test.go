@@ -176,13 +176,13 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 	t.Run("x-kubernetes-preserve-unknown-fields", func(t *testing.T) {
 		t.Parallel()
 
-		newTestSwagger := func(extensions spec.Extensions) spec.Swagger {
+		newTestSwagger := func(refName string, extensions spec.Extensions) spec.Swagger {
 			swagger := newSwagger()
 
 			testSchema := newObjectSchema()
 			testSchema.Properties["config"] = spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Ref: spec.MustCreateRef("#/definitions/RawData"),
+					Ref: spec.MustCreateRef("#/definitions/" + refName),
 				},
 				VendorExtensible: spec.VendorExtensible{
 					Extensions: extensions,
@@ -219,7 +219,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			extensions := spec.Extensions{
 				"x-kubernetes-preserve-unknown-fields": "test",
 			}
-			swagger := newTestSwagger(extensions)
+			swagger := newTestSwagger("RawData", extensions)
 			configReference := getTestSwaggerConfigRef(swagger)
 
 			schemaConverter := newSchemaConverter()
@@ -236,7 +236,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			extensions := spec.Extensions{
 				"x-kubernetes-preserve-unknown-fields": 1,
 			}
-			swagger := newTestSwagger(extensions)
+			swagger := newTestSwagger("RawData", extensions)
 			configReference := getTestSwaggerConfigRef(swagger)
 
 			schemaConverter := newSchemaConverter()
@@ -251,7 +251,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			t.Parallel()
 
 			extensions := spec.Extensions{}
-			swagger := newTestSwagger(extensions)
+			swagger := newTestSwagger("RawData", extensions)
 			configReference := getTestSwaggerConfigRef(swagger)
 
 			schemaConverter := newSchemaConverter()
@@ -267,7 +267,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			extensions := spec.Extensions{
 				"x-kubernetes-preserve-unknown-fields": true,
 			}
-			swagger := newTestSwagger(extensions)
+			swagger := newTestSwagger("RawData", extensions)
 			configReference := getTestSwaggerConfigRef(swagger)
 
 			schemaConverter := newSchemaConverter()
@@ -283,7 +283,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			extensions := spec.Extensions{
 				"x-kubernetes-preserve-unknown-fields": "true",
 			}
-			swagger := newTestSwagger(extensions)
+			swagger := newTestSwagger("RawData", extensions)
 			configReference := getTestSwaggerConfigRef(swagger)
 
 			schemaConverter := newSchemaConverter()
