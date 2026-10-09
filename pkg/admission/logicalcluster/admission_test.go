@@ -43,6 +43,10 @@ import (
 )
 
 func updateAttr(obj, old *corev1alpha1.LogicalCluster) admission.Attributes {
+	return updateAttrWithUser(obj, old, &kuser.DefaultInfo{})
+}
+
+func updateAttrWithUser(obj, old *corev1alpha1.LogicalCluster, userInfo *kuser.DefaultInfo) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		helpers.ToUnstructuredOrDie(old),
@@ -54,7 +58,7 @@ func updateAttr(obj, old *corev1alpha1.LogicalCluster) admission.Attributes {
 		admission.Update,
 		&metav1.CreateOptions{},
 		false,
-		&kuser.DefaultInfo{},
+		userInfo,
 	)
 }
 
@@ -389,7 +393,21 @@ func TestValidate(t *testing.T) {
 			wantErr: "can only be marked inactive in phase",
 		},
 		{
-			name:        "passes marking inactive when ready",
+			name:        "fails marking inactive as system:kcp:admin",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{"system:kcp:admin"}},
+			),
+			wantErr: "annotation core.kcp.io/inactive may only be changed by system identities",
+		},
+		{
+			name:        "fails marking inactive as regular user",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
@@ -399,17 +417,45 @@ func TestValidate(t *testing.T) {
 					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				}).LogicalCluster,
 			),
+			wantErr: "annotation core.kcp.io/inactive may only be changed by system identities",
 		},
 		{
-			name:        "passes reactivating (removing inactive) while not ready",
+			name:        "fails reactivating (removing inactive) as regular user",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInactive,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInactive,
+				}).LogicalCluster,
+			),
+			wantErr: "annotation core.kcp.io/inactive may only be changed by system identities",
+		},
+		{
+			name:        "passes reactivating (removing inactive) while not ready as system:kcp:logical-cluster-admin",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 				}).LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{"system:kcp:logical-cluster-admin"}},
+			),
+		},
+		{
+			name:        "passes marking inactive as system:kcp:logical-cluster-admin",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{"system:kcp:logical-cluster-admin"}},
 			),
 		},
 		{
