@@ -39,6 +39,7 @@ import (
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 )
 
 func updateAttr(obj, old *corev1alpha1.LogicalCluster) admission.Attributes {
@@ -424,6 +425,83 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
+			name:        "fails changing required-groups annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:other").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "annotation authorization.kcp.io/required-groups may only be changed by system identities",
+		},
+		{
+			name:        "fails removing required-groups annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "annotation authorization.kcp.io/required-groups may only be changed by system identities",
+		},
+		{
+			name:        "fails adding required-groups annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "annotation authorization.kcp.io/required-groups may only be changed by system identities",
+		},
+		{
+			name:        "passes unchanged required-groups annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+		},
+		{
+			name:        "passes changing required-groups annotation as system:kcp:logical-cluster-admin",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:other").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{"system:kcp:logical-cluster-admin"}},
+			),
+		},
+		{
+			name:        "fails changing workspace owner annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withAnnotation(tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, `{"username":"eve"}`).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withAnnotation(tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, `{"username":"alice"}`).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "annotation experimental.tenancy.kcp.io/owner may only be changed by system identities",
+		},
+		{
 			name:        "fails deletion as another user",
 			clusterName: "root:org:ws",
 			attr:        deleteAttr(newLogicalCluster("root:org:ws").LogicalCluster, &kuser.DefaultInfo{}),
@@ -557,6 +635,14 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 
 func (b thisWsBuilder) withInitializers(initializers ...corev1alpha1.LogicalClusterInitializer) thisWsBuilder {
 	b.Spec.Initializers = initializers
+	return b
+}
+
+func (b thisWsBuilder) withAnnotation(key, value string) thisWsBuilder {
+	if b.Annotations == nil {
+		b.Annotations = map[string]string{}
+	}
+	b.Annotations[key] = value
 	return b
 }
 

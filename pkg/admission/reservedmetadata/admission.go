@@ -110,7 +110,9 @@ var (
 		// pathAnnotation webhook sets this using user credentials
 		exact(unreserved, core.LogicalClusterPathAnnotationKey),
 
-		// workspace mutating webhook sets these on logicalclusters using user credentials
+		// the workspace mutating admission plugin sets these on Workspace objects
+		// inside the user's own request, so they must be let through here. On
+		// LogicalClusters they are guarded by the logicalcluster admission plugin.
 		exact(unreserved, authorization.RequiredGroupsAnnotationKey),
 		exact(unreserved, tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey),
 
