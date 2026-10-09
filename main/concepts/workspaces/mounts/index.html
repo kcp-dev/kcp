@@ -1413,6 +1413,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      Security
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#controllers-and-management" class="md-nav__link">
     <span class="md-ellipsis">
       Controllers and Management
@@ -4455,6 +4464,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#security" class="md-nav__link">
+    <span class="md-ellipsis">
+      Security
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#controllers-and-management" class="md-nav__link">
     <span class="md-ellipsis">
       Controllers and Management
@@ -4515,6 +4533,7 @@
 <pre class="mermaid"><code>sequenceDiagram
       participant C as 🖥️ Client
       participant P as 🔄 Front Proxy
+      participant S as 🗄️ Shard
       participant LC as 🧠 Logical Cluster&lt;br/&gt;(root:org1:project-a)
       participant EK as ☸️ External Kube API&lt;br/&gt;(mounted cluster)
 
@@ -4522,7 +4541,7 @@
 
       rect rgb(240, 248, 255)
           Note over C,EK: Scenario 1: Non-mounted workspace (project-a)
-          C-&gt;&gt;+P: GET /clusters/root:org1:project-a/api/v1/pods
+          C-&gt;&gt;+P: GET /clusters/root:org1:project-a/api/v1/configmaps
           P-&gt;&gt;+LC: Route to logical cluster
           Note right of P: No mount detected,&lt;br/&gt;use internal logical cluster
           LC--&gt;&gt;-P: Return apis from logical cluster
@@ -4531,12 +4550,16 @@
 
       rect rgb(255, 248, 240)
           Note over C,EK: Scenario 2: Mounted workspace (project-b)
-          C-&gt;&gt;+P: GET /clusters/root:org1:project-b/api/v1/pods
+          C-&gt;&gt;+P: GET /clusters/root:org1:project-b/api/v1/configmaps
           Note right of C: Request to mounted workspace
-          P-&gt;&gt;P: Check mount.ref to external-k8s
-          P-&gt;&gt;+EK: Proxy to https://ext-k8s.com
-          Note right of P: Mount detected (status: Ready),&lt;br/&gt;proxy to external cluster
-          EK--&gt;&gt;-P: Return pods from external cluster
+          P-&gt;&gt;P: Mount detected (status: Ready)
+          P-&gt;&gt;+S: Route to the shard hosting root:org1
+          Note right of P: Mount traffic always goes&lt;br/&gt;through the parent's shard
+          S-&gt;&gt;S: Authenticate, audit, authorize&lt;br/&gt;"get" on the mount Workspace
+          S-&gt;&gt;+EK: Proxy to https://ext-k8s.com&lt;br/&gt;with X-Remote-* identity headers only
+          Note right of S: Authorization header dropped,&lt;br/&gt;TLS verified
+          EK--&gt;&gt;-S: Return configmaps from external cluster
+          S--&gt;&gt;-P: Forward response
           P--&gt;&gt;-C: Forward response
       end
 
@@ -4552,8 +4575,8 @@
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    └── project-b/                    # Mounted workspace
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        ├── spec.mount.ref            # ✗ No LogicalCluster object
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        │   └── "external-k8s"        # → References mount object
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        ├── /api/v1/pods             # → Proxied to https://ext-k8s.com/api/v1/pods . kcp does not have pods, but this is a mount.
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        └── /apis/apps/v1/deployments # → Proxied to https://ext-k8s.com/api/v1/deployments
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>        ├── /api/v1/configmaps       # → Proxied to https://ext-k8s.com/api/v1/configmaps . kcp does not have configmaps, but this is a mount.
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>        └── /api/v1/secrets          # → Proxied to https://ext-k8s.com/api/v1/secrets    
 </code></pre></div>
 <h2 id="how-it-works">How it Works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
@@ -4583,7 +4606,10 @@
 <h4 id="requirements-for-mount-objects">Requirements for Mount Objects<a class="headerlink" href="#requirements-for-mount-objects" title="Permanent link">&para;</a></h4>
 <ol>
 <li><strong>Annotation</strong>: Must have the <code>experimental.tenancy.kcp.io/is-mount: "true"</code> annotation</li>
-<li><strong>Status URL</strong>: Must have a <code>status.URL</code> field containing the target endpoint URL</li>
+<li><strong>Status URL</strong>: Must have a <code>status.URL</code> field containing the target endpoint URL. The URL must be
+   <code>https://</code> with a host and without user info, query or fragment. Any other URL is rejected: the
+   workspace reports the <code>WorkspaceMountReady</code> condition with reason <code>MountObjectInvalidURL</code> and does
+   not become <code>Ready</code>. See <a href="#security">Security</a>.</li>
 <li><strong>Status Phase</strong>: Must have a <code>status.phase</code> field with one of the following values:</li>
 <li><code>Initializing</code>: The mount proxy is being initialized</li>
 <li><code>Connecting</code>: The mount proxy is waiting for connection</li>
@@ -4659,9 +4685,11 @@
 </code></pre></div>
 <p><strong>What happens</strong>:
 1. kcp receives the request for <code>/clusters/root:remote-workspace/api/v1/pods</code>
-2. kcp sees <code>remote-workspace</code> has a mount reference
-3. kcp looks up the <code>my-remote-k8s</code> mount object
-4. kcp proxies the request to <code>https://my-proxy-service.com/api/v1/pods</code>
+2. kcp sees <code>remote-workspace</code> has a mount reference and routes the request to the shard hosting <code>root</code>
+3. The shard authenticates the caller, records an audit event and checks that the caller may <code>get</code> the
+   <code>remote-workspace</code> Workspace object in <code>root</code>
+4. The shard proxies the request to <code>https://my-proxy-service.com/api/v1/pods</code>, carrying the caller's
+   identity in <code>X-Remote-User</code>, <code>X-Remote-Group</code> and <code>X-Remote-Extra-*</code> headers and nothing else
 5. Your controller's proxy service handles the request and returns the response</p>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
@@ -4674,21 +4702,58 @@
 <p><strong>No LogicalCluster Creation</strong>: The workspace will not have a LogicalCluster backing it. Instead, it relies entirely on the external proxy.</p>
 </li>
 <li>
-<p><strong>Mount Resolution</strong>: The kcp front proxy resolves the mount object referenced in the workspace spec.</p>
+<p><strong>Mount Resolution</strong>: The workspace mounts controller copies <code>status.URL</code> of the mount object into
+   <code>spec.URL</code> of the workspace and mirrors the mount phase into the workspace phase. Only the system can
+   set <code>spec.URL</code>; the owner of the workspace cannot point it elsewhere.</p>
 </li>
 <li>
-<p><strong>URL Resolution</strong>: When requests are made to the workspace, the proxy:</p>
-</li>
-<li>Looks up the mount object</li>
-<li>Extracts the <code>status.URL</code> from the mount object</li>
-<li>Forwards requests only if the mount object is in <code>Ready</code> phase</li>
-<li>
-<p>Returns an error if the mount object is not found or not ready</p>
+<p><strong>Routing</strong>: The front proxy does not talk to mount targets. It routes a request for a mounted
+   workspace to the shard hosting the parent workspace, like any other request. On the shard the mount
+   is resolved in front of the handler chain, and the request then goes through authentication, audit
+   logging and flow control like a regular request. Requests for workspaces that are not <code>Ready</code> are
+   rejected.</p>
 </li>
 <li>
-<p><strong>Request Routing</strong>: The proxy rewrites the incoming request URL to target the mount's URL while preserving the Kubernetes API context (e.g., <code>/api/v1/pods</code> becomes <code>{mount.status.URL}/api/v1/pods</code>).</p>
+<p><strong>Forwarding</strong>: After authentication, and before regular authorization (there is no logical cluster
+   to authorize against), the shard checks that the caller may <code>get</code> the mount's Workspace object in the
+   parent workspace, and then rewrites the request to target the mount's URL while preserving the
+   Kubernetes API context (e.g., <code>/api/v1/pods</code> becomes <code>{mount.status.URL}/api/v1/pods</code>). The audit
+   event carries the <code>mount.tenancy.kcp.io/workspace</code> and <code>mount.tenancy.kcp.io/target</code> annotations.</p>
 </li>
 </ol>
+<h3 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h3>
+<p>A mount target receives a request from every caller who enters the mounted workspace, including
+platform administrators, and the author of a mount is usually not the only one entering it. The
+mounting machinery therefore enforces the following:</p>
+<ul>
+<li><strong>No credentials are forwarded.</strong> The caller's <code>Authorization</code> header is dropped before the request
+  leaves the shard. The target learns who the caller is from the <code>X-Remote-User</code>, <code>X-Remote-Group</code> and
+  <code>X-Remote-Extra-*</code> headers, which the shard sets from the identity it authenticated itself and which
+  the target should only trust over a connection it can authenticate (see below). Targets that relied
+  on validating the caller's bearer token themselves must switch to the identity headers.</li>
+<li><strong>Callers must authenticate to kcp.</strong> Requests the shard cannot authenticate are rejected before they
+  are forwarded; anonymous callers, where anonymous authentication is enabled, are forwarded without
+  identity headers.</li>
+<li><strong>Callers must be able to see the mount.</strong> The caller needs <code>get</code> on the mount's Workspace object in
+  the parent workspace, otherwise the request is rejected with <code>403</code>.</li>
+<li><strong>Impersonation is not supported</strong> for mounted workspaces and is rejected with <code>403</code>.</li>
+<li><strong>Loops are bounded.</strong> A mount target may be kcp itself, which is how a workspace is mounted onto
+  another workspace, so a mount can be pointed at a path that resolves back to a mount. kcp counts the
+  mount hops a request has taken in the <code>X-Kcp-Mount-Hops</code> header and refuses a request that has taken
+  too many with <code>508 Loop Detected</code>. A short chain of mounted workspaces still works. The header is
+  replaced on every hop, so a value sent by a client is ignored. Components that are never a legitimate
+  mount target, such as the cache server, reject any request carrying that header outright.</li>
+<li><strong>Targets must serve https</strong> and present a certificate the shard trusts: either one chaining to the
+  system roots or to the bundle given with <code>--mount-proxy-server-ca-file</code>. TLS verification cannot be
+  disabled. <code>status.URL</code> values that are not <code>https://</code>, carry user info, a query or a fragment are
+  rejected by the controller and by admission, and are never routed. A <code>spec.URL</code> written before these
+  rules existed is not routed either, but it does not make the workspace unwritable: it can still be
+  fixed, cleared or deleted, and only a <em>change</em> to another unacceptable value is rejected.</li>
+<li><strong>The shard identifies itself to the target</strong> with the client certificate given with
+  <code>--mount-proxy-client-cert-file</code> and <code>--mount-proxy-client-key-file</code>, if configured. For targets
+  inside kcp (e.g. the front proxy) this is a certificate signed by the requestheader CA, so the target
+  trusts the identity headers; external targets should verify this certificate before trusting them.</li>
+</ul>
 <h3 id="controllers-and-management">Controllers and Management<a class="headerlink" href="#controllers-and-management" title="Permanent link">&para;</a></h3>
 <p>The workspace mounts controller (<code>kcp-workspace-mounts</code>) manages the integration between workspaces and their mount objects:</p>
 <ul>
@@ -4702,7 +4767,10 @@
 <li>Mount references are immutable after workspace creation</li>
 <li>Only mount objects in <code>Ready</code> phase will serve traffic</li>
 <li>The external proxy must be properly configured and accessible</li>
-<li>Authentication and authorization are handled by the external proxy, not by kcp</li>
+<li>Authentication is handled by kcp; the external proxy receives the caller's identity in the request-header
+  identity headers and never the caller's credentials. Authorization within the mounted API is handled by
+  the external proxy, kcp only checks that the caller may <code>get</code> the mount's Workspace object.</li>
+<li><code>status.URL</code> must be <code>https://</code> and the target certificate must be trusted by the shards</li>
 <li>Workspace mounts do not filter kubernetes view. If filtering is required, it must be implemented in the external proxy.</li>
 </ul>
 <h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
