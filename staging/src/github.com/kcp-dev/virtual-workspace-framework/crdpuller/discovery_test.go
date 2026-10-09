@@ -232,7 +232,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			}
 			swagger := newTestSwagger("RawData", extensions)
 			configReference, err := getTestSwaggerConfigRef(swagger)
-			require.Nil(t, err)
+			require.NoError(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
@@ -250,7 +250,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			}
 			swagger := newTestSwagger("RawData", extensions)
 			configReference, err := getTestSwaggerConfigRef(swagger)
-			require.Nil(t, err)
+			require.NoError(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
@@ -266,7 +266,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			extensions := spec.Extensions{}
 			swagger := newTestSwagger("RawData", extensions)
 			configReference, err := getTestSwaggerConfigRef(swagger)
-			require.Nil(t, err)
+			require.NoError(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
@@ -283,7 +283,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			}
 			swagger := newTestSwagger("RawData", extensions)
 			configReference, err := getTestSwaggerConfigRef(swagger)
-			require.Nil(t, err)
+			require.NoError(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
@@ -300,7 +300,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			}
 			swagger := newTestSwagger("RawData", extensions)
 			configReference, err := getTestSwaggerConfigRef(swagger)
-			require.Nil(t, err)
+			require.NoError(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
@@ -317,7 +317,7 @@ func TestSchemaConverter_VisitReference_Extensions(t *testing.T) {
 			}
 			swagger := newTestSwagger("io.k8s.apimachinery.pkg.runtime.RawExtension", extensions)
 			configReference, err := getTestSwaggerConfigRef(swagger)
-			require.Nil(t, err)
+			require.NoError(t, err)
 
 			schemaConverter := newSchemaConverter()
 			schemaConverter.VisitReference(configReference)
