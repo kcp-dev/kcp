@@ -73,6 +73,22 @@ func deleteAttr(obj *corev1alpha1.LogicalCluster, userInfo *kuser.DefaultInfo) a
 	)
 }
 
+func createAttr(obj *corev1alpha1.LogicalCluster, userInfo *kuser.DefaultInfo) admission.Attributes {
+	return admission.NewAttributesRecord(
+		helpers.ToUnstructuredOrDie(obj),
+		nil,
+		corev1alpha1.Kind("LogicalCluster").WithVersion("v1alpha1"),
+		"",
+		obj.Name,
+		corev1alpha1.Resource("logicalclusters").WithVersion("v1alpha1"),
+		"",
+		admission.Create,
+		&metav1.CreateOptions{},
+		false,
+		userInfo,
+	)
+}
+
 func TestAdmit(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -208,6 +224,19 @@ func TestValidate(t *testing.T) {
 		wantErr string
 	}{
 		{
+			name:        "fails if spec.createdBy is changed",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withCreatedBy("user-b").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withCreatedBy("user-a").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "spec.createdBy: Invalid value",
+		},
+		{
 			name:        "fails if spec.initializers is changed when ready",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
@@ -303,6 +332,21 @@ func TestValidate(t *testing.T) {
 					Phase: corev1alpha1.LogicalClusterPhaseScheduling,
 				}).LogicalCluster,
 			),
+		},
+		{
+			name:        "fails leaving initializing when status.initializers is not empty",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withInitializers("a").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase:        corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withInitializers("a").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
+				}).LogicalCluster,
+			),
+			wantErr: "status.initializers is not empty",
 		},
 		{
 			name:        "fails to move phase backwards",
@@ -410,6 +454,18 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
+			name:        "fails deletion as another user if not directly deletable",
+			clusterName: "root:org:ws",
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster("root:org:ws").LogicalCluster,
+			},
+			attr: deleteAttr(
+				newLogicalCluster("root:org:ws").LogicalCluster,
+				&kuser.DefaultInfo{},
+			),
+			wantErr: "LogicalCluster cannot be deleted",
+		},
+		{
 			name:        "passed deletion as another user if directly deletable",
 			clusterName: "root:org:ws",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
@@ -418,6 +474,23 @@ func TestValidate(t *testing.T) {
 			attr: deleteAttr(
 				newLogicalCluster("root:org:ws").directlyDeletable().LogicalCluster,
 				&kuser.DefaultInfo{},
+			),
+		},
+		{
+			name:        "fails creation as non-privileged user",
+			clusterName: "root:org:ws",
+			attr: createAttr(
+				newLogicalCluster("root:org:ws").LogicalCluster,
+				&kuser.DefaultInfo{},
+			),
+			wantErr: "LogicalCluster cannot be created",
+		},
+		{
+			name:        "passed creation as system:masters",
+			clusterName: "root:org:ws",
+			attr: createAttr(
+				newLogicalCluster("root:org:ws").LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}},
 			),
 		},
 		{
@@ -484,6 +557,11 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 
 func (b thisWsBuilder) withInitializers(initializers ...corev1alpha1.LogicalClusterInitializer) thisWsBuilder {
 	b.Spec.Initializers = initializers
+	return b
+}
+
+func (b thisWsBuilder) withCreatedBy(username string) thisWsBuilder {
+	b.Spec.CreatedBy = &corev1alpha1.OwnerUserInfo{Username: username}
 	return b
 }
 
