@@ -71,7 +71,7 @@ func TestAnnotationReservation(t *testing.T) {
 		// workspace admissions used by webhooks
 		{key: tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, reservation: unreserved},
 		{key: authorization.RequiredGroupsAnnotationKey, reservation: unreserved},
-		{key: core.LogicalClusterPathAnnotationKey, reservation: unreserved},
+		{key: core.LogicalClusterPathAnnotationKey, reservation: adminReserved},
 
 		// storage layer keys
 		{key: logicalcluster.AnnotationKey, reservation: unreserved},

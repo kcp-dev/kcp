@@ -108,7 +108,7 @@ var (
 		exact(unreserved, handlers.KCPOriginalAPIVersionAnnotation),
 
 		// pathAnnotation webhook sets this using user credentials
-		exact(unreserved, core.LogicalClusterPathAnnotationKey),
+		exact(adminReserved, core.LogicalClusterPathAnnotationKey),
 
 		// workspace mutating webhook sets these on logicalclusters using user credentials
 		exact(unreserved, authorization.RequiredGroupsAnnotationKey),
