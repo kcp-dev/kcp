@@ -9,6 +9,11 @@ spec:
   rootShard:
     ref:
       name: root
+  extraArgs:
+    - --feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true
+  auth:
+    serviceAccount:
+      enabled: true
   external:
     hostname: kcp.localhost
     port: 8443
