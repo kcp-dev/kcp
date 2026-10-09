@@ -19,7 +19,10 @@ package filters
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"k8s.io/apiserver/pkg/endpoints/request"
 
@@ -121,4 +124,50 @@ func TestWithShardLevelPaths(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithShardLevelPaths_MountPassesThrough(t *testing.T) {
+	t.Parallel()
+
+	nextCalled := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		nextCalled = true
+		if cluster := request.ClusterFrom(r.Context()); cluster != nil {
+			t.Errorf("a mount request must not be scoped to a cluster, got %q", cluster.Name)
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	target, err := url.Parse("https://mount.example.com")
+	require.NoError(t, err)
+	ctx := WithMountTarget(t.Context(), &MountTarget{URL: target, Workspace: logicalcluster.NewPath("root:mnt"), ParentCluster: core.RootCluster})
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/metrics", http.NoBody)
+	rr := httptest.NewRecorder()
+	WithShardLevelPaths(next).ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.True(t, nextCalled, "a shard-level path on a mounted workspace belongs to the mount target")
+}
+
+func TestWithMountBypass(t *testing.T) {
+	t.Parallel()
+
+	var muxCalled, chainCalled bool
+	mux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { muxCalled = true })
+	chain := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { chainCalled = true })
+	h := WithMountBypass(mux, chain)
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/services/foo", http.NoBody)
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	require.True(t, muxCalled, "non-mount requests go through the mux")
+	require.False(t, chainCalled)
+
+	muxCalled, chainCalled = false, false
+	target, err := url.Parse("https://mount.example.com")
+	require.NoError(t, err)
+	ctx := WithMountTarget(t.Context(), &MountTarget{URL: target, Workspace: logicalcluster.NewPath("root:mnt"), ParentCluster: core.RootCluster})
+	req = httptest.NewRequestWithContext(ctx, http.MethodGet, "/services/foo", http.NoBody)
+	h.ServeHTTP(httptest.NewRecorder(), req)
+	require.True(t, chainCalled, "mount requests bypass the mux, even when the remaining path matches a registered prefix")
+	require.False(t, muxCalled)
 }

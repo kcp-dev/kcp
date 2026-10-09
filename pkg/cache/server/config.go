@@ -173,6 +173,9 @@ func NewConfig(opts *cacheserveroptions.CompletedOptions, optionalLocalShardRest
 		apiHandler = WithSyntheticDelay(apiHandler, opts.SyntheticDelay)
 
 		apiHandler = filters.WithAcceptHeader(apiHandler)
+		// Outermost, so a request that reached here through a workspace mount proxy
+		// is refused before anything looks at its identity headers.
+		apiHandler = WithRejectMountForwardedRequests(apiHandler)
 		return apiHandler
 	}
 

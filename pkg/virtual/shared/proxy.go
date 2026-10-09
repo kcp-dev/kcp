@@ -24,9 +24,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 
-	"k8s.io/client-go/transport"
+	"github.com/kcp-dev/kcp/pkg/authentication"
 )
 
 // ServeProxy strips any client-supplied auth/impersonation headers from the
@@ -37,19 +36,8 @@ import (
 func ServeProxy(writer http.ResponseWriter, request *http.Request, forwardedHost *url.URL, rt http.RoundTripper) {
 	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
-			for _, header := range []string{
-				"Authorization",
-				transport.ImpersonateUserHeader,
-				transport.ImpersonateUIDHeader,
-				transport.ImpersonateGroupHeader,
-			} {
-				req.Header.Del(header)
-			}
-			for key := range req.Header {
-				if strings.HasPrefix(key, transport.ImpersonateUserExtraHeaderPrefix) {
-					req.Header.Del(key)
-				}
-			}
+			req.Header.Del("Authorization")
+			authentication.ScrubImpersonationHeaders(req.Header)
 			req.URL.Scheme = forwardedHost.Scheme
 			req.URL.Host = forwardedHost.Host
 		},

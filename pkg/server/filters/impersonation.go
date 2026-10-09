@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
+	"github.com/kcp-dev/kcp/pkg/authentication"
 	authorizationbootstrap "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
@@ -73,19 +73,10 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		// Impersonation check is only done when impersonation is requested.
 		// And impersonations is only allowed for the users, who have metadata in the ctx.
 		// Else just pass the request.
-		impersonationUser := req.Header.Get(authenticationv1.ImpersonateUserHeader)
-		impersonationGroups := req.Header[authenticationv1.ImpersonateGroupHeader]
-		impersonationExtras := []string{}
-		for header, headerValues := range req.Header {
-			for _, h := range headerValues {
-				if strings.HasPrefix(header, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
-					impersonationExtras = append(impersonationExtras, fmt.Sprintf("%s=%s", header, h))
-				}
-			}
-		}
-
-		// If no impersonation is requested, just pass the request.
-		if len(impersonationUser) == 0 && len(impersonationGroups) == 0 && len(impersonationExtras) == 0 {
+		// If no impersonation is requested, just pass the request. This asks the
+		// same question the apiserver's impersonation filter asks, so a request it
+		// would treat as impersonating cannot slip past the checks below.
+		if !authentication.HasImpersonationHeaders(req.Header) {
 			// in withScoping, we will check that this value is set. If not, the is some programming error.
 			ctx := req.Context()
 			ctx = context.WithValue(ctx, impersonationContextKey, false)

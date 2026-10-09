@@ -51,6 +51,14 @@ func WithShardLevelPaths(handler http.Handler) http.HandlerFunc {
 			return
 		}
 
+		// A request for a mounted workspace has no cluster in the context, but
+		// it is workspace-scoped: the path belongs to the mount target, which
+		// decides whether it serves it.
+		if MountTargetFrom(req.Context()) != nil {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
 		cluster := request.ClusterFrom(req.Context())
 		if cluster != nil && !cluster.Name.Empty() {
 			audit.AddAuditAnnotation(req.Context(), "shardpaths.kcp.io/rejected", req.URL.Path)

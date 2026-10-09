@@ -20,8 +20,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
+	"strings"
 
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/component-base/featuregate"
+
+	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
 )
 
 // Config qualify a kcp server to start
@@ -77,7 +81,70 @@ func (c Config) BuildArgs(t TestingT) ([]string, error) {
 		args = append(args, "--bind-address="+c.BindAddress)
 	}
 
-	return append(args, c.Args...), nil
+	args = append(args, c.Args...)
+
+	if !hasFlag(args, "--requestheader-client-ca-file") {
+		mountArgs, err := mountProxyArgs(t, c.DataDir)
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, mountArgs...)
+	}
+
+	return args, nil
+}
+
+// hasFlag returns true if args contains the given flag, either as "--flag value"
+// or as "--flag=value".
+func hasFlag(args []string, flag string) bool {
+	for _, arg := range args {
+		if arg == flag || strings.HasPrefix(arg, flag+"=") {
+			return true
+		}
+	}
+	return false
+}
+
+// mountProxyArgs creates a requestheader CA and a client certificate for the
+// shard's mount proxy and returns the kcp flags that wire them up.
+//
+// A request for a mounted workspace is forwarded with the caller's identity in
+// X-Remote-* headers only, which the target trusts solely when they arrive over
+// a client certificate signed by its requestheader CA. In the test fixture
+// mounts point back at the shard itself, so the shard needs to trust its own
+// mount proxy certificate, and to trust the self-signed serving certificate it
+// generates in its root directory (dataDir) on start.
+func mountProxyArgs(t TestingT, dataDir string) ([]string, error) {
+	dir := t.TempDir()
+	requestHeaderCA, err := crypto.MakeSelfSignedCA(
+		filepath.Join(dir, "requestheader-ca.crt"),
+		filepath.Join(dir, "requestheader-ca.key"),
+		filepath.Join(dir, "requestheader-ca-serial.txt"),
+		"kcp-requestheader-ca",
+		365,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create requestheader CA: %w", err)
+	}
+	if _, err := requestHeaderCA.MakeClientCertificate(
+		filepath.Join(dir, "mounts-proxy.crt"),
+		filepath.Join(dir, "mounts-proxy.key"),
+		&user.DefaultInfo{Name: "kcp-mounts-proxy"},
+		365,
+	); err != nil {
+		return nil, fmt.Errorf("failed to create mount proxy client certificate: %w", err)
+	}
+
+	return []string{
+		"--requestheader-client-ca-file", filepath.Join(dir, "requestheader-ca.crt"),
+		"--requestheader-username-headers=X-Remote-User",
+		"--requestheader-group-headers=X-Remote-Group",
+		"--requestheader-extra-headers-prefix=X-Remote-Extra-",
+		"--requestheader-allowed-names=kcp-mounts-proxy",
+		"--mount-proxy-client-cert-file", filepath.Join(dir, "mounts-proxy.crt"),
+		"--mount-proxy-client-key-file", filepath.Join(dir, "mounts-proxy.key"),
+		"--mount-proxy-server-ca-file", filepath.Join(dataDir, "apiserver.crt"),
+	}, nil
 }
 
 // Option a function that wish to modify a given kcp configuration.

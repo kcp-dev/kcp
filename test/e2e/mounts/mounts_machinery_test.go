@@ -198,6 +198,12 @@ func TestMountsMachinery(t *testing.T) {
 	t.Log("Identity headers injected directly at a shard must not be relayed through the mount")
 	requireMountIgnoresInjectedIdentity(t, server, logicalcluster.NewPath(sourceWorkspaceObj.Spec.Cluster).Join(mountWorkspaceName))
 
+	t.Log("Callers must authenticate to kcp before a mount forwards them")
+	requireMountRejectsUnauthenticatedCallers(t, cfg, cluster)
+
+	t.Log("Callers who cannot see the mount Workspace must not be forwarded")
+	requireMountRejectsCallersWithoutWorkspaceAccess(t, server, cluster)
+
 	t.Log("Set mount to not ready")
 	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		current, err := dynamicClusterClient.Cluster(sourcePath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
@@ -221,6 +227,60 @@ func TestMountsMachinery(t *testing.T) {
 		_, err = kcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
 		return err != nil, fmt.Sprintf("err = %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for workspace access to fail")
+
+	t.Log("Set mount to ready with an insecure URL")
+	err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current, err := dynamicClusterClient.Cluster(sourcePath).Resource(mountGVR).Namespace("").Get(ctx, "proxy-cluster", metav1.GetOptions{})
+		require.NoError(t, err)
+		status := current.Object["status"].(map[string]interface{})
+		status["phase"] = "Ready"
+		status["URL"] = "http://attacker.example.com/ingest"
+		_, err = dynamicClusterClient.Cluster(sourcePath).Resource(mountGVR).Namespace("").UpdateStatus(ctx, current, metav1.UpdateOptions{})
+		return err
+	})
+	require.NoError(t, err)
+
+	t.Log("Workspace must report the invalid mount URL, keep its previous URL and stay unavailable")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		current, err := kcpClusterClient.Cluster(sourcePath).TenancyV1alpha1().Workspaces().Get(ctx, mountWorkspaceName, metav1.GetOptions{})
+		require.NoError(t, err)
+		cond := conditions.Get(current, tenancyv1alpha1.MountConditionReady)
+		if cond == nil || cond.Reason != tenancyv1alpha1.MountObjectInvalidURLReason {
+			return false, yamlMarshal(t, current)
+		}
+		require.Equal(t, destinationWorkspaceObj.Spec.URL, current.Spec.URL, "an insecure mount URL must never be copied into the workspace")
+		require.NotEqual(t, corev1alpha1.LogicalClusterPhaseReady, current.Status.Phase, "a mount with an insecure URL must not be Ready")
+		return true, yamlMarshal(t, current)
+	}, wait.ForeverTestTimeout, 100*time.Millisecond, "waiting for the invalid mount URL to be reported")
+
+	t.Log("Workspace access must keep failing")
+	_, err = kcpClusterClient.Cluster(cluster).ApisV1alpha1().APIExports().List(ctx, metav1.ListOptions{})
+	require.Error(t, err)
+}
+
+// requireMountRejectsUnauthenticatedCallers tests that a request without
+// credentials is not forwarded to the mount target.
+func requireMountRejectsUnauthenticatedCallers(t *testing.T, cfg *rest.Config, mountPath logicalcluster.Path) {
+	t.Helper()
+
+	client, err := kcpclientset.NewForConfig(rest.AnonymousClientConfig(cfg))
+	require.NoError(t, err)
+	_, err = client.Cluster(mountPath).ApisV1alpha1().APIExports().List(t.Context(), metav1.ListOptions{})
+	require.Error(t, err, "an unauthenticated request must not succeed through a mount")
+	require.Truef(t, apierrors.IsUnauthorized(err) || apierrors.IsForbidden(err), "expected 401 or 403, got: %v", err)
+}
+
+// requireMountRejectsCallersWithoutWorkspaceAccess tests that a user who is
+// authenticated but cannot get the mount's Workspace object in the parent
+// workspace is not forwarded to the mount target.
+func requireMountRejectsCallersWithoutWorkspaceAccess(t *testing.T, server kcptestingserver.RunningServer, mountPath logicalcluster.Path) {
+	t.Helper()
+
+	client, err := kcpclientset.NewForConfig(framework.StaticTokenUserConfig("user-1", server.BaseConfig(t)))
+	require.NoError(t, err)
+	_, err = client.Cluster(mountPath).ApisV1alpha1().APIExports().List(t.Context(), metav1.ListOptions{})
+	require.Error(t, err, "a user without access to the mount Workspace must not be forwarded")
+	require.Truef(t, apierrors.IsForbidden(err), "expected 403, got: %v", err)
 }
 
 // requireMountIgnoresInjectedIdentity tests that a mount does not relay identity headers

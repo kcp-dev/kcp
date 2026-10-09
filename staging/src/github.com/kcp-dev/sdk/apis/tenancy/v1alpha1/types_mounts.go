@@ -46,4 +46,7 @@ const (
 	MountObjectNotFoundReason = "MountObjectNotFound"
 	// MountObjectNotReadyReason is the reason for the mount object not being in ready phase.
 	MountObjectNotReadyReason = "MountObjectNotReady"
+	// MountObjectInvalidURLReason is the reason for the mount object reporting a
+	// status.URL that is not an acceptable mount target (e.g. not https).
+	MountObjectInvalidURLReason = "MountObjectInvalidURL"
 )

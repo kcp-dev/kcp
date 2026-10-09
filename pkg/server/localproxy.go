@@ -18,6 +18,7 @@ package server
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -28,8 +29,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
-	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
@@ -42,8 +41,10 @@ import (
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/tenancy/v1alpha1"
 
+	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
+	"github.com/kcp-dev/kcp/pkg/mounts"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
@@ -104,15 +105,14 @@ func newLocalClusterIndex(
 // able to translate logical clusters with the data on the local shard. This is
 // mainly interesting for standalone mode, without a real front-proxy in-front.
 //
-// mountAuthenticator is used to authenticate requests for mounted workspaces
-// before they are forwarded, as this handler runs in front of the shard's
-// authentication filter.
+// Requests for mounted workspaces are not forwarded here: this handler runs in
+// front of the shard's authentication filter. It only resolves the mount
+// target and stores it in the request context, and WithMountProxy forwards the
+// request once it has been authenticated, audited and flow-controlled.
 func WithLocalProxy(
 	handler http.Handler,
 	shardName, additionalMappingsFile string,
 	clusterIndex *index.State,
-	mountProxyTransport http.RoundTripper,
-	mountAuthenticator authenticator.Request,
 ) (http.Handler, error) {
 	defaultHandlerFunc := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
@@ -175,29 +175,52 @@ func WithLocalProxy(
 		}
 
 		if r.URL != "" {
-			u, err := url.Parse(r.URL)
+			// The request is for a mounted workspace. Resolve the target here, but
+			// leave the forwarding to WithMountProxy behind authentication.
+			target, err := mounts.ValidateURL(r.URL)
 			if err != nil {
-				logger.WithValues("cluster", cluster.Name, "url", r.URL).Error(err, "invalid url")
-				http.Error(w, "invalid url", http.StatusInternalServerError)
+				logger.WithValues("path", path, "url", r.URL).Error(err, "mount target URL is invalid")
+				responsewriters.ErrorNegotiated(
+					apierrors.NewServiceUnavailable(fmt.Sprintf("the mount target of workspace %q is invalid", path.String())),
+					errorCodecs, schema.GroupVersion{}, w, req,
+				)
 				return
 			}
-			logger.WithValues("from", path, "to", r.URL).V(4).Info("mounting cluster")
-			proxy := httputil.NewSingleHostReverseProxy(u)
-			if mountProxyTransport != nil {
-				// Present a requestheader-CA-signed client certificate so the front-proxy
-				// authenticates the forwarded identity headers instead of clearing them.
-				proxy.Transport = mountProxyTransport
-			} else {
-				// TODO(mjudeikis): remove this once we have a real cert wired in dev mode
-				proxy.Transport = &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					},
-				}
+
+			// Impersonation needs a logical cluster to authorize against, which a
+			// mount does not have. Reject it explicitly instead of letting the
+			// impersonation filters fail in less obvious ways.
+			if authentication.HasImpersonationHeaders(req.Header) {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewForbidden(schema.GroupResource{}, "", errors.New("impersonation is not supported for mounted workspaces")),
+					errorCodecs, schema.GroupVersion{}, w, req,
+				)
+				return
 			}
 
-			setMountProxyAuthHeaders(req, mountAuthenticator)
-			proxy.ServeHTTP(w, req)
+			// The mount is described by a Workspace object in the parent workspace,
+			// which WithMountProxy authorizes access against.
+			parentPath, _ := path.Split()
+			parent, found := clusterIndex.Lookup(parentPath)
+			if !found || parent.Cluster.Empty() {
+				logger.WithValues("path", path, "parent", parentPath).V(4).Info("parent of mounted workspace not found on this shard")
+				responsewriters.ErrorNegotiated(
+					apierrors.NewNotFound(
+						schema.GroupResource{Group: tenancyv1alpha1.SchemeGroupVersion.Group, Resource: "workspaces"},
+						path.String(),
+					),
+					errorCodecs, schema.GroupVersion{}, w, req,
+				)
+				return
+			}
+
+			logger.WithValues("from", path, "to", target.Scheme+"://"+target.Host).V(4).Info("resolved mounted workspace")
+			ctx := filters.WithMountTarget(ctx, &filters.MountTarget{
+				URL:           target,
+				Workspace:     path,
+				ParentCluster: parent.Cluster,
+			})
+			handler.ServeHTTP(w, req.WithContext(ctx))
 			return
 		}
 
@@ -332,34 +355,6 @@ func newInsecureTransport() (*http.Transport, error) {
 		InsecureSkipVerify: true,
 	}
 	return transport, nil
-}
-
-// setMountProxyAuthHeaders replaces any inbound identity headers on a request
-// for a mounted workspace with the identity the shard itself authenticated.
-//
-// The mount branch of WithLocalProxy runs before the shard's authentication
-// filter, so inbound X-Remote-* headers are attacker-controlled until proven
-// otherwise. Forwarding them verbatim over the requestheader-CA-signed mount
-// transport would let a client that reaches the shard directly assert any
-// identity (including a forged warrant) to the front-proxy. Identity headers
-// forwarded by the front-proxy itself survive, because the shard's
-// requestheader authenticator verifies the front-proxy's client certificate.
-//
-// Anonymous and unauthenticated requests are forwarded without identity
-// headers, so that credentials only the mount target can verify (e.g. a
-// bearer token) are still evaluated there.
-func setMountProxyAuthHeaders(req *http.Request, authn authenticator.Request) {
-	if authn != nil {
-		// Authenticate a clone: authenticators mutate the request (e.g. the bearer
-		// token authenticator deletes the Authorization header on success), but the
-		// mount target may need those credentials to authenticate the request itself.
-		resp, ok, err := authn.AuthenticateRequest(req.Clone(req.Context()))
-		if err == nil && ok && resp.User != nil && resp.User.GetName() != user.Anonymous {
-			authheaders.SetAuthHeaders(req.Header, resp.User, authheaders.DefaultUserHeader, authheaders.DefaultGroupHeader, authheaders.DefaultExtraHeaderPrefix)
-			return
-		}
-	}
-	authheaders.ClearAuthHeaders(req.Header, authheaders.DefaultUserHeader, authheaders.DefaultGroupHeader, authheaders.DefaultExtraHeaderPrefix)
 }
 
 // withProxyAuthHeaders does client cert termination by extracting the user and groups and

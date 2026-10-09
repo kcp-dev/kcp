@@ -20,6 +20,7 @@ When a workspace uses a mount, it does not have a LogicalCluster backing it. Ins
 sequenceDiagram
       participant C as 🖥️ Client
       participant P as 🔄 Front Proxy
+      participant S as 🗄️ Shard
       participant LC as 🧠 Logical Cluster<br/>(root:org1:project-a)
       participant EK as ☸️ External Kube API<br/>(mounted cluster)
 
@@ -27,7 +28,7 @@ sequenceDiagram
 
       rect rgb(240, 248, 255)
           Note over C,EK: Scenario 1: Non-mounted workspace (project-a)
-          C->>+P: GET /clusters/root:org1:project-a/api/v1/pods
+          C->>+P: GET /clusters/root:org1:project-a/api/v1/configmaps
           P->>+LC: Route to logical cluster
           Note right of P: No mount detected,<br/>use internal logical cluster
           LC-->>-P: Return apis from logical cluster
@@ -36,18 +37,22 @@ sequenceDiagram
 
       rect rgb(255, 248, 240)
           Note over C,EK: Scenario 2: Mounted workspace (project-b)
-          C->>+P: GET /clusters/root:org1:project-b/api/v1/pods
+          C->>+P: GET /clusters/root:org1:project-b/api/v1/configmaps
           Note right of C: Request to mounted workspace
-          P->>P: Check mount.ref to external-k8s
-          P->>+EK: Proxy to https://ext-k8s.com
-          Note right of P: Mount detected (status: Ready),<br/>proxy to external cluster
-          EK-->>-P: Return pods from external cluster
+          P->>P: Mount detected (status: Ready)
+          P->>+S: Route to the shard hosting root:org1
+          Note right of P: Mount traffic always goes<br/>through the parent's shard
+          S->>S: Authenticate, audit, authorize<br/>"get" on the mount Workspace
+          S->>+EK: Proxy to https://ext-k8s.com<br/>with X-Remote-* identity headers only
+          Note right of S: Authorization header dropped,<br/>TLS verified
+          EK-->>-S: Return configmaps from external cluster
+          S-->>-P: Forward response
           P-->>-C: Forward response
       end
 
       Note over C,EK: Routing determined by workspace mount configuration
 ```
-
+    
 
 ### Workspace Tree Structure
 
@@ -62,8 +67,8 @@ root/
     └── project-b/                    # Mounted workspace
         ├── spec.mount.ref            # ✗ No LogicalCluster object
         │   └── "external-k8s"        # → References mount object
-        ├── /api/v1/pods             # → Proxied to https://ext-k8s.com/api/v1/pods . kcp does not have pods, but this is a mount.
-        └── /apis/apps/v1/deployments # → Proxied to https://ext-k8s.com/api/v1/deployments
+        ├── /api/v1/configmaps       # → Proxied to https://ext-k8s.com/api/v1/configmaps . kcp does not have configmaps, but this is a mount.
+        └── /api/v1/secrets          # → Proxied to https://ext-k8s.com/api/v1/secrets    
 ```
 
 ## How it Works
@@ -100,7 +105,10 @@ status:
 #### Requirements for Mount Objects
 
 1. **Annotation**: Must have the `experimental.tenancy.kcp.io/is-mount: "true"` annotation
-2. **Status URL**: Must have a `status.URL` field containing the target endpoint URL
+2. **Status URL**: Must have a `status.URL` field containing the target endpoint URL. The URL must be
+   `https://` with a host and without user info, query or fragment. Any other URL is rejected: the
+   workspace reports the `WorkspaceMountReady` condition with reason `MountObjectInvalidURL` and does
+   not become `Ready`. See [Security](#security).
 3. **Status Phase**: Must have a `status.phase` field with one of the following values:
    - `Initializing`: The mount proxy is being initialized
    - `Connecting`: The mount proxy is waiting for connection
@@ -193,9 +201,11 @@ kubectl --server=https://kcp.example.com/clusters/root:remote-workspace get pods
 
 **What happens**:
 1. kcp receives the request for `/clusters/root:remote-workspace/api/v1/pods`
-2. kcp sees `remote-workspace` has a mount reference
-3. kcp looks up the `my-remote-k8s` mount object
-4. kcp proxies the request to `https://my-proxy-service.com/api/v1/pods`
+2. kcp sees `remote-workspace` has a mount reference and routes the request to the shard hosting `root`
+3. The shard authenticates the caller, records an audit event and checks that the caller may `get` the
+   `remote-workspace` Workspace object in `root`
+4. The shard proxies the request to `https://my-proxy-service.com/api/v1/pods`, carrying the caller's
+   identity in `X-Remote-User`, `X-Remote-Group` and `X-Remote-Extra-*` headers and nothing else
 5. Your controller's proxy service handles the request and returns the response
 
 !!! Important
@@ -208,15 +218,55 @@ Once a workspace with a mount is created, the following process occurs:
 
 1. **No LogicalCluster Creation**: The workspace will not have a LogicalCluster backing it. Instead, it relies entirely on the external proxy.
 
-2. **Mount Resolution**: The kcp front proxy resolves the mount object referenced in the workspace spec.
+2. **Mount Resolution**: The workspace mounts controller copies `status.URL` of the mount object into
+   `spec.URL` of the workspace and mirrors the mount phase into the workspace phase. Only the system can
+   set `spec.URL`; the owner of the workspace cannot point it elsewhere.
 
-3. **URL Resolution**: When requests are made to the workspace, the proxy:
-   - Looks up the mount object
-   - Extracts the `status.URL` from the mount object
-   - Forwards requests only if the mount object is in `Ready` phase
-   - Returns an error if the mount object is not found or not ready
+3. **Routing**: The front proxy does not talk to mount targets. It routes a request for a mounted
+   workspace to the shard hosting the parent workspace, like any other request. On the shard the mount
+   is resolved in front of the handler chain, and the request then goes through authentication, audit
+   logging and flow control like a regular request. Requests for workspaces that are not `Ready` are
+   rejected.
 
-4. **Request Routing**: The proxy rewrites the incoming request URL to target the mount's URL while preserving the Kubernetes API context (e.g., `/api/v1/pods` becomes `{mount.status.URL}/api/v1/pods`).
+4. **Forwarding**: After authentication, and before regular authorization (there is no logical cluster
+   to authorize against), the shard checks that the caller may `get` the mount's Workspace object in the
+   parent workspace, and then rewrites the request to target the mount's URL while preserving the
+   Kubernetes API context (e.g., `/api/v1/pods` becomes `{mount.status.URL}/api/v1/pods`). The audit
+   event carries the `mount.tenancy.kcp.io/workspace` and `mount.tenancy.kcp.io/target` annotations.
+
+### Security
+
+A mount target receives a request from every caller who enters the mounted workspace, including
+platform administrators, and the author of a mount is usually not the only one entering it. The
+mounting machinery therefore enforces the following:
+
+- **No credentials are forwarded.** The caller's `Authorization` header is dropped before the request
+  leaves the shard. The target learns who the caller is from the `X-Remote-User`, `X-Remote-Group` and
+  `X-Remote-Extra-*` headers, which the shard sets from the identity it authenticated itself and which
+  the target should only trust over a connection it can authenticate (see below). Targets that relied
+  on validating the caller's bearer token themselves must switch to the identity headers.
+- **Callers must authenticate to kcp.** Requests the shard cannot authenticate are rejected before they
+  are forwarded; anonymous callers, where anonymous authentication is enabled, are forwarded without
+  identity headers.
+- **Callers must be able to see the mount.** The caller needs `get` on the mount's Workspace object in
+  the parent workspace, otherwise the request is rejected with `403`.
+- **Impersonation is not supported** for mounted workspaces and is rejected with `403`.
+- **Loops are bounded.** A mount target may be kcp itself, which is how a workspace is mounted onto
+  another workspace, so a mount can be pointed at a path that resolves back to a mount. kcp counts the
+  mount hops a request has taken in the `X-Kcp-Mount-Hops` header and refuses a request that has taken
+  too many with `508 Loop Detected`. A short chain of mounted workspaces still works. The header is
+  replaced on every hop, so a value sent by a client is ignored. Components that are never a legitimate
+  mount target, such as the cache server, reject any request carrying that header outright.
+- **Targets must serve https** and present a certificate the shard trusts: either one chaining to the
+  system roots or to the bundle given with `--mount-proxy-server-ca-file`. TLS verification cannot be
+  disabled. `status.URL` values that are not `https://`, carry user info, a query or a fragment are
+  rejected by the controller and by admission, and are never routed. A `spec.URL` written before these
+  rules existed is not routed either, but it does not make the workspace unwritable: it can still be
+  fixed, cleared or deleted, and only a *change* to another unacceptable value is rejected.
+- **The shard identifies itself to the target** with the client certificate given with
+  `--mount-proxy-client-cert-file` and `--mount-proxy-client-key-file`, if configured. For targets
+  inside kcp (e.g. the front proxy) this is a certificate signed by the requestheader CA, so the target
+  trusts the identity headers; external targets should verify this certificate before trusting them.
 
 ### Controllers and Management
 
@@ -232,7 +282,10 @@ The workspace mounts controller (`kcp-workspace-mounts`) manages the integration
 - Mount references are immutable after workspace creation
 - Only mount objects in `Ready` phase will serve traffic
 - The external proxy must be properly configured and accessible
-- Authentication and authorization are handled by the external proxy, not by kcp
+- Authentication is handled by kcp; the external proxy receives the caller's identity in the request-header
+  identity headers and never the caller's credentials. Authorization within the mounted API is handled by
+  the external proxy, kcp only checks that the caller may `get` the mount's Workspace object.
+- `status.URL` must be `https://` and the target certificate must be trusted by the shards
 - Workspace mounts do not filter kubernetes view. If filtering is required, it must be implemented in the external proxy.
 
 
