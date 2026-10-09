@@ -84,7 +84,12 @@ The syntax uses semicolons (`;`) to separate OR conditions and commas (`,`) to s
 For example, `<group1>,<group2>;<group3>` means that a user must be a member of both `<group1>` AND `<group2>`, OR be a member of `<group3>`.
 
 The annotation is copied onto sub-workspaces during workspace creation, but is then not updated
-automatically if it's changed.
+automatically if it's changed. On the LogicalCluster itself the annotation can only be modified
+by system identities.
+
+Service accounts of the accessed workspace itself are exempt from this check; service accounts
+from other workspaces (as well as tokens scoped to another workspace) are subject to it like
+any other user.
 
 #### Workspace Content Authorizer
 
