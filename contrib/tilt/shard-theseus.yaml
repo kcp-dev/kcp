@@ -12,6 +12,10 @@ spec:
   extraArgs:
     # Shared single etcd: isolate this shard's keyspace with a distinct prefix.
     - --etcd-prefix=/shard/theseus
+    - --feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true
+  auth:
+    serviceAccount:
+      enabled: true
   shardBaseURL: https://theseus.kcp.localhost:8443
   external:
     hostname: kcp.localhost
