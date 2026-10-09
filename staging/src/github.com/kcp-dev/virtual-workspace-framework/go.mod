@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/emicklei/go-restful/v3 v3.13.0
 	github.com/go-logr/logr v1.4.3
+	github.com/google/gnostic-models v0.7.1
 	github.com/google/go-cmp v0.7.0
 	github.com/kcp-dev/apimachinery/v2 v2.31.2-0.20260505083940-abda469632ba
 	github.com/kcp-dev/client-go v0.28.1-0.20260511140521-487de9552c40
@@ -62,7 +63,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/cel-go v0.28.0 // indirect
-	github.com/google/gnostic-models v0.7.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0 // indirect
