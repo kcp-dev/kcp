@@ -322,6 +322,61 @@ func replicateWorkspaceTypeNegativeScenario(ctx context.Context, t *testing.T, s
 	)
 }
 
+// replicateWorkspaceAuthenticationConfigurationScenario tests if a WorkspaceAuthenticationConfiguration is propagated to the cache server.
+func replicateWorkspaceAuthenticationConfigurationScenario(ctx context.Context, t *testing.T, server kcptestingserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+	t.Helper()
+	replicateResource(ctx,
+		t,
+		server,
+		kcpShardClusterDynamicClient,
+		cacheKcpClusterDynamicClient,
+		"",
+		"WorkspaceAuthenticationConfiguration",
+		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaceauthenticationconfigurations"),
+		&tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+			ObjectMeta: metav1.ObjectMeta{Name: withPseudoRandomSuffix("replicate-wac")},
+			Spec:       testWorkspaceAuthenticationConfigurationSpec("https://example.com"),
+		},
+		&tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+			Spec: testWorkspaceAuthenticationConfigurationSpec("https://example.org"),
+		},
+	)
+}
+
+// replicateWorkspaceAuthenticationConfigurationNegativeScenario checks if modified or even deleted cached WorkspaceAuthenticationConfiguration will be reconciled to match the original object.
+func replicateWorkspaceAuthenticationConfigurationNegativeScenario(ctx context.Context, t *testing.T, server kcptestingserver.RunningServer, kcpShardClusterDynamicClient kcpdynamic.ClusterInterface, cacheKcpClusterDynamicClient kcpdynamic.ClusterInterface) {
+	t.Helper()
+	replicateResourceNegative(
+		ctx,
+		t,
+		server,
+		kcpShardClusterDynamicClient,
+		cacheKcpClusterDynamicClient,
+		"",
+		"WorkspaceAuthenticationConfiguration",
+		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspaceauthenticationconfigurations"),
+		&tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+			ObjectMeta: metav1.ObjectMeta{Name: withPseudoRandomSuffix("replicate-wac-negative")},
+			Spec:       testWorkspaceAuthenticationConfigurationSpec("https://example.com"),
+		},
+		&tenancyv1alpha1.WorkspaceAuthenticationConfiguration{
+			Spec: testWorkspaceAuthenticationConfigurationSpec("https://example.org"),
+		},
+	)
+}
+
+func testWorkspaceAuthenticationConfigurationSpec(issuerURL string) tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec {
+	return tenancyv1alpha1.WorkspaceAuthenticationConfigurationSpec{
+		JWT: []tenancyv1alpha1.JWTAuthenticator{{
+			Issuer: tenancyv1alpha1.Issuer{URL: issuerURL},
+			ClaimMappings: tenancyv1alpha1.ClaimMappings{
+				Username: tenancyv1alpha1.PrefixedClaimOrExpression{Claim: "email"},
+				Groups:   tenancyv1alpha1.PrefixedClaimOrExpression{Claim: "groups"},
+			},
+		}},
+	}
+}
+
 // replicateResource tests if the given resource is propagated to the cache server.
 // The test exercises creation, modification and removal of the resource.
 //
@@ -452,6 +507,8 @@ func TestReplication(t *testing.T) {
 		{"APIResourceSchemaNegative", replicateAPIResourceSchemaNegativeScenario},
 		{"WorkspaceType", replicateWorkspaceTypeScenario},
 		{"WorkspaceTypeNegative", replicateWorkspaceTypeNegativeScenario},
+		{"WorkspaceAuthenticationConfiguration", replicateWorkspaceAuthenticationConfigurationScenario},
+		{"WorkspaceAuthenticationConfigurationNegative", replicateWorkspaceAuthenticationConfigurationNegativeScenario},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {

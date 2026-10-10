@@ -107,6 +107,11 @@ func (c *TTLCache[V]) OnEviction(fn func(value V)) func() {
 	})
 }
 
+// Delete removes key and runs the eviction callbacks for its value.
+func (c *TTLCache[V]) Delete(key string) {
+	c.ttl.Delete(key)
+}
+
 // Get returns the value for key.
 // If the key is cached within the TTL the cached value is returned but
 // the TTL is not refreshed to prevent frequently used items from living

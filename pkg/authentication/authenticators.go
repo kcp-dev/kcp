@@ -27,7 +27,6 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/index"
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 func NewStandaloneWorkspaceAuthenticator(clusterIndex *index.State, authIndex AuthenticatorIndex) authenticator.Request {
@@ -62,17 +61,6 @@ func NewStandaloneWorkspaceAuthenticator(clusterIndex *index.State, authIndex Au
 	})
 }
 
-func NewWorkspaceAuthenticator() authenticator.Request {
-	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
-		reqAuthenticator, ok := WorkspaceAuthenticatorFrom(req.Context())
-		if !ok {
-			return nil, false, nil
-		}
-
-		return reqAuthenticator.AuthenticateRequest(req)
-	})
-}
-
 func withClusterScope(delegate authenticator.Request) authenticator.Request {
 	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
 		response, authenticated, ok := delegate.AuthenticateRequest(req)
@@ -80,25 +68,10 @@ func withClusterScope(delegate authenticator.Request) authenticator.Request {
 			return response, authenticated, ok
 		}
 
-		// withClusterScope is used both in the front-proxy and shards.
-		// Both set the cluster name on different context keys due to
-		// differing handler chains and middlewares.
-		//
-		// On top of that, synthetic requests like a TokenReview may
-		// pass through the authentication chain with the cluster only on
-		// the context key from the request package, not the lookup
-		// package.
-		//
-		// To handle both front-proxy and shards both .ClusterNameFrom
-		// functions are checked.
-		cluster := lookup.ClusterNameFrom(req.Context())
-		if cluster.Empty() {
-			var err error
-			cluster, err = request.ClusterNameFrom(req.Context())
-			if err != nil {
-				klog.FromContext(req.Context()).Error(err, "withClusterScope: no cluster name found in lookup or request context; skipping scope extras")
-				return response, authenticated, ok
-			}
+		cluster, err := request.ClusterNameFrom(req.Context())
+		if err != nil {
+			klog.FromContext(req.Context()).Error(err, "withClusterScope: no cluster name found in request context; skipping scope extras")
+			return response, authenticated, ok
 		}
 
 		extra := response.User.GetExtra()

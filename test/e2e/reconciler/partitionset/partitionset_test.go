@@ -50,7 +50,7 @@ func TestPartitionSet(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	server := kcptesting.SharedKcpServer(t)
+	server := kcptesting.PrivateKcpServer(t)
 
 	// Create organization and workspace.
 	// Organizations help with multiple runs.
@@ -293,7 +293,7 @@ func TestPartitionSetAdmission(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	server := kcptesting.SharedKcpServer(t)
+	server := kcptesting.PrivateKcpServer(t)
 
 	// Create organization and workspace.
 	// Organizations help with multiple runs.
