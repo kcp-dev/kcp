@@ -30,6 +30,16 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
+func newTestController() *controller {
+	return &controller{
+		readyAPIExports: make(map[string]struct{}),
+	}
+}
+
+func cond(condType conditionsv1alpha1.ConditionType, status corev1.ConditionStatus) conditionsv1alpha1.Condition {
+	return conditionsv1alpha1.Condition{Type: condType, Status: status}
+}
+
 func exportWithCreation(cluster, name string, created time.Time, conds ...conditionsv1alpha1.Condition) *apisv1alpha2.APIExport {
 	return &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{

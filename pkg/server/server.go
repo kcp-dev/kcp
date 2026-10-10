@@ -64,6 +64,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
+	kcpmetrics "github.com/kcp-dev/kcp/pkg/server/metrics"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	"github.com/kcp-dev/kcp/pkg/server/virtualresources"
 
@@ -764,6 +765,17 @@ func (s *Server) Run(ctx context.Context) error {
 	if err := s.installObjectCountScanner(ctx); err != nil {
 		return err
 	}
+
+	// The usage gauges are computed from the shard-local informers whenever
+	// metrics are scraped, so that they are reported by every replica and do
+	// not depend on which replica currently runs the controllers.
+	kcpmetrics.RegisterUsageInformers(
+		s.Options.Extra.ShardName,
+		s.KcpSharedInformerFactory.Tenancy().V1alpha1().Workspaces(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+	)
 
 	if err := s.AddPostStartHook("kcp-start-controllers", func(hookContext genericapiserver.PostStartHookContext) error {
 		logger := klog.FromContext(ctx).WithValues("postStartHook", "kcp-start-controllers")
