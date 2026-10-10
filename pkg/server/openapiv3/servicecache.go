@@ -308,7 +308,7 @@ func (a byClusterAndName) Len() int      { return len(a) }
 func (a byClusterAndName) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a byClusterAndName) Less(i, j int) bool {
 	_, aBound := a[i].Annotations[BoundAnnotationKey]
-	_, bBound := a[i].Annotations[BoundAnnotationKey]
+	_, bBound := a[j].Annotations[BoundAnnotationKey]
 	if aBound && !bBound {
 		return true
 	}
