@@ -61,13 +61,14 @@ func NewController(
 		clusterRoleBindingInformer,
 	)
 
-	// requeue all ClusterRoles when a LogicalCluster changes replication status
+	// requeue the ClusterRoles of a LogicalCluster when it changes replication status.
+	// Whether a ClusterRole is replicated only depends on the LogicalCluster it lives in.
 	_, _ = logicalClusterInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.FilteringResourceEventHandler{
 		FilterFunc: replication.IsNoSystemClusterName,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				cluster := obj.(*corev1alpha1.LogicalCluster)
-				c.EnqueueClusterRoles("reason", "LogicalCluster added", "logicalcluster", logicalcluster.From(cluster).String())
+				c.EnqueueClusterRoles(logicalcluster.From(cluster), "reason", "LogicalCluster added", "logicalcluster", logicalcluster.From(cluster).String())
 			},
 			UpdateFunc: func(old, obj interface{}) {
 				oldCluster, ok := old.(*corev1alpha1.LogicalCluster)
@@ -79,7 +80,7 @@ func NewController(
 					return
 				}
 				if (oldCluster.Annotations[core.ReplicateAnnotationKey] == "") != (newCluster.Annotations[core.ReplicateAnnotationKey] == "") {
-					c.EnqueueClusterRoles("reason", "LogicalCluster changed replication status", "logicalcluster", logicalcluster.From(newCluster).String())
+					c.EnqueueClusterRoles(logicalcluster.From(newCluster), "reason", "LogicalCluster changed replication status", "logicalcluster", logicalcluster.From(newCluster).String())
 				}
 			},
 		},
