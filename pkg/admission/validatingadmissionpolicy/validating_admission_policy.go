@@ -46,6 +46,7 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 
+	"github.com/kcp-dev/kcp/pkg/admission/clusterannotation"
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
@@ -184,6 +185,10 @@ func (k *KubeValidatingAdmissionPolicy) Validate(ctx context.Context, a admissio
 	delegate, err := k.getOrCreateDelegate(sourceCluster, cluster.Name)
 	if err != nil {
 		return err
+	}
+
+	if undo := clusterannotation.Stamp(a, cluster.Name); undo != nil {
+		defer undo()
 	}
 
 	return delegate.Validate(ctx, a, o)
