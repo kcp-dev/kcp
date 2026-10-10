@@ -29,6 +29,7 @@ import (
 	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v3"
 	client "github.com/kcp-dev/sdk/client/clientset/versioned"
+	adminv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/admin/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/cache/v1alpha1"
@@ -41,6 +42,7 @@ import (
 type ClusterInterface interface {
 	Cluster(logicalcluster.Path) client.Interface
 	Discovery() discovery.DiscoveryInterface
+	AdminV1alpha1() adminv1alpha1.AdminV1alpha1ClusterInterface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1ClusterInterface
 	ApisV1alpha2() apisv1alpha2.ApisV1alpha2ClusterInterface
 	CacheV1alpha1() cachev1alpha1.CacheV1alpha1ClusterInterface
@@ -54,6 +56,7 @@ type ClusterInterface interface {
 type ClusterClientset struct {
 	*discovery.DiscoveryClient
 	clientCache       kcpclient.Cache[*client.Clientset]
+	adminV1alpha1     *adminv1alpha1.AdminV1alpha1ClusterClient
 	apisV1alpha1      *apisv1alpha1.ApisV1alpha1ClusterClient
 	apisV1alpha2      *apisv1alpha2.ApisV1alpha2ClusterClient
 	cacheV1alpha1     *cachev1alpha1.CacheV1alpha1ClusterClient
@@ -69,6 +72,11 @@ func (c *ClusterClientset) Discovery() discovery.DiscoveryInterface {
 		return nil
 	}
 	return c.DiscoveryClient
+}
+
+// AdminV1alpha1 retrieves the AdminV1alpha1ClusterClient.
+func (c *ClusterClientset) AdminV1alpha1() adminv1alpha1.AdminV1alpha1ClusterInterface {
+	return c.adminV1alpha1
 }
 
 // ApisV1alpha1 retrieves the ApisV1alpha1ClusterClient.
@@ -158,6 +166,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 	var cs ClusterClientset
 	cs.clientCache = cache
 	var err error
+	cs.adminV1alpha1, err = adminv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.apisV1alpha1, err = apisv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -207,6 +219,7 @@ func NewForConfigOrDie(c *rest.Config) *ClusterClientset {
 // New creates a new ClusterClientset for the given RESTClient.
 func New(c *rest.Config) *ClusterClientset {
 	var cs ClusterClientset
+	cs.adminV1alpha1 = adminv1alpha1.NewForConfigOrDie(c)
 	cs.apisV1alpha1 = apisv1alpha1.NewForConfigOrDie(c)
 	cs.apisV1alpha2 = apisv1alpha2.NewForConfigOrDie(c)
 	cs.cacheV1alpha1 = cachev1alpha1.NewForConfigOrDie(c)

@@ -893,6 +893,8 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			c.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 			c.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 			c.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+			c.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources(),
+			c.CacheKcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources(),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create config for virtual resources server: %v", err)

@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	apiextensionshelpers "k8s.io/apiextensions-apiserver/pkg/apihelpers"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,14 +35,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+	"k8s.io/streaming/pkg/httpstream"
 	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/hops"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
@@ -49,6 +53,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/endpointslice"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/apiexportreference"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
 )
@@ -71,6 +77,7 @@ type Server struct {
 	delegate         http.Handler
 
 	getCRD                       func(cluster logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	listClusterCachedResources   func(cluster logicalcluster.Name) ([]*cachev1alpha1.ClusterCachedResource, error)
 	getUnstructuredEndpointSlice func(ctx context.Context, cluster logicalcluster.Name, shard shard.Name, gvr schema.GroupVersionResource, name string) (*unstructured.Unstructured, error)
 	getAPIExportByPath           func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 }
@@ -90,6 +97,18 @@ func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTa
 		},
 		getCRD: func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 			return c.Extra.CRDLister.Lister().Cluster(clusterName).Get(name)
+		},
+		listClusterCachedResources: func(clusterName logicalcluster.Name) ([]*cachev1alpha1.ClusterCachedResource, error) {
+			local, err := c.Extra.LocalClusterCachedResourceInformer.Lister().Cluster(clusterName).List(labels.Everything())
+			if err != nil {
+				return nil, err
+			}
+			if len(local) > 0 {
+				return local, nil
+			}
+			// The APIExport is not on this shard, so its ClusterCachedResources
+			// are only here as replicas.
+			return c.Extra.GlobalClusterCachedResourceInformer.Lister().Cluster(clusterName).List(labels.Everything())
 		},
 		getAPIExportByPath: func(clusterPath logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](
@@ -190,21 +209,34 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var crdName string
+	var (
+		crdName              string
+		parentUsesCRDStorage bool
+	)
 	for _, boundResource := range apiBinding.Status.BoundResources {
 		if boundResource.Group == gr.Group && boundResource.Resource == gr.Resource {
 			crdName = boundResource.Schema.UID
 
-			if len(boundResource.StorageVersions) > 0 {
-				// Virtual resources have zero storage versions, because they don't
-				// use CRD storage. This resource is definitely not a VR.
-				s.delegate.ServeHTTP(w, r)
-				return
-			}
+			// Virtual resources have zero storage versions, because they don't use
+			// CRD storage. Storage versions therefore mean the parent object lives in
+			// etcd -- but a custom subresource of it may still be served by a virtual
+			// workspace, so this rules out treating the parent as virtual and nothing
+			// more.
+			parentUsesCRDStorage = len(boundResource.StorageVersions) > 0
 
 			break
 		}
 	}
+
+	// When the parent is in etcd, only a custom subresource can still be served
+	// elsewhere. The parent itself, and the subresources belonging to its own shape,
+	// leave here without resolving the bound CRD or the APIExport -- which is what
+	// keeps every ordinary status and scale write on the path it took before.
+	if parentUsesCRDStorage && !requestsCustomSubresource(requestInfo.Subresource) {
+		s.delegate.ServeHTTP(w, r)
+		return
+	}
+
 	if crdName == "" {
 		// This should not happen, the indexers returned a binding for this specific GR.
 		responsewriters.ErrorNegotiated(
@@ -256,17 +288,17 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var virtualStorage *apisv1alpha2.ResourceSchemaStorageVirtual
-	for _, resource := range apiExport.Spec.Resources {
-		if resource.Storage.Virtual != nil &&
-			resource.Group == gr.Group &&
-			resource.Name == gr.Resource {
-			virtualStorage = resource.Storage.Virtual
-			break
-		}
+	// A custom subresource is looked up as its own entry. status and scale belong to
+	// the object's shape, so they follow the parent to wherever the parent is served.
+	lookupSubresource := ""
+	if requestsCustomSubresource(requestInfo.Subresource) {
+		lookupSubresource = requestInfo.Subresource
 	}
+
+	virtualStorage := resolveVirtualStorage(apiExport, gr, lookupSubresource)
 	if virtualStorage == nil {
-		// Not a virtual resource: the binding's export doesn't define such resource with virtual storage.
+		// Neither this resource nor the subresource it names is served elsewhere: the
+		// binding's export declares no virtual storage for it.
 		s.delegate.ServeHTTP(w, r)
 		return
 	}
@@ -296,7 +328,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	if apiExportShard.Empty() {
 		apiExportShard = shard.New(s.Extra.ShardName)
 	}
-	vrEndpointURL, err := s.getVirtualResourceURL(ctx, logicalcluster.From(apiExport), apiExportShard, virtualStorage)
+	vrEndpointURL, err := s.getVirtualResourceURL(ctx, logicalcluster.From(apiExport), apiExport.Name, apiExportShard, virtualStorage)
 	if err != nil {
 		utilruntime.HandleError(err)
 		if deserializeErr, ok := err.(*endpointslice.DeserializeError); ok {
@@ -315,7 +347,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vrHandler, err := newVirtualResourceHandler(s.Extra.VWClientConfig, vrEndpointURL, clusterNameOrWildcard.String(), inboundHops)
+	vrHandler, err := newVirtualResourceHandler(s.Extra.VWClientConfig, vrEndpointURL, clusterNameOrWildcard.String(), inboundHops, httpstream.IsUpgradeRequest(r))
 	if err != nil {
 		utilruntime.HandleError(err)
 		responsewriters.ErrorNegotiated(
@@ -328,20 +360,13 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	vrHandler.ServeHTTP(w, r)
 }
 
-func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster logicalcluster.Name, apiExportShard shard.Name, virtual *apisv1alpha2.ResourceSchemaStorageVirtual) (string, error) {
-	sliceMapping, err := s.drm.ForCluster(apiExportCluster).RESTMapping(schema.GroupKind{
-		Group: ptr.Deref(virtual.Reference.APIGroup, ""),
-		Kind:  virtual.Reference.Kind,
-	})
+func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster logicalcluster.Name, apiExportName string, apiExportShard shard.Name, virtual *apisv1alpha2.ResourceSchemaStorageVirtual) (string, error) {
+	gvr, err := s.resolveReferenceGVR(apiExportCluster, apiExportName, virtual.Reference)
 	if err != nil {
 		return "", err
 	}
 
-	slice, err := s.getUnstructuredEndpointSlice(ctx, apiExportCluster, apiExportShard, schema.GroupVersionResource{
-		Group:    sliceMapping.Resource.Group,
-		Version:  sliceMapping.Resource.Version,
-		Resource: sliceMapping.Resource.Resource,
-	}, virtual.Reference.Name)
+	slice, err := s.getUnstructuredEndpointSlice(ctx, apiExportCluster, apiExportShard, gvr, virtual.Reference.Name)
 	if err != nil {
 		return "", err
 	}
@@ -357,6 +382,58 @@ func (s *Server) getVirtualResourceURL(ctx context.Context, apiExportCluster log
 	}
 
 	return endpointslice.PickURL(s.Extra.ShardVirtualWorkspaceURLGetter(), shardLabels, endpoints)
+}
+
+// resolveReferenceGVR turns the kind an APIExport reference names into the
+// resource to fetch it as.
+//
+// The obvious way to do this is a RESTMapper for the APIExport's logical
+// cluster, and that is what this used to do. It only works when the APIExport
+// is on the shard serving the request: the referenced type is typically a plain
+// CustomResourceDefinition in the provider's own workspace, and CRDs are not
+// replicated, so a shard has no mappings for a logical cluster it does not
+// serve. Every custom subresource of an APIExport bound across a shard boundary
+// therefore failed with "no matches for kind", before any endpoint was looked
+// up.
+//
+// The resolution has already been done, though, on the shard that does hold the
+// APIExport: the apiexportreference controller resolves each reference there and
+// records the result in a ClusterCachedResource, which IS replicated -- and the
+// clustercachedresources controller annotates that object with the kind it
+// resolved to, for the cache server's own CRD lister. So the mapping a foreign
+// shard needs is already published; read it from there, and keep the RESTMapper
+// as a fallback for the window before that object exists.
+func (s *Server) resolveReferenceGVR(apiExportCluster logicalcluster.Name, apiExportName string, ref corev1.TypedLocalObjectReference) (schema.GroupVersionResource, error) {
+	group := ptr.Deref(ref.APIGroup, "")
+
+	cachedResources, err := s.listClusterCachedResources(apiExportCluster)
+	if err != nil {
+		return schema.GroupVersionResource{}, err
+	}
+	for _, cachedResource := range cachedResources {
+		if cachedResource.Annotations[apiexportreference.AnnotationReferencedBy] != apiExportName ||
+			cachedResource.Annotations[clustercachedresources.AnnotationResourceKind] != ref.Kind ||
+			cachedResource.Spec.Group != group {
+			continue
+		}
+		// A ClusterCachedResource standing in for a reference caches exactly the
+		// object that was referenced, so the name has to match too: two
+		// references can share a kind and differ only in which object they name.
+		if !sets.New(cachedResource.Spec.Names...).Has(ref.Name) {
+			continue
+		}
+		return schema.GroupVersionResource{
+			Group:    cachedResource.Spec.Group,
+			Version:  cachedResource.Spec.Version,
+			Resource: cachedResource.Spec.Resource,
+		}, nil
+	}
+
+	mapping, err := s.drm.ForCluster(apiExportCluster).RESTMapping(schema.GroupKind{Group: group, Kind: ref.Kind})
+	if err != nil {
+		return schema.GroupVersionResource{}, err
+	}
+	return mapping.Resource, nil
 }
 
 func (s *Server) getAPIBindingForRequest(
@@ -396,10 +473,23 @@ func (s *Server) getAPIBindingForRequest(
 	return nil, nil
 }
 
-func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard string, inboundHops int) (http.Handler, error) {
+func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard string, inboundHops int, isUpgrade bool) (http.Handler, error) {
 	scopedURL, err := url.Parse(virtualResourceURLWithCluster(vwURL, clusterNameOrWildcard))
 	if err != nil {
 		return nil, err
+	}
+
+	if isUpgrade {
+		// ReverseProxy tunnels an HTTP/1.1 protocol upgrade, but only over a
+		// connection that is actually HTTP/1.1. If the transport negotiates HTTP/2
+		// with the virtual workspace, the Upgrade header is dropped and a streaming
+		// subresource fails in a way that looks like the backend refusing it.
+		//
+		// This is decided from the request rather than from the declaration: the
+		// client asking to upgrade is exactly the condition under which HTTP/2
+		// breaks, and it needs no field on the API to say so.
+		cfg = rest.CopyConfig(cfg)
+		cfg.NextProtos = []string{"http/1.1"}
 	}
 
 	tr, err := rest.TransportFor(cfg)
@@ -443,4 +533,40 @@ func virtualResourceURLWithCluster(vwURL, clusterNameOrWildcard string) string {
 	// E.g.:
 	//     /services/replication/1oget0q1249b2vcy/sheriffs/clusters/385doly4poks8a45/apis/wildwest.dev/v1alpha1/sheriffs
 	return fmt.Sprintf("%s/clusters/%s", vwURL, clusterNameOrWildcard)
+}
+
+// resolveVirtualStorage decides which virtual workspace, if any, serves a request.
+//
+// A custom subresource is an entry in its own right, named "<resource>/<subresource>"
+// in the style of an RBAC rule, and it is resolved before the parent's storage
+// because the two are independent: "virtualmachines/ssh" may be served remotely
+// while the object it hangs off stays in etcd. status and scale are never declared
+// that way, so they keep following the parent as they always have.
+//
+// The caller decides whether the request names a custom subresource; passing an
+// empty subresource asks for whatever serves the resource itself.
+func resolveVirtualStorage(apiExport *apisv1alpha2.APIExport, gr schema.GroupResource, subresource string) *apisv1alpha2.ResourceSchemaStorageVirtual {
+	name := gr.Resource
+	if subresource != "" {
+		name += "/" + subresource
+	}
+
+	for i := range apiExport.Spec.Resources {
+		resource := &apiExport.Spec.Resources[i]
+		if resource.Group == gr.Group && resource.Name == name {
+			return resource.Storage.Virtual
+		}
+	}
+
+	return nil
+}
+
+// requestsCustomSubresource reports whether a request names a subresource that
+// something other than the resource's own storage could serve.
+//
+// A request for the resource itself never does. Nor does one for status or scale:
+// those belong to the object's shape, so they are served wherever the resource is,
+// and admission refuses a custom subresource that takes either name.
+func requestsCustomSubresource(subresource string) bool {
+	return subresource != "" && !apisv1alpha2.IsSchemaOwnedSubresource(subresource)
 }

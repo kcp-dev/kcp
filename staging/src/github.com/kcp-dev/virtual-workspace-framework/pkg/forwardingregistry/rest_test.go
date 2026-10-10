@@ -34,6 +34,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/registry/customresource/tableconvertor"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -57,6 +58,16 @@ import (
 var noxusGVR = schema.GroupVersionResource{Group: "mygroup.example.com", Resource: "noxus", Version: "v1beta1"}
 
 func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExportIdentityHash string, patchConflictRetryBackoff *wait.Backoff) (mainStorage, statusStorage, scaleStorage rest.Storage) {
+	t.Helper()
+
+	var identities forwardingregistry.IdentityHashesFunc
+	if apiExportIdentityHash != "" {
+		identities = func(context.Context) []string { return []string{apiExportIdentityHash} }
+	}
+	return newStorageWithIdentities(t, clusterClient, identities, patchConflictRetryBackoff)
+}
+
+func newStorageWithIdentities(t *testing.T, clusterClient kcpdynamic.ClusterInterface, identities forwardingregistry.IdentityHashesFunc, patchConflictRetryBackoff *wait.Backoff) (mainStorage, statusStorage, scaleStorage rest.Storage) {
 	t.Helper()
 
 	gvr := noxusGVR
@@ -94,10 +105,10 @@ func newStorage(t *testing.T, clusterClient kcpdynamic.ClusterInterface, apiExpo
 	ctx, cancelFn := context.WithCancel(context.Background())
 	t.Cleanup(cancelFn)
 
-	return forwardingregistry.NewStorage(
+	return forwardingregistry.NewStorageWithIdentities(
 		ctx,
 		gvr,
-		apiExportIdentityHash,
+		identities,
 		kind,
 		listKind,
 		customresource.NewStrategy(
@@ -327,6 +338,239 @@ func TestWildcardWatchWithPIExportIdentity(t *testing.T) {
 
 	require.Len(t, fakeClient.Actions(), 1)
 	require.Equal(t, "noxus:apiExportIdentityHash", fakeClient.Actions()[0].GetResource().Resource)
+}
+
+// identityListReactor answers a list on the given resource with the given
+// items and list resourceVersion.
+func identityListReactor(resourceVersion string, items ...runtime.Object) kcptesting.ReactionFunc {
+	return func(action kcptesting.Action) (bool, runtime.Object, error) {
+		list := &unstructured.UnstructuredList{}
+		list.SetResourceVersion(resourceVersion)
+		for _, item := range items {
+			list.Items = append(list.Items, *item.(*unstructured.Unstructured).DeepCopy())
+		}
+		return true, list, nil
+	}
+}
+
+func newMultiIdentityFakeClient(t *testing.T) *kcpfakedynamic.FakeDynamicClusterClientset {
+	t.Helper()
+	return kcpfakedynamic.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			noxusGVR: "NoxuList",
+			noxusGVR.GroupVersion().WithResource("noxus:hash1"): "NoxuList",
+			noxusGVR.GroupVersion().WithResource("noxus:hash2"): "NoxuList",
+		})
+}
+
+func listedResources(fakeClient *kcpfakedynamic.FakeDynamicClusterClientset) []string {
+	actions := fakeClient.Actions()
+	resources := make([]string, 0, len(actions))
+	for _, action := range actions {
+		resources = append(resources, action.GetResource().Resource)
+	}
+	return resources
+}
+
+func TestWildcardListWithMultipleIdentities(t *testing.T) {
+	t.Parallel()
+	hash1Resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
+	hash2Resources := []runtime.Object{createResource("default", "bar")}
+	fakeClient := newMultiIdentityFakeClient(t)
+	fakeClient.PrependReactor("list", "noxus:hash1", identityListReactor("100", hash1Resources...))
+	fakeClient.PrependReactor("list", "noxus:hash2", identityListReactor("250", hash2Resources...))
+
+	storage, _, _ := newStorageWithIdentities(t, fakeClient, func(context.Context) []string { return []string{"hash1", "hash2"} }, nil)
+	ctx := request.WithNamespace(context.Background(), "")
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
+	lister := storage.(rest.Lister)
+
+	expected := append(append([]runtime.Object{}, hash1Resources...), hash2Resources...)
+	for _, options := range []*internalversion.ListOptions{
+		{},
+		{Limit: 1},
+		{Continue: "some-token"},
+	} {
+		fakeClient.ClearActions()
+		result, err := lister.List(ctx, options)
+		require.NoError(t, err)
+		require.IsType(t, &unstructured.UnstructuredList{}, result)
+		list := result.(*unstructured.UnstructuredList)
+		require.Len(t, list.Items, len(expected), "options %+v", options)
+		for i, resource := range expected {
+			resource := *resource.(*unstructured.Unstructured)
+			require.Truef(t, apiequality.Semantic.DeepEqual(resource, list.Items[i]), "expected:\n%v\nactual:\n%v", resource, list.Items[i])
+		}
+		require.Equal(t, "250", list.GetResourceVersion(), "should return the largest resourceVersion across identities")
+		require.Empty(t, list.GetContinue(), "should not paginate across identities")
+		require.Nil(t, list.GetRemainingItemCount())
+		require.Equal(t, []string{"noxus:hash1", "noxus:hash2"}, listedResources(fakeClient))
+	}
+}
+
+func TestWildcardListWithNoIdentities(t *testing.T) {
+	t.Parallel()
+	fakeClient := newMultiIdentityFakeClient(t)
+	storage, _, _ := newStorageWithIdentities(t, fakeClient, func(context.Context) []string { return nil }, nil)
+	ctx := request.WithNamespace(context.Background(), "")
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
+
+	result, err := storage.(rest.Lister).List(ctx, &internalversion.ListOptions{})
+	require.NoError(t, err)
+	require.IsType(t, &unstructured.UnstructuredList{}, result)
+	require.Empty(t, result.(*unstructured.UnstructuredList).Items)
+	require.Empty(t, fakeClient.Actions(), "should not call the shard when no identity is served")
+}
+
+func TestWildcardListWithOneIdentityNotFound(t *testing.T) {
+	t.Parallel()
+	hash1Resources := []runtime.Object{createResource("default", "foo"), createResource("default", "foo2")}
+	fakeClient := newMultiIdentityFakeClient(t)
+	fakeClient.PrependReactor("list", "noxus:hash1", identityListReactor("100", hash1Resources...))
+	fakeClient.PrependReactor("list", "noxus:hash2", func(action kcptesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.NewNotFound(action.GetResource().GroupResource(), "")
+	})
+
+	storage, _, _ := newStorageWithIdentities(t, fakeClient, func(context.Context) []string { return []string{"hash1", "hash2"} }, nil)
+	ctx := request.WithNamespace(context.Background(), "")
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
+
+	result, err := storage.(rest.Lister).List(ctx, &internalversion.ListOptions{})
+	require.NoError(t, err)
+	require.IsType(t, &unstructured.UnstructuredList{}, result)
+	list := result.(*unstructured.UnstructuredList)
+	require.Len(t, list.Items, len(hash1Resources))
+	for i, resource := range hash1Resources {
+		resource := *resource.(*unstructured.Unstructured)
+		require.Truef(t, apiequality.Semantic.DeepEqual(resource, list.Items[i]), "expected:\n%v\nactual:\n%v", resource, list.Items[i])
+	}
+	require.Equal(t, "100", list.GetResourceVersion())
+	require.Equal(t, []string{"noxus:hash1", "noxus:hash2"}, listedResources(fakeClient))
+}
+
+func TestWildcardWatchWithMultipleIdentities(t *testing.T) {
+	t.Parallel()
+	resources := []runtime.Object{createResource("default", "foo"), createResource("default", "bar")}
+	fakeClient := newMultiIdentityFakeClient(t)
+	fakeWatcher1 := watch.NewFake()
+	t.Cleanup(fakeWatcher1.Stop)
+	fakeWatcher2 := watch.NewFake()
+	t.Cleanup(fakeWatcher2.Stop)
+	fakeClient.PrependWatchReactor("noxus:hash1", kcptesting.DefaultWatchReactor(fakeWatcher1, nil))
+	fakeClient.PrependWatchReactor("noxus:hash2", kcptesting.DefaultWatchReactor(fakeWatcher2, nil))
+
+	storage, _, _ := newStorageWithIdentities(t, fakeClient, func(context.Context) []string { return []string{"hash1", "hash2"} }, nil)
+	ctx := request.WithNamespace(context.Background(), "")
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
+
+	watcher, err := storage.(rest.Watcher).Watch(ctx, &internalversion.ListOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"noxus:hash1", "noxus:hash2"}, listedResources(fakeClient))
+
+	receive := func() watch.Event {
+		t.Helper()
+		select {
+		case event, ok := <-watcher.ResultChan():
+			require.True(t, ok, "result channel closed unexpectedly")
+			return event
+		case <-time.After(wait.ForeverTestTimeout):
+			require.Fail(t, "Watch event not received")
+			return watch.Event{}
+		}
+	}
+
+	// Events from either source come out of the single merged watch.
+	fakeWatcher1.Add(resources[0])
+	event := receive()
+	require.Equal(t, watch.Added, event.Type)
+	require.True(t, apiequality.Semantic.DeepEqual(resources[0], event.Object), cmp.Diff(resources[0], event.Object))
+
+	fakeWatcher2.Add(resources[1])
+	event = receive()
+	require.Equal(t, watch.Added, event.Type)
+	require.True(t, apiequality.Semantic.DeepEqual(resources[1], event.Object), cmp.Diff(resources[1], event.Object))
+
+	fakeWatcher1.Modify(resources[0])
+	fakeWatcher2.Delete(resources[1])
+	types := []watch.EventType{receive().Type, receive().Type}
+	require.ElementsMatch(t, []watch.EventType{watch.Modified, watch.Deleted}, types)
+
+	// Stop terminates both sources and closes the merged channel exactly once.
+	watcher.Stop()
+	watcher.Stop()
+	require.True(t, fakeWatcher1.IsStopped())
+	require.True(t, fakeWatcher2.IsStopped())
+	select {
+	case _, ok := <-watcher.ResultChan():
+		require.False(t, ok, "result channel should be closed after Stop")
+	case <-time.After(wait.ForeverTestTimeout):
+		require.Fail(t, "result channel not closed after Stop")
+	}
+}
+
+func TestWildcardWatchStopsWhenContextIsDone(t *testing.T) {
+	t.Parallel()
+	fakeClient := newMultiIdentityFakeClient(t)
+	fakeWatcher1 := watch.NewFake()
+	t.Cleanup(fakeWatcher1.Stop)
+	fakeWatcher2 := watch.NewFake()
+	t.Cleanup(fakeWatcher2.Stop)
+	fakeClient.PrependWatchReactor("noxus:hash1", kcptesting.DefaultWatchReactor(fakeWatcher1, nil))
+	fakeClient.PrependWatchReactor("noxus:hash2", kcptesting.DefaultWatchReactor(fakeWatcher2, nil))
+
+	storage, _, _ := newStorageWithIdentities(t, fakeClient, func(context.Context) []string { return []string{"hash1", "hash2"} }, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	ctx = request.WithNamespace(ctx, "")
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
+
+	watcher, err := storage.(rest.Watcher).Watch(ctx, &internalversion.ListOptions{})
+	require.NoError(t, err)
+
+	cancel()
+	select {
+	case _, ok := <-watcher.ResultChan():
+		require.False(t, ok, "result channel should be closed once the context is done")
+	case <-time.After(wait.ForeverTestTimeout):
+		require.Fail(t, "result channel not closed after context cancellation")
+	}
+	require.True(t, fakeWatcher1.IsStopped())
+	require.True(t, fakeWatcher2.IsStopped())
+}
+
+func TestGetWithIdentities(t *testing.T) {
+	t.Parallel()
+	noxusGVRWithHash1 := noxusGVR.GroupVersion().WithResource("noxus:hash1")
+	fakeClient := newMultiIdentityFakeClient(t)
+	resource := createResource("default", "foo")
+	_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Add(resource)
+	_ = fakeClient.Tracker().Cluster(logicalcluster.NewPath("test")).Create(noxusGVRWithHash1, resource, "default")
+
+	ctx := request.WithNamespace(context.Background(), "default")
+	ctx = request.WithCluster(ctx, request.Cluster{Name: "test"})
+
+	// Several identities: forward without a suffix and let the shard resolve
+	// the identity from the binding in the target cluster.
+	storage, _, _ := newStorageWithIdentities(t, fakeClient, func(context.Context) []string { return []string{"hash1", "hash2"} }, nil)
+	result, err := storage.(rest.Getter).Get(ctx, "foo", &metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Truef(t, apiequality.Semantic.DeepEqual(resource, result), "expected:\n%v\nactual:\n%v", resource, result)
+	require.Equal(t, []string{"noxus"}, listedResources(fakeClient))
+
+	// No identity at all: same.
+	fakeClient.ClearActions()
+	storage, _, _ = newStorageWithIdentities(t, fakeClient, func(context.Context) []string { return nil }, nil)
+	_, err = storage.(rest.Getter).Get(ctx, "foo", &metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []string{"noxus"}, listedResources(fakeClient))
+
+	// Exactly one identity: the suffix is appended as before.
+	fakeClient.ClearActions()
+	storage, _, _ = newStorageWithIdentities(t, fakeClient, func(context.Context) []string { return []string{"hash1"} }, nil)
+	result, err = storage.(rest.Getter).Get(ctx, "foo", &metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Truef(t, apiequality.Semantic.DeepEqual(resource, result), "expected:\n%v\nactual:\n%v", resource, result)
+	require.Equal(t, []string{"noxus:hash1"}, listedResources(fakeClient))
 }
 
 func updateReactor(fakeClient *kcpfakedynamic.FakeDynamicClusterClientset) kcptesting.ReactionFunc {
@@ -605,4 +849,94 @@ func TestWatchNotFoundOnShard(t *testing.T) {
 			}
 		})
 	}
+}
+
+// initialEventsEndBookmark is the bookmark a server sends to close a
+// WatchList's initial list.
+func initialEventsEndBookmark() *unstructured.Unstructured {
+	obj := createResource("", "")
+	obj.SetAnnotations(map[string]string{metav1.InitialEventsAnnotationKey: "true"})
+	return obj
+}
+
+// TestWildcardWatchListWithMultipleIdentities asserts that a WatchList across
+// several identities emits exactly one "initial-events-end" bookmark, and only
+// after every identity has finished its initial list. Forwarding the first
+// source's bookmark would tell the client it is synced while another identity
+// is still sending initial events.
+func TestWildcardWatchListWithMultipleIdentities(t *testing.T) {
+	t.Parallel()
+	fakeClient := newMultiIdentityFakeClient(t)
+	fakeWatcher1 := watch.NewFake()
+	t.Cleanup(fakeWatcher1.Stop)
+	fakeWatcher2 := watch.NewFake()
+	t.Cleanup(fakeWatcher2.Stop)
+	fakeClient.PrependWatchReactor("noxus:hash1", kcptesting.DefaultWatchReactor(fakeWatcher1, nil))
+	fakeClient.PrependWatchReactor("noxus:hash2", kcptesting.DefaultWatchReactor(fakeWatcher2, nil))
+
+	storage, _, _ := newStorageWithIdentities(t, fakeClient, func(context.Context) []string { return []string{"hash1", "hash2"} }, nil)
+	ctx := request.WithNamespace(context.Background(), "")
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
+
+	watcher, err := storage.(rest.Watcher).Watch(ctx, &internalversion.ListOptions{SendInitialEvents: ptr.To(true)})
+	require.NoError(t, err)
+	t.Cleanup(watcher.Stop)
+
+	receive := func() watch.Event {
+		t.Helper()
+		select {
+		case event, ok := <-watcher.ResultChan():
+			require.True(t, ok, "result channel closed unexpectedly")
+			return event
+		case <-time.After(wait.ForeverTestTimeout):
+			require.Fail(t, "Watch event not received")
+			return watch.Event{}
+		}
+	}
+	requireNothingYet := func() {
+		t.Helper()
+		select {
+		case event := <-watcher.ResultChan():
+			require.Failf(t, "unexpected event", "got %v before every identity finished its initial list", event)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+
+	// The first source closing its initial list must not reach the client.
+	fakeWatcher1.Action(watch.Bookmark, initialEventsEndBookmark())
+	requireNothingYet()
+
+	// The last one does, exactly once.
+	fakeWatcher2.Action(watch.Bookmark, initialEventsEndBookmark())
+	event := receive()
+	require.Equal(t, watch.Bookmark, event.Type)
+	accessor, err := meta.Accessor(event.Object)
+	require.NoError(t, err)
+	require.Contains(t, accessor.GetAnnotations(), metav1.InitialEventsAnnotationKey)
+
+	// Ordinary events keep flowing afterwards, and so do later bookmarks.
+	fakeWatcher1.Add(createResource("default", "foo"))
+	require.Equal(t, watch.Added, receive().Type)
+	fakeWatcher2.Action(watch.Bookmark, initialEventsEndBookmark())
+	require.Equal(t, watch.Bookmark, receive().Type)
+}
+
+// TestWildcardWatchListWithNoIdentities asserts that a WatchList gets NotFound
+// rather than an empty watch when the resource is served under no identity
+// here: an empty watch never sends the bookmark the client waits for.
+func TestWildcardWatchListWithNoIdentities(t *testing.T) {
+	t.Parallel()
+	fakeClient := newMultiIdentityFakeClient(t)
+	storage, _, _ := newStorageWithIdentities(t, fakeClient, func(context.Context) []string { return nil }, nil)
+	ctx := request.WithNamespace(context.Background(), "")
+	ctx = request.WithCluster(ctx, request.Cluster{Wildcard: true})
+
+	_, err := storage.(rest.Watcher).Watch(ctx, &internalversion.ListOptions{SendInitialEvents: ptr.To(true)})
+	require.True(t, errors.IsNotFound(err), "expected NotFound for a WatchList with no identities, got %v", err)
+
+	// Without SendInitialEvents the empty watch is still the right answer.
+	watcher, err := storage.(rest.Watcher).Watch(ctx, &internalversion.ListOptions{})
+	require.NoError(t, err)
+	t.Cleanup(watcher.Stop)
+	require.Empty(t, fakeClient.Actions(), "the shard must not be called when nothing is served here")
 }

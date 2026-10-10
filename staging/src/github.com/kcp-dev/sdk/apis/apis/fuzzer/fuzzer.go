@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeserializer "k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/apis/v1alpha2"
@@ -70,6 +71,28 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 						CRD: &v1alpha2.ResourceSchemaStorageCRD{},
 					},
 				})
+
+				// Custom subresources are entries in their own right, named
+				// "<resource>/<subresource>" and always virtually stored. They have no
+				// v1alpha1 equivalent and ride across a down-conversion in an
+				// annotation, so the round-trip has to see them.
+				for range c.Intn(3) {
+					sub := nonEmptyString(c.String)
+					r.Resources = append(r.Resources, v1alpha2.ResourceSchema{
+						Group:  group,
+						Name:   name + "/" + sub,
+						Schema: nonEmptyString(c.String) + "." + sub + "." + group,
+						Storage: v1alpha2.ResourceSchemaStorage{
+							Virtual: &v1alpha2.ResourceSchemaStorageVirtual{
+								Reference: corev1.TypedLocalObjectReference{
+									APIGroup: ptr.To(nonEmptyString(c.String)),
+									Kind:     nonEmptyString(c.String),
+									Name:     nonEmptyString(c.String),
+								},
+							},
+						},
+					})
+				}
 			}
 			r.PermissionClaims = nil
 			for range c.Intn(5) {
