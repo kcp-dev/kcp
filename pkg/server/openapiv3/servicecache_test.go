@@ -21,10 +21,12 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"testing"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/kcp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
@@ -77,5 +79,25 @@ func TestServeHTTPSkipsSystemBoundCRDs(t *testing.T) {
 				t.Errorf("cluster %q: got status %d, want %d", tc.cluster, rec.Code, tc.wantCode)
 			}
 		})
+	}
+}
+
+// byClusterAndName.Less must put a bound CRD ahead of a plain one regardless of name,
+// so the resulting order (and the apiConfigurationKey built from it) does not depend
+// on CRD names.
+func TestByClusterAndNameSortsBoundCRDsFirst(t *testing.T) {
+	t.Parallel()
+
+	plain := &apiextensionsv1.CustomResourceDefinition{ObjectMeta: metav1.ObjectMeta{Name: "aaa.example.com"}}
+	bound := &apiextensionsv1.CustomResourceDefinition{ObjectMeta: metav1.ObjectMeta{
+		Name:        "zzz.example.com",
+		Annotations: map[string]string{BoundAnnotationKey: "true"},
+	}}
+
+	list := byClusterAndName{plain, bound}
+	sort.Sort(list)
+
+	if list[0].Name != bound.Name || list[1].Name != plain.Name {
+		t.Errorf("got order [%s %s], want the bound CRD first: [%s %s]", list[0].Name, list[1].Name, bound.Name, plain.Name)
 	}
 }
