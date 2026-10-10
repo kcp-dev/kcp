@@ -22,4 +22,6 @@ The details of the authorizer chain are documented in [Authorizers](./authorizer
 
 ## Pages
 
-{% include "partials/section-overview.html" %}
+### [Authorizers](authorizers.md)
+How to authorize requests to kcp.
+
