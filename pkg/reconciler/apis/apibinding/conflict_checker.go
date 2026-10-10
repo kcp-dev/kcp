@@ -21,6 +21,7 @@ import (
 	"sort"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -70,7 +71,17 @@ func newConflictChecker(clusterName logicalcluster.Name,
 	for _, b := range bindings {
 		for _, br := range b.Status.BoundResources {
 			crd, err := ncc.getCRD(SystemBoundCRDsClusterName, br.Schema.UID)
-			if err != nil {
+			if apierrors.IsNotFound(err) {
+				// The bound CRD is gone, but the APIBinding still references it in its
+				// status. This is expected and transient while a binding is being
+				// established or after an APIExport rotated a schema, and it can also be
+				// left behind permanently if the bound CRD is deleted out from under the
+				// binding. A CRD that does not exist serves no resources and therefore
+				// contributes no names to conflict against, so skip it. Failing here
+				// instead would abort the conflict check for *every* APIBinding in the
+				// workspace, wedging all of them on a single dangling reference.
+				continue
+			} else if err != nil {
 				return nil, err
 			}
 
