@@ -29,6 +29,8 @@ import (
 	clientset "github.com/kcp-dev/sdk/client/clientset/versioned"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpclientscheme "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/scheme"
+	kcpadminv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/admin/v1alpha1"
+	kcpfakeadminv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/admin/v1alpha1/fake"
 	kcpapisv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha1"
 	kcpfakeapisv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha1/fake"
 	kcpapisv1alpha2 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/apis/v1alpha2"
@@ -43,6 +45,7 @@ import (
 	kcpfaketenancyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/tenancy/v1alpha1/fake"
 	kcptopologyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1"
 	kcpfaketopologyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/topology/v1alpha1/fake"
+	adminv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/admin/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/cache/v1alpha1"
@@ -125,6 +128,11 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) clientset.In
 	}
 }
 
+// AdminV1alpha1 retrieves the AdminV1alpha1ClusterClient
+func (c *ClusterClientset) AdminV1alpha1() kcpadminv1alpha1.AdminV1alpha1ClusterInterface {
+	return &kcpfakeadminv1alpha1.AdminV1alpha1ClusterClient{Fake: &c.Fake}
+}
+
 // ApisV1alpha1 retrieves the ApisV1alpha1ClusterClient
 func (c *ClusterClientset) ApisV1alpha1() kcpapisv1alpha1.ApisV1alpha1ClusterInterface {
 	return &kcpfakeapisv1alpha1.ApisV1alpha1ClusterClient{Fake: &c.Fake}
@@ -201,6 +209,11 @@ func NewClientset(objects ...runtime.Object) *ClusterClientset {
 	cs.AddWatchReactor("*", kcptesting.WatchReaction(o))
 
 	return cs
+}
+
+// AdminV1alpha1 retrieves the AdminV1alpha1Client
+func (c *Clientset) AdminV1alpha1() adminv1alpha1.AdminV1alpha1Interface {
+	return &kcpfakeadminv1alpha1.AdminV1alpha1Client{Fake: c.Fake, ClusterPath: c.clusterPath}
 }
 
 // ApisV1alpha1 retrieves the ApisV1alpha1Client
