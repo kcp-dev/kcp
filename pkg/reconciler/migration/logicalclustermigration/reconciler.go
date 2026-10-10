@@ -192,7 +192,12 @@ func (c *Controller) reconcilePreparing(ctx context.Context, migration *migratio
 
 	// Cancel per-cluster context to stop all requests to it
 	// Just passing .Path is fine since lcName is the logical cluster id.
-	c.cancelLogicalClusterConnections(lcName.Path(), errors.New("logical cluster is being migrated"))
+	reason := errors.New("logical cluster is being migrated")
+	c.cancelLogicalClusterConnections(lcName.Path(), reason)
+	// Terminate wildcard connections too, as they may watch objects in
+	// this LC. The wildcard entry is deleted rather than cancelled so
+	// that new wildcard requests are not blocked.
+	c.deleteLogicalClusterContext(logicalcluster.Wildcard, reason)
 
 	// Purge informer stores for this cluster
 	c.ddsif.PurgeCluster(lcName)
@@ -215,6 +220,9 @@ func (c *Controller) reconcileMigrating(ctx context.Context, migration *migratio
 		if err := c.migratingLogicalClusters.Set(lcName, migrationPath); err != nil {
 			return false, err
 		}
+		// Terminate wildcard connections before data is copied onto
+		// this shard, as they may watch objects in this LC.
+		c.deleteLogicalClusterContext(logicalcluster.Wildcard, errors.New("logical cluster is being migrated to this shard"))
 	}
 
 	// Purge local informer stores - this should be a noop but just to

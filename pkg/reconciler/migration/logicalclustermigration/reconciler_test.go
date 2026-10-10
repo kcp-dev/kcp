@@ -18,14 +18,91 @@ package logicalclustermigration
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
+	kcpinformers "github.com/kcp-dev/client-go/informers"
+	"github.com/kcp-dev/logicalcluster/v3"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
+	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
+
+	"github.com/kcp-dev/kcp/pkg/informer"
 )
+
+// An empty factory is enough to exercise the reconciler's PurgeCluster calls.
+func newEmptyDDSIF() *informer.DiscoveringDynamicSharedInformerFactory {
+	return &informer.DiscoveringDynamicSharedInformerFactory{
+		GenericDiscoveringDynamicSharedInformerFactory: &informer.GenericDiscoveringDynamicSharedInformerFactory[kcpcache.ScopeableSharedIndexInformer, kcpcache.GenericClusterLister, kcpinformers.GenericClusterInformer]{},
+	}
+}
+
+func TestPreparingDisconnectsWildcardWatches(t *testing.T) {
+	t.Parallel()
+	lcName := logicalcluster.Name("consumer")
+	migration := &migrationv1alpha1.LogicalClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{Name: "move", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
+		Spec:       migrationv1alpha1.LogicalClusterMigrationSpec{LogicalCluster: lcName.String()},
+		Status:     migrationv1alpha1.LogicalClusterMigrationStatus{OriginShard: "origin"},
+	}
+	indexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, indexer.Add(&corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{
+		Name:        corev1alpha1.LogicalClusterName,
+		Annotations: map[string]string{logicalcluster.AnnotationKey: lcName.String(), MigratingAnnotationKey: "org:move"},
+	}}))
+	var cancelled, deleted []logicalcluster.Path
+	c := &Controller{
+		logicalClusterLister:     corev1alpha1listers.NewLogicalClusterClusterLister(indexer),
+		migratingLogicalClusters: NewMigratingLogicalClusters(),
+		ddsif:                    newEmptyDDSIF(),
+		cancelLogicalClusterConnections: func(path logicalcluster.Path, reason error) {
+			cancelled = append(cancelled, path)
+		},
+		deleteLogicalClusterContext: func(path logicalcluster.Path, reason error) {
+			deleted = append(deleted, path)
+		},
+	}
+	_, err := c.reconcilePreparing(t.Context(), migration)
+	require.NoError(t, err)
+	require.Equal(t, []logicalcluster.Path{lcName.Path()}, cancelled, "only the migrating workspace stays blocked")
+	require.Equal(t, []logicalcluster.Path{logicalcluster.Wildcard}, deleted, "wildcard watches must disconnect without blocking new requests")
+	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseMigrating, migration.Status.Phase)
+}
+
+func TestMigratingDisconnectsWildcardWatchesBeforeCopy(t *testing.T) {
+	t.Parallel()
+	migration := &migrationv1alpha1.LogicalClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{Name: "move", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
+		Spec:       migrationv1alpha1.LogicalClusterMigrationSpec{LogicalCluster: "consumer"},
+	}
+	var deleted []logicalcluster.Path
+	copyError := errors.New("copy failed")
+	c := &Controller{
+		migratingLogicalClusters: NewMigratingLogicalClusters(),
+		ddsif:                    newEmptyDDSIF(),
+		deleteLogicalClusterContext: func(path logicalcluster.Path, reason error) {
+			deleted = append(deleted, path)
+		},
+		copyPageFromOrigin: func(context.Context, logicalcluster.Name, string, string) (int64, string, error) {
+			require.Equal(t, []logicalcluster.Path{logicalcluster.Wildcard}, deleted, "disconnect before writing any copied data")
+			return 0, "", copyError
+		},
+	}
+	_, err := c.reconcileMigrating(t.Context(), migration)
+	require.ErrorIs(t, err, copyError)
+	// Retrying a failed page must not repeatedly disconnect unrelated watchers.
+	_, err = c.reconcileMigrating(t.Context(), migration)
+	require.ErrorIs(t, err, copyError)
+	require.Len(t, deleted, 1)
+}
 
 func TestApplyDumpPageResult_requeuesWhileContinueTokenPresent(t *testing.T) {
 	t.Parallel()
