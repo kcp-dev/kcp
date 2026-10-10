@@ -84,7 +84,8 @@ func TestInactiveLogicalClusterBlocksRequests(t *testing.T) {
 	cfg := server.BaseConfig(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
-	kcpClient, err := kcpclientset.NewForConfig(cfg)
+	// we need system identity here for toggling inactive annotation
+	kcpClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 	require.NoError(t, err)
 	kubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
@@ -128,7 +129,7 @@ func TestInactiveLogicalClusterTerminatesClusterScopedWatch(t *testing.T) {
 	cfg := server.BaseConfig(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
-	kcpClient, err := kcpclientset.NewForConfig(cfg)
+	kcpClient, err := kcpclientset.NewForConfig(server.RootShardSystemMasterBaseConfig(t))
 	require.NoError(t, err)
 	kubeClient, err := kcpkubernetesclientset.NewForConfig(cfg)
 	require.NoError(t, err)
@@ -168,14 +169,15 @@ func TestInactiveLogicalClusterTerminatesWildcardWatch(t *testing.T) {
 	// The test requires a separate server as marking a cluster inactive
 	// breaks wildcard watches which may affect other tests.
 	server := kcptesting.PrivateKcpServer(t)
-	cfg := server.BaseConfig(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
-	kcpClient, err := kcpclientset.NewForConfig(cfg)
+	// we need system identity here for toggling inactive annotation
+	systemCfg := server.RootShardSystemMasterBaseConfig(t)
+
+	kcpClient, err := kcpclientset.NewForConfig(systemCfg)
 	require.NoError(t, err)
 
-	wildcardCfg := server.RootShardSystemMasterBaseConfig(t)
-	wildcardKubeClient, err := kcpkubernetesclientset.NewForConfig(wildcardCfg)
+	wildcardKubeClient, err := kcpkubernetesclientset.NewForConfig(systemCfg)
 	require.NoError(t, err)
 
 	t.Log("Opening wildcard watch on ConfigMaps before marking inactive")

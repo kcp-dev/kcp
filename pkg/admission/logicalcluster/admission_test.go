@@ -39,9 +39,14 @@ import (
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/admission/helpers"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 )
 
 func updateAttr(obj, old *corev1alpha1.LogicalCluster) admission.Attributes {
+	return updateAttrWithUser(obj, old, &kuser.DefaultInfo{})
+}
+
+func updateAttrWithUser(obj, old *corev1alpha1.LogicalCluster, userInfo *kuser.DefaultInfo) admission.Attributes {
 	return admission.NewAttributesRecord(
 		helpers.ToUnstructuredOrDie(obj),
 		helpers.ToUnstructuredOrDie(old),
@@ -53,7 +58,7 @@ func updateAttr(obj, old *corev1alpha1.LogicalCluster) admission.Attributes {
 		admission.Update,
 		&metav1.CreateOptions{},
 		false,
-		&kuser.DefaultInfo{},
+		userInfo,
 	)
 }
 
@@ -68,6 +73,22 @@ func deleteAttr(obj *corev1alpha1.LogicalCluster, userInfo *kuser.DefaultInfo) a
 		"",
 		admission.Delete,
 		&metav1.DeleteOptions{},
+		false,
+		userInfo,
+	)
+}
+
+func createAttr(obj *corev1alpha1.LogicalCluster, userInfo *kuser.DefaultInfo) admission.Attributes {
+	return admission.NewAttributesRecord(
+		helpers.ToUnstructuredOrDie(obj),
+		nil,
+		corev1alpha1.Kind("LogicalCluster").WithVersion("v1alpha1"),
+		"",
+		obj.Name,
+		corev1alpha1.Resource("logicalclusters").WithVersion("v1alpha1"),
+		"",
+		admission.Create,
+		&metav1.CreateOptions{},
 		false,
 		userInfo,
 	)
@@ -208,6 +229,19 @@ func TestValidate(t *testing.T) {
 		wantErr string
 	}{
 		{
+			name:        "fails if spec.createdBy is changed",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withCreatedBy("user-b").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withCreatedBy("user-a").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "spec.createdBy: Invalid value",
+		},
+		{
 			name:        "fails if spec.initializers is changed when ready",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
@@ -305,6 +339,21 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
+			name:        "fails leaving initializing when status.initializers is not empty",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withInitializers("a").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase:        corev1alpha1.LogicalClusterPhaseReady,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withInitializers("a").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+					Initializers: []corev1alpha1.LogicalClusterInitializer{"a"},
+				}).LogicalCluster,
+			),
+			wantErr: "status.initializers is not empty",
+		},
+		{
 			name:        "fails to move phase backwards",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
@@ -344,7 +393,21 @@ func TestValidate(t *testing.T) {
 			wantErr: "can only be marked inactive in phase",
 		},
 		{
-			name:        "passes marking inactive when ready",
+			name:        "fails marking inactive as system:kcp:admin",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{"system:kcp:admin"}},
+			),
+			wantErr: "annotation core.kcp.io/inactive may only be changed by system identities",
+		},
+		{
+			name:        "fails marking inactive as regular user",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
@@ -354,17 +417,45 @@ func TestValidate(t *testing.T) {
 					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				}).LogicalCluster,
 			),
+			wantErr: "annotation core.kcp.io/inactive may only be changed by system identities",
 		},
 		{
-			name:        "passes reactivating (removing inactive) while not ready",
+			name:        "fails reactivating (removing inactive) as regular user",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInactive,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseInactive,
+				}).LogicalCluster,
+			),
+			wantErr: "annotation core.kcp.io/inactive may only be changed by system identities",
+		},
+		{
+			name:        "passes reactivating (removing inactive) while not ready as system:kcp:logical-cluster-admin",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseInitializing,
 				}).LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{"system:kcp:logical-cluster-admin"}},
+			),
+		},
+		{
+			name:        "passes marking inactive as system:kcp:logical-cluster-admin",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
+				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{"system:kcp:logical-cluster-admin"}},
 			),
 		},
 		{
@@ -378,6 +469,83 @@ func TestValidate(t *testing.T) {
 					Phase: corev1alpha1.LogicalClusterPhaseInactive,
 				}).LogicalCluster,
 			),
+		},
+		{
+			name:        "fails changing required-groups annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:other").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "annotation authorization.kcp.io/required-groups may only be changed by system identities",
+		},
+		{
+			name:        "fails removing required-groups annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "annotation authorization.kcp.io/required-groups may only be changed by system identities",
+		},
+		{
+			name:        "fails adding required-groups annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "annotation authorization.kcp.io/required-groups may only be changed by system identities",
+		},
+		{
+			name:        "passes unchanged required-groups annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+		},
+		{
+			name:        "passes changing required-groups annotation as system:kcp:logical-cluster-admin",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:other").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{"system:kcp:logical-cluster-admin"}},
+			),
+		},
+		{
+			name:        "fails changing workspace owner annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withAnnotation(tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, `{"username":"eve"}`).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withAnnotation(tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, `{"username":"alice"}`).withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+			wantErr: "annotation experimental.tenancy.kcp.io/owner may only be changed by system identities",
 		},
 		{
 			name:        "fails deletion as another user",
@@ -410,6 +578,18 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
+			name:        "fails deletion as another user if not directly deletable",
+			clusterName: "root:org:ws",
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster("root:org:ws").LogicalCluster,
+			},
+			attr: deleteAttr(
+				newLogicalCluster("root:org:ws").LogicalCluster,
+				&kuser.DefaultInfo{},
+			),
+			wantErr: "LogicalCluster cannot be deleted",
+		},
+		{
 			name:        "passed deletion as another user if directly deletable",
 			clusterName: "root:org:ws",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
@@ -418,6 +598,23 @@ func TestValidate(t *testing.T) {
 			attr: deleteAttr(
 				newLogicalCluster("root:org:ws").directlyDeletable().LogicalCluster,
 				&kuser.DefaultInfo{},
+			),
+		},
+		{
+			name:        "fails creation as non-privileged user",
+			clusterName: "root:org:ws",
+			attr: createAttr(
+				newLogicalCluster("root:org:ws").LogicalCluster,
+				&kuser.DefaultInfo{},
+			),
+			wantErr: "LogicalCluster cannot be created",
+		},
+		{
+			name:        "passed creation as system:masters",
+			clusterName: "root:org:ws",
+			attr: createAttr(
+				newLogicalCluster("root:org:ws").LogicalCluster,
+				&kuser.DefaultInfo{Groups: []string{kuser.SystemPrivilegedGroup}},
 			),
 		},
 		{
@@ -484,6 +681,19 @@ func (b thisWsBuilder) withType(cluster logicalcluster.Name, name string) thisWs
 
 func (b thisWsBuilder) withInitializers(initializers ...corev1alpha1.LogicalClusterInitializer) thisWsBuilder {
 	b.Spec.Initializers = initializers
+	return b
+}
+
+func (b thisWsBuilder) withAnnotation(key, value string) thisWsBuilder {
+	if b.Annotations == nil {
+		b.Annotations = map[string]string{}
+	}
+	b.Annotations[key] = value
+	return b
+}
+
+func (b thisWsBuilder) withCreatedBy(username string) thisWsBuilder {
+	b.Spec.CreatedBy = &corev1alpha1.OwnerUserInfo{Username: username}
 	return b
 }
 
