@@ -139,27 +139,23 @@ func NewController(
 
 		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha2().APIExports()),
 
-		countedAPIExportConditions: make(map[string]map[string]string),
-		readyAPIExports:            make(map[string]struct{}),
+		readyAPIExports: make(map[string]struct{}),
 	}
 
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			export := obj.(*apisv1alpha2.APIExport)
 			c.enqueueAPIExport(export)
-			c.handleConditionMetricsOnAdd(export)
 			c.handleReadyDurationMetricOnAdd(export)
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
+		UpdateFunc: func(_, newObj interface{}) {
 			export := newObj.(*apisv1alpha2.APIExport)
 			c.enqueueAPIExport(export)
-			c.handleConditionMetricsOnUpdate(oldObj.(*apisv1alpha2.APIExport), export)
 			c.handleReadyDurationMetricOnUpdate(export)
 		},
 		DeleteFunc: func(obj interface{}) {
 			export := tombstone.Obj[*apisv1alpha2.APIExport](obj)
 			c.enqueueAPIExport(export)
-			c.handleConditionMetricsOnDelete(export)
 			c.handleReadyDurationMetricOnDelete(export)
 		},
 	})
@@ -233,10 +229,9 @@ type controller struct {
 
 	commit CommitFunc
 
-	// metricsMu protects countedAPIExportConditions and readyAPIExports.
-	metricsMu                  sync.Mutex
-	countedAPIExportConditions map[string]map[string]string
-	readyAPIExports            map[string]struct{}
+	// metricsMu protects readyAPIExports.
+	metricsMu       sync.Mutex
+	readyAPIExports map[string]struct{}
 }
 
 // enqueueAPIExport enqueues an APIExport.
@@ -403,80 +398,6 @@ func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInf
 			indexers.APIExportBySecret:   indexers.IndexAPIExportBySecret,
 		},
 	)
-}
-
-func (c *controller) handleConditionMetricsOnAdd(export *apisv1alpha2.APIExport) {
-	key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
-	if err != nil {
-		return
-	}
-
-	snapshot := make(map[string]string, len(export.Status.Conditions))
-	for _, cond := range export.Status.Conditions {
-		snapshot[string(cond.Type)] = string(cond.Status)
-	}
-
-	c.metricsMu.Lock()
-	defer c.metricsMu.Unlock()
-
-	if _, exists := c.countedAPIExportConditions[key]; exists {
-		return
-	}
-	c.countedAPIExportConditions[key] = snapshot
-	for condType, status := range snapshot {
-		kcpmetrics.IncrementAPIExportConditionStatus(c.shardName, condType, status)
-	}
-}
-
-func (c *controller) handleConditionMetricsOnUpdate(oldExport, newExport *apisv1alpha2.APIExport) {
-	key, err := kcpcache.MetaClusterNamespaceKeyFunc(newExport)
-	if err != nil {
-		return
-	}
-
-	newSnapshot := make(map[string]string, len(newExport.Status.Conditions))
-	for _, cond := range newExport.Status.Conditions {
-		newSnapshot[string(cond.Type)] = string(cond.Status)
-	}
-
-	c.metricsMu.Lock()
-	defer c.metricsMu.Unlock()
-
-	oldSnapshot := c.countedAPIExportConditions[key]
-
-	for condType, oldStatus := range oldSnapshot {
-		newStatus, exists := newSnapshot[condType]
-		if !exists || newStatus != oldStatus {
-			kcpmetrics.DecrementAPIExportConditionStatus(c.shardName, condType, oldStatus)
-		}
-	}
-	for condType, newStatus := range newSnapshot {
-		oldStatus, exists := oldSnapshot[condType]
-		if !exists || oldStatus != newStatus {
-			kcpmetrics.IncrementAPIExportConditionStatus(c.shardName, condType, newStatus)
-		}
-	}
-
-	c.countedAPIExportConditions[key] = newSnapshot
-}
-
-func (c *controller) handleConditionMetricsOnDelete(export *apisv1alpha2.APIExport) {
-	key, err := kcpcache.MetaClusterNamespaceKeyFunc(export)
-	if err != nil {
-		return
-	}
-
-	c.metricsMu.Lock()
-	defer c.metricsMu.Unlock()
-
-	snapshot, exists := c.countedAPIExportConditions[key]
-	if !exists {
-		return
-	}
-	for condType, status := range snapshot {
-		kcpmetrics.DecrementAPIExportConditionStatus(c.shardName, condType, status)
-	}
-	delete(c.countedAPIExportConditions, key)
 }
 
 func isAPIExportReady(export *apisv1alpha2.APIExport) bool {
