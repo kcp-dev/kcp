@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"strings"
 
+	clientv3 "go.etcd.io/etcd/client/v3"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -71,17 +73,51 @@ func (c *Controller) copyPageFromOriginViaHTTP(ctx context.Context, lcName logic
 
 	logger.V(2).Info("writing dump page entries to local etcd", "logicalCluster", lcName, "entries", len(dump.Status.Entries))
 
-	for _, entry := range dump.Status.Entries {
-		if err := ctx.Err(); err != nil {
-			return 0, "", err
-		}
-		key := destPrefix + strings.TrimPrefix(entry.Key, "/")
-		if _, err := c.etcdClient.Put(ctx, key, string(entry.Value)); err != nil {
-			return 0, "", fmt.Errorf("failed to write etcd key %q: %w", key, err)
-		}
+	if err := writeDumpEntries(ctx, c.etcdClient, c.etcdClient, destPrefix, dump.Status.Entries); err != nil {
+		return 0, "", err
 	}
 
 	return int64(len(dump.Status.Entries)), dump.Status.Continue, nil
+}
+
+// leaseGranularitySeconds rounds TTLs up so similar entries share a lease.
+const leaseGranularitySeconds = 60
+
+type leaseGranter interface {
+	Grant(ctx context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error)
+}
+
+// writeDumpEntries writes the entries of a dump page below destPrefix.
+func writeDumpEntries(ctx context.Context, kv clientv3.KV, leases leaseGranter, destPrefix string, entries []migrationv1alpha1.EtcdEntry) error {
+	granted := map[int64]clientv3.LeaseID{}
+
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		key := destPrefix + strings.TrimPrefix(entry.Key, "/")
+
+		var opts []clientv3.OpOption
+		if entry.TTLSeconds > 0 {
+			ttl := (entry.TTLSeconds + leaseGranularitySeconds - 1) / leaseGranularitySeconds * leaseGranularitySeconds
+			id, ok := granted[ttl]
+			if !ok {
+				resp, err := leases.Grant(ctx, ttl)
+				if err != nil {
+					return fmt.Errorf("failed to grant lease for etcd key %q: %w", key, err)
+				}
+				id = resp.ID
+				granted[ttl] = id
+			}
+			opts = append(opts, clientv3.WithLease(id))
+		}
+
+		if _, err := kv.Put(ctx, key, string(entry.Value), opts...); err != nil {
+			return fmt.Errorf("failed to write etcd key %q: %w", key, err)
+		}
+	}
+
+	return nil
 }
 
 // acquireOriginClient returns the shared, cluster-aware client for

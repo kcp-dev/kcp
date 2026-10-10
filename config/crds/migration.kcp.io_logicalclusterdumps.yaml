@@ -95,6 +95,11 @@ spec:
                         key is the etcd key with the origin shard's storage prefix stripped.
                         The destination shard prepends its own storage prefix before writing.
                       type: string
+                    ttlSeconds:
+                      description: ttlSeconds is the remaining lease TTL on the origin
+                        shard, or zero for no lease.
+                      format: int64
+                      type: integer
                     value:
                       description: value is the raw etcd value bytes. JSON-encoded
                         as base64 on the wire.

@@ -51,6 +51,10 @@ func init() {
 	errorScheme.AddUnversionedTypes(metav1.Unversioned, &metav1.Status{})
 }
 
+type leaseTimeToLive interface {
+	TimeToLive(ctx context.Context, id clientv3.LeaseID, opts ...clientv3.LeaseOption) (*clientv3.LeaseTimeToLiveResponse, error)
+}
+
 // migratingClusters is a local interface for checking if a cluster is migrating.
 type migratingClusters interface {
 	IsMigrating(name logicalcluster.Name) bool
@@ -133,7 +137,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logger.V(2).Info("dumping logical cluster page from etcd", "cluster", cluster.Name, "continue", dump.Spec.Continue)
 
-	entries, nextContinue, err := scanEtcdEntries(ctx, h.etcdClient, h.etcdStoragePrefix, cluster.Name, dump.Spec.Continue, dump.Spec.Limit, dump.Spec.MaxBytes)
+	entries, nextContinue, err := scanEtcdEntries(ctx, h.etcdClient, h.etcdClient, h.etcdStoragePrefix, cluster.Name, dump.Spec.Continue, dump.Spec.Limit, dump.Spec.MaxBytes)
 	if err != nil {
 		writeError(w, r, apierrors.NewInternalError(fmt.Errorf("failed to dump logical cluster: %w", err)))
 		return
@@ -170,7 +174,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // The second return value is the continue token for the next page, or the
 // empty string if the scan reached the end of the logical cluster's
 // keyspace.
-func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, target logicalcluster.Name, continueToken string, limit, maxBytes int64) ([]migrationv1alpha1.EtcdEntry, string, error) {
+func scanEtcdEntries(ctx context.Context, kv clientv3.KV, leases leaseTimeToLive, storagePrefix string, target logicalcluster.Name, continueToken string, limit, maxBytes int64) ([]migrationv1alpha1.EtcdEntry, string, error) {
 	prefix := storagePrefix
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
@@ -198,6 +202,7 @@ func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, 
 
 	var entries []migrationv1alpha1.EtcdEntry
 	var totalBytes int64
+	ttls := map[int64]int64{}
 	for {
 		resp, err := kv.Get(ctx, key,
 			clientv3.WithRange(clientv3.GetPrefixRangeEnd(prefix)),
@@ -219,9 +224,28 @@ func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, 
 				return entries, strings.TrimPrefix(string(entry.Key), prefix), nil
 			}
 
+			var ttl int64
+			if entry.Lease != 0 {
+				var ok bool
+				if ttl, ok = ttls[entry.Lease]; !ok {
+					ttlResp, err := leases.TimeToLive(ctx, clientv3.LeaseID(entry.Lease))
+					if err != nil {
+						return nil, "", fmt.Errorf("failed to get lease of etcd key %q: %w", entry.Key, err)
+					}
+					ttl = ttlResp.TTL
+					ttls[entry.Lease] = ttl
+				}
+				// The lease has expired (etcd reports -1) and etcd is about to
+				// delete the key, so don't resurrect it on the destination.
+				if ttl <= 0 {
+					continue
+				}
+			}
+
 			entries = append(entries, migrationv1alpha1.EtcdEntry{
-				Key:   strings.TrimPrefix(string(entry.Key), prefix),
-				Value: append([]byte(nil), entry.Value...),
+				Key:        strings.TrimPrefix(string(entry.Key), prefix),
+				Value:      append([]byte(nil), entry.Value...),
+				TTLSeconds: ttl,
 			})
 			totalBytes += int64(len(entry.Value))
 		}
