@@ -55,6 +55,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/clustercachedresource"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
+	"github.com/kcp-dev/kcp/pkg/admission/globalwebhook"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalclusterfinalizer"
@@ -95,6 +96,7 @@ var AllOrderedPlugins = beforeWebhooks(
 	kcpmutatingadmissionpolicy.PluginName,
 	kcpvalidatingadmissionpolicy.PluginName,
 	kcpvalidatingwebhook.PluginName,
+	globalwebhook.PluginName,
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
 	reservednames.PluginName,
@@ -138,6 +140,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	kcpmutatingadmissionpolicy.Register(plugins)
 	kcpvalidatingadmissionpolicy.Register(plugins)
 	kcpvalidatingwebhook.Register(plugins)
+	globalwebhook.Register(plugins)
 	reservedcrdannotations.Register(plugins)
 	reservedcrdgroups.Register(plugins)
 	reservednames.Register(plugins)
@@ -172,6 +175,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	kcpmutatingadmissionpolicy.PluginName,
 	kcpvalidatingadmissionpolicy.PluginName,
 	kcpvalidatingwebhook.PluginName,
+	globalwebhook.PluginName,
 	reservedcrdannotations.PluginName,
 	reservedcrdgroups.PluginName,
 	reservednames.PluginName,
