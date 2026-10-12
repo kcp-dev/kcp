@@ -1,0 +1,94 @@
+# syntax=docker/dockerfile:1.4
+
+# Copyright 2026 The kcp Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This image packages the sharded-test-server test harness together with the
+# server binaries it launches (kcp, kcp-front-proxy, virtual-workspaces,
+# cache-server). It is meant to run a multi-shard kcp for e2e/integration
+# purposes, not for production. NO_GORUN=1 makes the harness invoke the shard
+# binaries from PATH instead of building them with `go run`.
+
+# Build the binaries
+FROM --platform=${BUILDPLATFORM} docker.io/golang:1.26.4 AS builder
+WORKDIR /workspace
+
+# Install dependencies.
+RUN apt-get update && apt-get install -y jq && mkdir bin
+
+# Run this with docker build --build-arg goproxy=$(go env GOPROXY) to override the goproxy
+ARG goproxy=https://proxy.golang.org
+ENV GOPROXY=$goproxy
+
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+COPY staging/src/github.com/kcp-dev/apimachinery/go.mod staging/src/github.com/kcp-dev/apimachinery/go.mod
+COPY staging/src/github.com/kcp-dev/apimachinery/go.sum staging/src/github.com/kcp-dev/apimachinery/go.sum
+COPY staging/src/github.com/kcp-dev/cli/go.mod staging/src/github.com/kcp-dev/cli/go.mod
+COPY staging/src/github.com/kcp-dev/cli/go.sum staging/src/github.com/kcp-dev/cli/go.sum
+COPY staging/src/github.com/kcp-dev/client-go/go.mod staging/src/github.com/kcp-dev/client-go/go.mod
+COPY staging/src/github.com/kcp-dev/client-go/go.sum staging/src/github.com/kcp-dev/client-go/go.sum
+COPY staging/src/github.com/kcp-dev/code-generator/go.mod staging/src/github.com/kcp-dev/code-generator/go.mod
+COPY staging/src/github.com/kcp-dev/code-generator/go.sum staging/src/github.com/kcp-dev/code-generator/go.sum
+COPY staging/src/github.com/kcp-dev/sdk/go.mod staging/src/github.com/kcp-dev/sdk/go.mod
+COPY staging/src/github.com/kcp-dev/sdk/go.sum staging/src/github.com/kcp-dev/sdk/go.sum
+COPY staging/src/github.com/kcp-dev/virtual-workspace-framework/go.mod staging/src/github.com/kcp-dev/virtual-workspace-framework/go.mod
+COPY staging/src/github.com/kcp-dev/virtual-workspace-framework/go.sum staging/src/github.com/kcp-dev/virtual-workspace-framework/go.sum
+USER 0
+
+# Install kubectl.
+RUN wget "https://dl.k8s.io/release/$(go list -m -json k8s.io/kubernetes | jq -r .Version | sed 's/^v0/v1/')/bin/linux/$(uname -m | sed 's/aarch.*/arm64/;s/armv8.*/arm64/;s/x86_64/amd64/')/kubectl" -O bin/kubectl && chmod +x bin/kubectl
+
+# Cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+# Copy the sources
+COPY ./ ./
+
+ARG TARGETOS
+ARG TARGETARCH
+
+# `make` (default target: build) compiles every cmd/ binary into
+# workspace/bin, including sharded-test-server and the shard binaries.
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    make OS=${TARGETOS} ARCH=${TARGETARCH} EXTRA_LDFLAGS="-s -w"
+
+# distroless doesn't have coreutils, so we need to create a directory
+# for kcp here and copy it over. Any directory would do.
+RUN mkdir /.kcp
+
+# Use distroless as minimal base image. The debug variant ships a busybox
+# shell, which is convenient for inspecting the test server.
+FROM gcr.io/distroless/static:debug
+
+# Copy wget so we can do basic healthchecks in the final image.
+COPY --from=builder /usr/bin/wget /usr/bin/wget
+COPY --from=builder --chown=65532:65532 /.kcp /.kcp
+
+WORKDIR /
+COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+# The harness invokes these shard binaries by name; install them on PATH.
+COPY --from=builder workspace/bin/sharded-test-server workspace/bin/kcp workspace/bin/kcp-front-proxy workspace/bin/virtual-workspaces workspace/bin/cache-server /usr/local/bin/
+COPY --from=builder workspace/bin/kubectl-* /usr/local/bin/
+COPY --from=builder workspace/bin/kubectl /usr/local/bin/
+
+# Make the harness launch the shard binaries from PATH rather than `go run`.
+ENV NO_GORUN=1
+USER 65532:65532
+
+ENTRYPOINT ["/usr/local/bin/sharded-test-server"]

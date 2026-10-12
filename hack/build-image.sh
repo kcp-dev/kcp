@@ -37,7 +37,7 @@ location = "$mirror"
 EOF
 fi
 
-repository=ghcr.io/kcp-dev/kcp
+repository="${IMAGE_REPOSITORY:-ghcr.io/kcp-dev/kcp}"
 architectures="amd64 arm64"
 
 # when building locally, just tag with the current HEAD hash.
@@ -75,7 +75,7 @@ for arch in $architectures; do
 
   echo "Building $fullTag ..."
   buildah build-using-dockerfile \
-    --file Dockerfile \
+    --file "${DOCKERFILE:-Dockerfile}" \
     --tag "$fullTag" \
     --arch "$arch" \
     --override-arch "$arch" \
