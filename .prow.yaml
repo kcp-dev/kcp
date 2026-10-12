@@ -91,9 +91,9 @@ presubmits:
             - name: IMAGE_REPOSITORY
               value: "ghcr.io/kcp-dev/kcp-sharded-test-server"
             - name: DOCKERFILE
-              value: "Dockerfile.sharded-test-server"
+              value: "cmd/sharded-test-server/Dockerfile"
             - name: IGNOREFILE
-              value: "Dockerfile.sharded-test-server.dockerignore"
+              value: "cmd/sharded-test-server/Dockerfile.dockerignore"
           # docker-in-docker needs privileged mode
           securityContext:
             privileged: true

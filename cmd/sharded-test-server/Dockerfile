@@ -19,6 +19,11 @@
 # cache-server). It is meant to run a multi-shard kcp for e2e/integration
 # purposes, not for production. NO_GORUN=1 makes the harness invoke the shard
 # binaries from PATH instead of building them with `go run`.
+#
+# NOTE: this Dockerfile lives under cmd/sharded-test-server but must be built
+# with the repository root as the build context, e.g.:
+#   docker build -f cmd/sharded-test-server/Dockerfile .
+# All COPY paths below are relative to that repository root.
 
 # Build the binaries
 FROM --platform=${BUILDPLATFORM} docker.io/golang:1.26.4 AS builder
