@@ -41,6 +41,11 @@ fi
 echo "Verifying build Go version: $build_go_version"
 
 for dockerfile in $(git ls-files Dockerfile '**/Dockerfile'); do
+    # A Dockerfile can be tracked in git but absent from the working tree, e.g.
+    # when this script runs as a build prerequisite inside an image build whose
+    # .dockerignore filtered that Dockerfile out of the build context. There is
+    # nothing to verify in that case, so skip files that are not present.
+    [[ -f "$dockerfile" ]] || continue
     for version in $(sed -nE -e '/^FROM .*golang:/ s#^.*:([1-9.-rc]+).*$#\1#p' "$dockerfile"); do
         if [[ "$version" != "$build_go_version" ]]; then
             echo "  Wrong go version in $dockerfile, expected $build_go_version, found $version"
