@@ -40,7 +40,8 @@ const (
 )
 
 // NewRequiredGroupsAuthorizer returns an authorizer that a set of groups stored
-// on the LogicalCluster object. Service account by-pass this.
+// on the LogicalCluster object. Service accounts of the logical cluster itself
+// bypass this, foreign service accounts do not.
 func NewRequiredGroupsAuthorizer(local, global corev1alpha1listers.LogicalClusterClusterLister) func(delegate authorizer.Authorizer) authorizer.Authorizer {
 	return func(delegate authorizer.Authorizer) authorizer.Authorizer {
 		return &requiredGroupsAuthorizer{
@@ -80,9 +81,12 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 	}
 
 	switch {
-	case rbacregistryvalidation.IsServiceAccount(attr.GetUser()):
-		// service accounts are always allowed
-		return DelegateAuthorization("service account access to logical cluster", a.delegate).Authorize(ctx, attr)
+	case rbacregistryvalidation.IsServiceAccount(attr.GetUser()) && rbacregistryvalidation.IsInScope(attr.GetUser(), cluster.Name):
+		// a service account declared in the requested workspace can only exist
+		// because somebody who passed the required-groups check created it, so
+		// it is always allowed. Foreign service accounts and tokens scoped to
+		// another cluster are subject to the regular check below.
+		return DelegateAuthorization("local service account access to logical cluster", a.delegate).Authorize(ctx, attr)
 
 	default:
 		// get logical cluster with required group annotation

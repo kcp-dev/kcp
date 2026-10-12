@@ -40,6 +40,7 @@ import (
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
 
+	"github.com/kcp-dev/kcp/test/e2e/fixtures/authfixtures"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -413,4 +414,94 @@ func TestServiceAccounts(t *testing.T) {
 			})
 		})
 	}
+}
+
+// TestServiceAccountsRequiredGroups verifies that service accounts from other
+// logical clusters do not bypass the required-groups check, while service
+// accounts of the gated logical cluster itself do.
+func TestServiceAccountsRequiredGroups(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	t.Cleanup(cancelFunc)
+
+	server := kcptesting.SharedKcpServer(t)
+
+	t.Log("Creating an organization workspace gated by required groups")
+	gatedPath, _ := framework.NewRootShardOrganizationFixture(t, server,
+		kcptesting.PrivilegedWorkspaceOption(kcptesting.WithNamePrefix("gated")),
+		framework.WithRequiredGroups("sa-e2e-required-group"),
+	)
+
+	t.Log("Creating an ungated workspace for the foreign service account")
+	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
+	saPath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath, kcptesting.WithRootShard())
+
+	cfg := server.BaseConfig(t)
+	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+
+	t.Log("Creating namespaces in both workspaces")
+	foreignNamespace, err := kubeClusterClient.Cluster(saPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{GenerateName: "e2e-sa-"},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create namespace in the service account workspace")
+	gatedNamespace, err := kubeClusterClient.Cluster(gatedPath).CoreV1().Namespaces().Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{GenerateName: "e2e-sa-"},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create namespace in the gated workspace")
+
+	t.Log("Creating service accounts in both workspaces")
+	_, foreignTokenSecret := authfixtures.CreateServiceAccount(t, kubeClusterClient, saPath, foreignNamespace.Name, "e2e-sa-")
+	_, localTokenSecret := authfixtures.CreateServiceAccount(t, kubeClusterClient, gatedPath, gatedNamespace.Name, "e2e-sa-")
+
+	t.Log("Granting all service accounts access to configmaps in the gated workspace")
+	_, err = kubeClusterClient.Cluster(gatedPath).RbacV1().ClusterRoles().Create(ctx, &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{Name: "sa-access"},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{""},
+				Resources: []string{"configmaps"},
+				Verbs:     []string{"get", "list", "watch"},
+			},
+			{
+				Verbs:           []string{"access"},
+				NonResourceURLs: []string{"/"},
+			},
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create cluster role")
+	_, err = kubeClusterClient.Cluster(gatedPath).RbacV1().ClusterRoleBindings().Create(ctx, &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "sa-access"},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:     "Group",
+				APIGroup: "rbac.authorization.k8s.io",
+				Name:     "system:serviceaccounts",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind:     "ClusterRole",
+			Name:     "sa-access",
+			APIGroup: rbacv1.GroupName,
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "failed to create cluster role binding")
+
+	localKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(string(localTokenSecret.Data["token"]), cfg))
+	require.NoError(t, err)
+	foreignKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(framework.ConfigWithToken(string(foreignTokenSecret.Data["token"]), cfg))
+	require.NoError(t, err)
+
+	t.Log("The gated workspace's own service account can eventually access it, bypassing required groups")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := localKubeClusterClient.Cluster(gatedPath).CoreV1().ConfigMaps(gatedNamespace.Name).List(ctx, metav1.ListOptions{})
+		return err == nil, fmt.Sprintf("err = %v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Log("The foreign service account stays denied by required groups despite the RBAC grant")
+	_, err = foreignKubeClusterClient.Cluster(gatedPath).CoreV1().ConfigMaps(gatedNamespace.Name).List(ctx, metav1.ListOptions{})
+	require.Error(t, err, "foreign service account should be denied access to the gated workspace")
+	require.Truef(t, apierrors.IsForbidden(err), "expected forbidden error, got: %v", err)
 }
