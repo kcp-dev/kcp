@@ -75,6 +75,33 @@ presubmits:
               memory: 1Gi
               cpu: 1
 
+  - name: pull-kcp-build-image-sharded-test-server
+    decorate: true
+    skip_if_only_changed: "(docs)"
+    labels:
+      preset-goproxy: "true"
+    spec:
+      containers:
+        - image: quay.io/containers/buildah:v1.38.0
+          command:
+            - hack/build-image.sh
+          env:
+            - name: DRY_RUN
+              value: "1"
+            - name: IMAGE_REPOSITORY
+              value: "ghcr.io/kcp-dev/kcp-sharded-test-server"
+            - name: DOCKERFILE
+              value: "cmd/sharded-test-server/Dockerfile"
+            - name: IGNOREFILE
+              value: "cmd/sharded-test-server/Dockerfile.dockerignore"
+          # docker-in-docker needs privileged mode
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 1
+
   - name: pull-kcp-test-unit
     decorate: true
     clone_uri: "https://github.com/kcp-dev/kcp"

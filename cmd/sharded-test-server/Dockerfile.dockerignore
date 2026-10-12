@@ -1,0 +1,17 @@
+# Dockerfile-specific ignore for the sharded-test-server image.
+#
+# This build DOES need cmd/test-server and cmd/sharded-test-server in the
+# context (the whole point of the image is to ship the sharded test server),
+# so, unlike the repository-root .dockerignore used by the production kcp
+# image, it does not exclude them. It still excludes the same build artifacts
+# and workspace files. Patterns are evaluated relative to the build context
+# root (the repository root), not this file's directory.
+#
+# BuildKit (docker build) auto-detects this file as <dockerfile>.dockerignore
+# and it overrides the root .dockerignore. The Prow/buildah build passes it
+# explicitly via --ignorefile.
+
+bin/
+
+go.work
+go.work.sum
