@@ -314,8 +314,8 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 			name:                  "Unprivileged requestor cannot inject a reserved kcp extra",
 			impersonateUserHeader: "puppet",
 			otherHeaders: map[string]string{
-				// percent-encoded key, as a client sends it: authentication.kcp.io/cluster-name
-				"Impersonate-Extra-authentication.kcp.io%2Fcluster-name": "other-cluster",
+				// percent-encoded key, as a client sends it: authentication.kcp.io/reserved
+				"Impersonate-Extra-authentication.kcp.io%2Freserved": "value",
 			},
 			user: &mockUser{
 				Name:   "requester",
@@ -344,6 +344,23 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 			handlerCalled:            true,
 		},
 		{
+			name:                  "Unprivileged requestor may supply a service account cluster name (foreign cluster is out of scope)",
+			impersonateUserHeader: "system:serviceaccount:default:default",
+			otherHeaders: map[string]string{
+				"Impersonate-Extra-authentication.kcp.io%2Fcluster-name": "other-cluster",
+			},
+			user: &mockUser{
+				Name:   "requester",
+				UID:    "uid-206",
+				Groups: []string{"group1", user.AllAuthenticated},
+				Extra:  nil,
+			},
+			expectedStatus:           http.StatusOK,
+			expectedImpersonationKey: true,
+			expectedOriginalUser:     true,
+			handlerCalled:            true,
+		},
+		{
 			name:                  "Unprivileged requestor may supply a kcp warrant extra (scoped later in WithImpersonationScoping)",
 			impersonateUserHeader: "puppet",
 			otherHeaders: map[string]string{
@@ -364,7 +381,7 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 			name:                  "system:masters requestor may carry any kcp extra (trusted VW path)",
 			impersonateUserHeader: "puppet",
 			otherHeaders: map[string]string{
-				"Impersonate-Extra-authentication.kcp.io%2Fcluster-name": "other-cluster",
+				"Impersonate-Extra-authentication.kcp.io%2Freserved": "value",
 			},
 			user: &mockUser{
 				Name:   "requester",

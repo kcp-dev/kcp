@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apiserver/pkg/authentication/serviceaccount"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -105,8 +106,10 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		req = req.WithContext(ctx)
 
 		// Don't allow non-system:masters to impersonate reserved kcp extra keys.
-		// Scopes and warrants are exempt: scopes can only narrow access, and
-		// warrants are confined to the request's cluster in WithImpersonationScoping.
+		// Scopes, warrants and the service account cluster name are exempt: scopes
+		// can only narrow access, a foreign cluster name takes the service account
+		// out of scope, and warrants are confined to the request's cluster in
+		// WithImpersonationScoping.
 		if !sets.New(requester.GetGroups()...).Has(authorizationbootstrap.SystemMastersGroup) {
 			if key, found := forbiddenImpersonationExtra(req.Header); found {
 				responsewriters.ErrorNegotiated(
@@ -199,9 +202,10 @@ func WithImpersonationScoping(handler http.Handler) http.Handler {
 
 // forbiddenImpersonationExtra reports whether the request carries an
 // Impersonate-Extra-* header for a kcp-reserved extra key, i.e. any key
-// containing "kcp.io" other than scopes and warrants. Scopes only narrow
-// access and warrants get scoped to the request's cluster by
-// WithImpersonationScoping, so clients may supply both.
+// containing "kcp.io" other than the ones with well-defined scoped semantics:
+// scopes only narrow access, a service account cluster name other than the
+// request's cluster makes the service account foreign and hence out of scope,
+// and warrants get scoped to the request's cluster by WithImpersonationScoping.
 func forbiddenImpersonationExtra(header http.Header) (string, bool) {
 	for name := range header {
 		if !strings.HasPrefix(name, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
@@ -214,7 +218,7 @@ func forbiddenImpersonationExtra(header http.Header) (string, bool) {
 		}
 		lower := strings.ToLower(key)
 		switch lower {
-		case rbacregistryvalidation.ScopeExtraKey, rbacregistryvalidation.WarrantExtraKey:
+		case rbacregistryvalidation.ScopeExtraKey, rbacregistryvalidation.WarrantExtraKey, serviceaccount.ClusterNameKey:
 			continue
 		}
 		if strings.Contains(lower, "kcp.io") {

@@ -422,8 +422,8 @@ When impersonating a user in a logical cluster, the resulting user identity is
 scoped to the logical cluster the impersonation is happening in. Warrants (see
 next section) supplied through impersonation headers are scoped to that logical
 cluster as well, including nested warrants. Only members of `system:masters`
-are exempt from this scoping, and only they may impersonate other
-`kcp.io` extra fields.
+are exempt from this scoping, and only they may impersonate `kcp.io` extra
+fields other than scopes, warrants and the service account cluster name.
 
 A scope mismatch does not invalidate the warrants (see next section) of a user.
 
