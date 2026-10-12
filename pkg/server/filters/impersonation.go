@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -100,6 +102,16 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, originalUserContextKey, requester)
 		req = req.WithContext(ctx)
 
+		// Don't allow non-system:masters to impersonate reserved extra keys.
+		if !sets.New(requester.GetGroups()...).Has(authorizationbootstrap.SystemMastersGroup) {
+			if key, found := forbiddenImpersonationExtra(req.Header); found {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewForbidden(schema.GroupResource{}, "", fmt.Errorf("impersonating the extra key %q is not allowed for the requestor", key)),
+					errorCodecs, schema.GroupVersion{}, w, req)
+				return
+			}
+		}
+
 		if validImpersonation(requester.GetGroups(), req.Header[authenticationv1.ImpersonateGroupHeader]) {
 			handler.ServeHTTP(w, req)
 			return
@@ -169,6 +181,26 @@ func WithImpersonationScoping(handler http.Handler) http.Handler {
 
 		handler.ServeHTTP(w, req.WithContext(request.WithUser(req.Context(), userScoped)))
 	})
+}
+
+// forbiddenImpersonationExtra reports whether the request carries an
+// Impersonate-Extra-* header for a kcp-reserved extra key (any key containing
+// "kcp.io".
+func forbiddenImpersonationExtra(header http.Header) (string, bool) {
+	for name := range header {
+		if !strings.HasPrefix(name, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
+			continue
+		}
+		raw := name[len(authenticationv1.ImpersonateUserExtraHeaderPrefix):]
+		key, err := url.PathUnescape(raw)
+		if err != nil {
+			key = raw
+		}
+		if strings.Contains(strings.ToLower(key), "kcp.io") {
+			return key, true
+		}
+	}
+	return "", false
 }
 
 // validImpersonation checks if a user can impersonate all requested groups.
