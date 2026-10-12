@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The kcp Authors.
+Copyright 2026 The kcp Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validatingwebhook
+package clusterannotation
 
 import (
 	"testing"
@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/admission"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 )
@@ -59,7 +60,7 @@ func TestSetClusterAnnotation(t *testing.T) {
 			t.Parallel()
 			origAnnotations := test.in.GetAnnotations()
 
-			undo := SetClusterAnnotation(test.in, clusterName)
+			undo := setClusterAnnotation(test.in, clusterName)
 			assert.NotNil(t, undo)
 
 			require.NotNil(t, test.in.GetAnnotations())
@@ -91,6 +92,68 @@ func TestSetClusterAnnotation_AlreadySet(t *testing.T) {
 		},
 	}
 	origAnnotations := in.GetAnnotations()
-	assert.Nil(t, SetClusterAnnotation(in, clusterName))
+	assert.Nil(t, setClusterAnnotation(in, clusterName))
 	assert.Equal(t, origAnnotations, in.GetAnnotations())
+}
+
+// newAttributes builds admission attributes for the given operation carrying a
+// ConfigMap that already has a (possibly forged) kcp.io/cluster annotation.
+func newAttributes(op admission.Operation, forged string) admission.Attributes {
+	obj := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cm",
+			Namespace: "default",
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey: forged,
+			},
+		},
+	}
+	return admission.NewAttributesRecord(
+		obj, nil,
+		corev1.SchemeGroupVersion.WithKind("ConfigMap"),
+		"default", "cm",
+		corev1.SchemeGroupVersion.WithResource("configmaps"),
+		"", op, nil, false, nil,
+	)
+}
+
+func TestStamp(t *testing.T) {
+	t.Parallel()
+	const real = logicalcluster.Name("real-cluster")
+	const forged = "forged-cluster"
+
+	tests := []struct {
+		name      string
+		op        admission.Operation
+		wantStamp bool // whether the hook/policy should observe the real value
+	}{
+		{name: "create forces real value", op: admission.Create, wantStamp: true},
+		{name: "update forces real value", op: admission.Update, wantStamp: true},
+		{name: "delete left untouched", op: admission.Delete, wantStamp: false},
+		{name: "connect left untouched", op: admission.Connect, wantStamp: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			attr := newAttributes(test.op, forged)
+			obj := attr.GetObject().(metav1.Object)
+
+			undo := Stamp(attr, real)
+
+			if !test.wantStamp {
+				assert.Nil(t, undo, "Stamp must not touch non create/update operations")
+				assert.Equal(t, forged, obj.GetAnnotations()[logicalcluster.AnnotationKey])
+				return
+			}
+
+			require.NotNil(t, undo, "expected Stamp to return an undo func")
+			assert.Equal(t, real.String(), obj.GetAnnotations()[logicalcluster.AnnotationKey],
+				"hook must observe the authoritative cluster, not the forged value")
+
+			undo()
+			assert.NotEqual(t, forged, obj.GetAnnotations()[logicalcluster.AnnotationKey],
+				"forged value must not survive admission")
+		})
+	}
 }
