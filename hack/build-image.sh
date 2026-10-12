@@ -76,6 +76,7 @@ for arch in $architectures; do
   echo "Building $fullTag ..."
   buildah build-using-dockerfile \
     --file "${DOCKERFILE:-Dockerfile}" \
+    ${IGNOREFILE:+--ignorefile $IGNOREFILE} \
     --tag "$fullTag" \
     --arch "$arch" \
     --override-arch "$arch" \

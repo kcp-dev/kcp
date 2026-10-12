@@ -92,6 +92,8 @@ presubmits:
               value: "ghcr.io/kcp-dev/kcp-sharded-test-server"
             - name: DOCKERFILE
               value: "Dockerfile.sharded-test-server"
+            - name: IGNOREFILE
+              value: "Dockerfile.sharded-test-server.dockerignore"
           # docker-in-docker needs privileged mode
           securityContext:
             privileged: true
