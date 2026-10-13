@@ -4569,7 +4569,7 @@ satisfy all in order to be granted access.</p>
 </table>
 <h4 id="required-groups-authorizer">Required Groups Authorizer<a class="headerlink" href="#required-groups-authorizer" title="Permanent link">&para;</a></h4>
 <p>A <code>authorization.kcp.io/required-groups</code> annotation can be added to a LogicalCluster
-to specify which groups a user must be a member of to access the workspace.
+by kcp-admin or kcp system identities to specify which groups a user must be a member of to access the workspace.
 The syntax uses semicolons (<code>;</code>) to separate OR conditions and commas (<code>,</code>) to separate AND conditions within each group set.</p>
 <p>For example, <code>&lt;group1&gt;,&lt;group2&gt;;&lt;group3&gt;</code> means that a user must be a member of both <code>&lt;group1&gt;</code> AND <code>&lt;group2&gt;</code>, OR be a member of <code>&lt;group3&gt;</code>.</p>
 <p>The annotation is copied onto sub-workspaces during workspace creation, but is then not updated
