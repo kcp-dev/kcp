@@ -106,10 +106,9 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		req = req.WithContext(ctx)
 
 		// Don't allow non-system:masters to impersonate reserved kcp extra keys.
-		// Scopes, warrants and the service account cluster name are exempt: scopes
-		// can only narrow access, a foreign cluster name takes the service account
-		// out of scope, and warrants are confined to the request's cluster in
-		// WithImpersonationScoping.
+		// Scopes, warrants and the service account cluster name are exempt here:
+		// scopes can only narrow access, and warrants and cluster names are
+		// confined to the request's cluster in WithImpersonationScoping.
 		if !sets.New(requester.GetGroups()...).Has(authorizationbootstrap.SystemMastersGroup) {
 			if key, found := forbiddenImpersonationExtra(req.Header); found {
 				responsewriters.ErrorNegotiated(
@@ -172,6 +171,17 @@ func WithImpersonationScoping(handler http.Handler) http.Handler {
 			return
 		}
 
+		// A service account cluster name is an identity claim, not a restriction:
+		// the authorizers derive the global identity
+		// system:kcp:serviceaccount:<cluster-name>:<ns>:<name> from it regardless
+		// of scopes. A client may therefore only claim the cluster it is acting in.
+		if err := checkClusterName(u.GetExtra(), cluster.Name.String()); err != nil {
+			responsewriters.ErrorNegotiated(
+				apierrors.NewForbidden(schema.GroupResource{}, "", err),
+				errorCodecs, schema.GroupVersion{}, w, req)
+			return
+		}
+
 		// add a scope to the user information. Copy the extra map so the
 		// authenticated user.Info is not mutated.
 		scope := fmt.Sprintf("cluster:%s", cluster.Name)
@@ -186,7 +196,14 @@ func WithImpersonationScoping(handler http.Handler) http.Handler {
 		// with impersonation rights in one workspace could carry a warrant that
 		// grants access in every other workspace.
 		if warrants, ok := extra[rbacregistryvalidation.WarrantExtraKey]; ok {
-			extra[rbacregistryvalidation.WarrantExtraKey] = scopeWarrants(warrants, scope)
+			scoped, err := scopeWarrants(warrants, scope, cluster.Name.String())
+			if err != nil {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewForbidden(schema.GroupResource{}, "", err),
+					errorCodecs, schema.GroupVersion{}, w, req)
+				return
+			}
+			extra[rbacregistryvalidation.WarrantExtraKey] = scoped
 		}
 
 		userScoped := &user.DefaultInfo{
@@ -202,10 +219,9 @@ func WithImpersonationScoping(handler http.Handler) http.Handler {
 
 // forbiddenImpersonationExtra reports whether the request carries an
 // Impersonate-Extra-* header for a kcp-reserved extra key, i.e. any key
-// containing "kcp.io" other than the ones with well-defined scoped semantics:
-// scopes only narrow access, a service account cluster name other than the
-// request's cluster makes the service account foreign and hence out of scope,
-// and warrants get scoped to the request's cluster by WithImpersonationScoping.
+// containing "kcp.io" other than the ones WithImpersonationScoping handles:
+// scopes only narrow access, warrants get scoped to the request's cluster,
+// and a service account cluster name must match the request's cluster.
 func forbiddenImpersonationExtra(header http.Header) (string, bool) {
 	for name := range header {
 		if !strings.HasPrefix(name, authenticationv1.ImpersonateUserExtraHeaderPrefix) {
@@ -228,23 +244,45 @@ func forbiddenImpersonationExtra(header http.Header) (string, bool) {
 	return "", false
 }
 
+// checkClusterName returns an error if the extra carries a service account
+// cluster name other than the given cluster. Scoping cannot neutralize a
+// foreign cluster name, because the global service account identity derived
+// from it is not subject to scopes.
+func checkClusterName(extra map[string][]string, clusterName string) error {
+	for _, v := range extra[serviceaccount.ClusterNameKey] {
+		if v != clusterName {
+			return fmt.Errorf("impersonating the extra key %q with value %q is not allowed for the requestor in cluster %q", serviceaccount.ClusterNameKey, v, clusterName)
+		}
+	}
+	return nil
+}
+
 // scopeWarrants adds the given scope to every warrant and, recursively, to
 // every nested warrant, so that no warrant can grant access outside the
 // cluster the impersonation happened in. Scopes intersect, so an already
 // narrower scope stays in effect. Warrants that cannot be decoded are dropped.
-func scopeWarrants(warrants []string, scope string) []string {
+// A warrant claiming a service account cluster name other than the given
+// cluster is rejected, see checkClusterName.
+func scopeWarrants(warrants []string, scope, clusterName string) ([]string, error) {
 	out := make([]string, 0, len(warrants))
 	for _, raw := range warrants {
 		var w rbacregistryvalidation.Warrant
 		if err := json.Unmarshal([]byte(raw), &w); err != nil {
 			continue
 		}
+		if err := checkClusterName(w.Extra, clusterName); err != nil {
+			return nil, fmt.Errorf("warrant: %w", err)
+		}
 		if w.Extra == nil {
 			w.Extra = map[string][]string{}
 		}
 		w.Extra[rbacregistryvalidation.ScopeExtraKey] = append(w.Extra[rbacregistryvalidation.ScopeExtraKey], scope)
 		if nested, ok := w.Extra[rbacregistryvalidation.WarrantExtraKey]; ok {
-			w.Extra[rbacregistryvalidation.WarrantExtraKey] = scopeWarrants(nested, scope)
+			scopedNested, err := scopeWarrants(nested, scope, clusterName)
+			if err != nil {
+				return nil, err
+			}
+			w.Extra[rbacregistryvalidation.WarrantExtraKey] = scopedNested
 		}
 		bs, err := json.Marshal(w)
 		if err != nil {
@@ -252,7 +290,7 @@ func scopeWarrants(warrants []string, scope string) []string {
 		}
 		out = append(out, string(bs))
 	}
-	return out
+	return out, nil
 }
 
 // validImpersonation checks if a user can impersonate all requested groups.

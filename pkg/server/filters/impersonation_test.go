@@ -583,6 +583,90 @@ func TestWithScoping(t *testing.T) {
 			expectedWarrants:   []string{`{"user":"w","extra":{"authentication.kcp.io/scopes":["cluster:other","cluster:cluster-6"]}}`},
 		},
 		{
+			name:         "Service account impersonated with the request cluster as cluster name is allowed",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name:  "system:serviceaccount:default:sa",
+				UID:   "uid-903",
+				Extra: map[string][]string{"authentication.kcp.io/cluster-name": {"cluster-8"}},
+			},
+			cluster:            &request.Cluster{Name: "cluster-8"},
+			expectedStatus:     http.StatusOK,
+			handlerCalled:      true,
+			expectedExtraScope: "cluster:cluster-8",
+		},
+		{
+			name:         "Service account impersonated with a foreign cluster name is forbidden",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name:  "system:serviceaccount:default:sa",
+				UID:   "uid-904",
+				Extra: map[string][]string{"authentication.kcp.io/cluster-name": {"victim"}},
+			},
+			cluster:        &request.Cluster{Name: "cluster-9"},
+			expectedStatus: http.StatusForbidden,
+			handlerCalled:  false,
+		},
+		{
+			name:         "Warrant claiming a foreign service account cluster name is forbidden",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-905",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"system:serviceaccount:default:controller","extra":{"authentication.kcp.io/cluster-name":["victim"]}}`},
+				},
+			},
+			cluster:        &request.Cluster{Name: "cluster-10"},
+			expectedStatus: http.StatusForbidden,
+			handlerCalled:  false,
+		},
+		{
+			name:         "Nested warrant claiming a foreign service account cluster name is forbidden",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-906",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"outer","extra":{"authorization.kcp.io/warrant":["{\"user\":\"system:serviceaccount:default:controller\",\"extra\":{\"authentication.kcp.io/cluster-name\":[\"victim\"]}}"]}}`},
+				},
+			},
+			cluster:        &request.Cluster{Name: "cluster-11"},
+			expectedStatus: http.StatusForbidden,
+			handlerCalled:  false,
+		},
+		{
+			name:         "Warrant claiming the request cluster as service account cluster name is scoped and allowed",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-907",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"system:serviceaccount:default:controller","extra":{"authentication.kcp.io/cluster-name":["cluster-12"]}}`},
+				},
+			},
+			cluster:            &request.Cluster{Name: "cluster-12"},
+			expectedStatus:     http.StatusOK,
+			handlerCalled:      true,
+			expectedExtraScope: "cluster:cluster-12",
+			expectedWarrants:   []string{`{"user":"system:serviceaccount:default:controller","extra":{"authentication.kcp.io/cluster-name":["cluster-12"],"authentication.kcp.io/scopes":["cluster:cluster-12"]}}`},
+		},
+		{
+			name:         "system:masters may carry a warrant with a foreign service account cluster name (trusted VW path)",
+			originalUser: &mockUser{Name: "original-user", Groups: []string{"system:masters"}},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-908",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"system:serviceaccount:default:rest","groups":["system:kcp:admin"],"extra":{"authentication.kcp.io/cluster-name":["target"]}}`},
+				},
+			},
+			cluster:          &request.Cluster{Name: "cluster-13"},
+			expectedStatus:   http.StatusOK,
+			handlerCalled:    true,
+			expectedWarrants: []string{`{"user":"system:serviceaccount:default:rest","groups":["system:kcp:admin"],"extra":{"authentication.kcp.io/cluster-name":["target"]}}`},
+		},
+		{
 			name:         "Nested warrants are scoped recursively and malformed warrants are dropped",
 			originalUser: &mockUser{Name: "original-user"},
 			impersonatedUser: &mockUser{
