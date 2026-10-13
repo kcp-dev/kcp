@@ -17,8 +17,11 @@
         <link rel="next" href="../../running-sharded/">
       
       
+        
+      
+      
       <link rel="icon" href="../../../favicons/favicon.ico">
-      <meta name="generator" content="mkdocs-1.5.3, mkdocs-material-9.5.17">
+      <meta name="generator" content="zensical-0.0.67">
     
     
       
@@ -26,10 +29,15 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.bcfcd587.min.css">
       
         
-        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.4ae390e2.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/modern/palette.96d1a7e4.min.css">
       
       
 
@@ -43,8 +51,8 @@
         
         
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
-        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
       
     
     
@@ -52,23 +60,13 @@
     
       <link rel="stylesheet" href="../../../stylesheets/crd.css">
     
-    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
     
       
 
     
     
-    
-   <link href="../../../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>
-    html.glightbox-open { overflow: initial; height: 100%; }
-    .gslide-title { margin-top: 0px; user-select: text; }
-    .gslide-desc { color: #666; user-select: text; }
-    .gslide-image img { background: white; }
-    .gscrollbar-fixer { padding-right: 15px; }
-    .gdesc-inner { font-size: 0.75rem; }
-    body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color);}
-    body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color);}
-    body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color);}</style> <script src="../../../assets/javascripts/glightbox.min.js"></script></head>
+  </head>
   
   
     
@@ -83,7 +81,7 @@
     
     <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
     <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
-    <label class="md-overlay" for="__drawer"></label>
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
     <div data-md-component="skip">
       
         
@@ -107,12 +105,12 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../../.." title="docs.kcp.io" class="md-header__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../../logo.svg" alt="logo">
+  <img src="../../../logo.svg" alt="docs.kcp.io">
 
     </a>
-    <label class="md-header__button md-icon" for="__drawer">
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
       
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
     </label>
     <div class="md-header__title" data-md-component="header-title">
       <div class="md-header__ellipsis">
@@ -140,7 +138,7 @@
     <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
     
       <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9h-1.9M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69m-9.15 3.96h2.3L12 9l-1.15 3.65Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
       </label>
     
   
@@ -150,7 +148,7 @@
     <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
     
       <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
       </label>
     
   
@@ -160,7 +158,7 @@
     <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="indigo"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
     
       <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12c0-2.42-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
       </label>
     
   
@@ -168,60 +166,36 @@
       
     
     
-      <script>var media,input,key,value,palette=__md_get("__palette");if(palette&&palette.color){"(prefers-color-scheme)"===palette.color.media&&(media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']"),palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent"));for([key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
     
     
     
-      <label class="md-header__button md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
-      </label>
-      <div class="md-search" data-md-component="search" role="dialog">
-  <label class="md-search__overlay" for="__search"></label>
-  <div class="md-search__inner" role="search">
-    <form class="md-search__form" name="search">
-      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
-      <label class="md-search__icon md-icon" for="__search">
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
-        
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
-      </label>
-      <nav class="md-search__options" aria-label="Search">
-        
-        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
-          
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
-        </button>
-      </nav>
       
-    </form>
-    <div class="md-search__output">
-      <div class="md-search__scrollwrap" data-md-scrollfix>
-        <div class="md-search-result" data-md-component="search-result">
-          <div class="md-search-result__meta">
-            Initializing search
-          </div>
-          <ol class="md-search-result__list" role="presentation"></ol>
-        </div>
-      </div>
-    </div>
-  </div>
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
 </div>
+      
     
-    
-      <div class="md-header__source">
+    <div class="md-header__source">
+      
         <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
   </div>
   <div class="md-source__repository">
     kcp-dev/kcp
   </div>
 </a>
-      </div>
-    
+      
+    </div>
   </nav>
   
 </header>
@@ -240,13 +214,23 @@
   
   
   
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+    
+    
     
     
       <li class="md-tabs__item">
         <a href="../../.." class="md-tabs__link">
           
-  
-    
   
   Home
 
@@ -260,13 +244,33 @@
   
   
   
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
     
     
       <li class="md-tabs__item">
         <a href="../../../setup/" class="md-tabs__link">
           
-  
-    
   
   Setup
 
@@ -280,13 +284,37 @@
   
   
   
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
     
     
       <li class="md-tabs__item">
         <a href="../../../concepts/" class="md-tabs__link">
           
-  
-    
   
   Concepts
 
@@ -299,16 +327,36 @@
         
   
   
+  
     
   
   
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
     
     
       <li class="md-tabs__item md-tabs__item--active">
         <a href="../../" class="md-tabs__link">
           
-  
-    
   
   Developers
 
@@ -322,13 +370,33 @@
   
   
   
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
     
     
       <li class="md-tabs__item">
         <a href="../../../contributing/" class="md-tabs__link">
           
-  
-    
   
   Contributing
 
@@ -342,13 +410,25 @@
   
   
   
+  
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+    
     
     
       <li class="md-tabs__item">
         <a href="../../../reference/" class="md-tabs__link">
           
-  
-    
   
   Reference
 
@@ -382,7 +462,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../../.." title="docs.kcp.io" class="md-nav__button md-logo" aria-label="docs.kcp.io" data-md-component="logo">
       
-  <img src="../../../logo.svg" alt="logo">
+  <img src="../../../logo.svg" alt="docs.kcp.io">
 
     </a>
     docs.kcp.io
@@ -392,7 +472,7 @@
       <a href="https://github.com/kcp-dev/kcp" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
   </div>
   <div class="md-source__repository">
     kcp-dev/kcp
@@ -419,6 +499,7 @@
       
     
     
+    
       
       
     
@@ -432,14 +513,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../.." class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Home
+    
+  
+  Home
+
+    
   </span>
+  
   
 
             </a>
@@ -451,17 +537,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_1">
-            <span class="md-nav__icon md-icon"></span>
-            Home
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_1">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Home
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -470,19 +560,26 @@
       <a href="../../../GOALS/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Project Goals
+    
+  
+  Project Goals
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
@@ -513,6 +610,7 @@
       
         
       
+    
     
     
       
@@ -528,14 +626,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../setup/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Setup
+    
+  
+  Setup
+
+    
   </span>
+  
   
 
             </a>
@@ -547,17 +650,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            Setup
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Setup
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -566,19 +673,25 @@
       <a href="../../../setup/quickstart/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Quickstart
+    
+  
+  Quickstart
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -587,19 +700,25 @@
       <a href="../../../setup/quickstart-kind/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Quickstart with kind
+    
+  
+  Quickstart with kind
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -608,19 +727,25 @@
       <a href="../../../setup/helm/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Installation with Helm
+    
+  
+  Installation with Helm
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -629,19 +754,25 @@
       <a href="../../../setup/kubectl-plugin/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kubectl Plugins
+    
+  
+  kubectl Plugins
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -650,19 +781,25 @@
       <a href="../../../setup/integrations/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Integrations
+    
+  
+  Integrations
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -688,6 +825,7 @@
       
         
       
+    
     
     
       
@@ -703,14 +841,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2_7" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../setup/production/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Production Deployment
+    
+  
+  Production Deployment
+
+    
   </span>
+  
   
 
             </a>
@@ -722,17 +865,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2_7">
-            <span class="md-nav__icon md-icon"></span>
-            Production Deployment
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_2_7">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Production Deployment
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -741,19 +888,25 @@
       <a href="../../../setup/production/overview/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Architecture Overview
+    
+  
+  Architecture Overview
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -762,19 +915,25 @@
       <a href="../../../setup/production/prerequisites/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Prerequisites
+    
+  
+  Prerequisites
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -783,19 +942,25 @@
       <a href="../../../setup/production/kcp-dekker/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp-dekker: Self-Signed Certificate Deployment
+    
+  
+  kcp-dekker: Self-Signed Certificate Deployment
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -804,19 +969,25 @@
       <a href="../../../setup/production/kcp-vespucci/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp-vespucci: External Certificate Deployment
+    
+  
+  kcp-vespucci: External Certificate Deployment
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -825,19 +996,25 @@
       <a href="../../../setup/production/kcp-comer/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp-comer: Dual Front-Proxy with Edge re-encryption
+    
+  
+  kcp-comer: Dual Front-Proxy with Edge re-encryption
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -846,19 +1023,25 @@
       <a href="../../../setup/production/audit-logging/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Audit Logging
+    
+  
+  Audit Logging
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -867,27 +1050,35 @@
       <a href="../../../setup/production/metrics/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Scraping kcp metrics
+    
+  
+  Scraping kcp metrics
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
@@ -922,6 +1113,7 @@
       
         
       
+    
     
     
       
@@ -937,14 +1129,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../concepts/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Concepts
+    
+  
+  Concepts
+
+    
   </span>
+  
   
 
             </a>
@@ -956,17 +1153,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
-            <span class="md-nav__icon md-icon"></span>
-            Concepts
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Concepts
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -975,19 +1176,25 @@
       <a href="../../../concepts/terminology/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Terminology
+    
+  
+  Terminology
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -996,19 +1203,25 @@
       <a href="../../../concepts/quickstart-tenancy-and-apis/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Quickstart: Tenancy and APIs
+    
+  
+  Quickstart: Tenancy and APIs
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1034,6 +1247,7 @@
       
         
       
+    
     
     
       
@@ -1049,14 +1263,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_4" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../concepts/workspaces/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Workspaces
+    
+  
+  Workspaces
+
+    
   </span>
+  
   
 
             </a>
@@ -1068,17 +1287,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_4">
-            <span class="md-nav__icon md-icon"></span>
-            Workspaces
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3_4">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Workspaces
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -1087,19 +1310,25 @@
       <a href="../../../concepts/workspaces/workspace-types/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Workspace Types
+    
+  
+  Workspace Types
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1108,19 +1337,25 @@
       <a href="../../../concepts/workspaces/workspace-types-best-practices/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    WorkspaceType Best Practices
+    
+  
+  WorkspaceType Best Practices
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1129,19 +1364,25 @@
       <a href="../../../concepts/workspaces/system-workspaces/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    System Workspaces
+    
+  
+  System Workspaces
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1150,19 +1391,25 @@
       <a href="../../../concepts/workspaces/virtual-workspaces/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Virtual Workspaces
+    
+  
+  Virtual Workspaces
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1171,19 +1418,25 @@
       <a href="../../../concepts/workspaces/workspace-initialization/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Workspace Initialization
+    
+  
+  Workspace Initialization
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1192,19 +1445,25 @@
       <a href="../../../concepts/workspaces/workspace-termination/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Workspace Termination
+    
+  
+  Workspace Termination
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1213,27 +1472,34 @@
       <a href="../../../concepts/workspaces/mounts/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Workspace Mounts
+    
+  
+  Workspace Mounts
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1255,6 +1521,7 @@
       
         
       
+    
     
     
       
@@ -1270,14 +1537,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_5" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../concepts/apis/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    APIs
+    
+  
+  APIs
+
+    
   </span>
+  
   
 
             </a>
@@ -1289,17 +1561,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_5">
-            <span class="md-nav__icon md-icon"></span>
-            APIs
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3_5">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  APIs
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -1308,19 +1584,25 @@
       <a href="../../../concepts/apis/admission-webhooks/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Admission Webhooks
+    
+  
+  Admission Webhooks
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1329,19 +1611,25 @@
       <a href="../../../concepts/apis/built-in/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Built-in APIs
+    
+  
+  Built-in APIs
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1350,19 +1638,25 @@
       <a href="../../../concepts/apis/cached-resources/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Cached resource API
+    
+  
+  Cached resource API
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1371,19 +1665,25 @@
       <a href="../../../concepts/apis/exporting-apis/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Exporting and Binding APIs
+    
+  
+  Exporting and Binding APIs
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1392,27 +1692,34 @@
       <a href="../../../concepts/apis/rest-access-patterns/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    REST Access Patterns
+    
+  
+  REST Access Patterns
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1428,6 +1735,7 @@
       
         
       
+    
     
     
       
@@ -1443,14 +1751,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_6" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../concepts/authentication/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Authentication
+    
+  
+  Authentication
+
+    
   </span>
+  
   
 
             </a>
@@ -1462,17 +1775,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_6">
-            <span class="md-nav__icon md-icon"></span>
-            Authentication
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3_6">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Authentication
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -1481,19 +1798,25 @@
       <a href="../../../concepts/authentication/oidc/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    OIDC Setup
+    
+  
+  OIDC Setup
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1502,27 +1825,34 @@
       <a href="../../../concepts/authentication/workspace/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Per-Workspace Authentication
+    
+  
+  Per-Workspace Authentication
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1536,6 +1866,7 @@
       
         
       
+    
     
     
       
@@ -1551,14 +1882,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_7" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../concepts/authorization/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Authorization
+    
+  
+  Authorization
+
+    
   </span>
+  
   
 
             </a>
@@ -1570,17 +1906,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7">
-            <span class="md-nav__icon md-icon"></span>
-            Authorization
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3_7">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Authorization
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -1589,27 +1929,34 @@
       <a href="../../../concepts/authorization/authorizers/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Authorizers
+    
+  
+  Authorizers
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1629,6 +1976,7 @@
       
         
       
+    
     
     
       
@@ -1644,14 +1992,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_8" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../concepts/sharding/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Sharding
+    
+  
+  Sharding
+
+    
   </span>
+  
   
 
             </a>
@@ -1663,17 +2016,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_8">
-            <span class="md-nav__icon md-icon"></span>
-            Sharding
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3_8">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Sharding
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -1682,19 +2039,25 @@
       <a href="../../../concepts/sharding/shards/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Shards
+    
+  
+  Shards
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1703,19 +2066,25 @@
       <a href="../../../concepts/sharding/partitions/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Partitions
+    
+  
+  Partitions
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1724,19 +2093,25 @@
       <a href="../../../concepts/sharding/migration/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Logical Cluster Migration
+    
+  
+  Logical Cluster Migration
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1745,27 +2120,34 @@
       <a href="../../../concepts/sharding/cache-server/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Cache Server
+    
+  
+  Cache Server
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -1779,6 +2161,7 @@
       
         
       
+    
     
     
       
@@ -1794,14 +2177,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3_9" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../concepts/miscellaneous/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Miscellaneous
+    
+  
+  Miscellaneous
+
+    
   </span>
+  
   
 
             </a>
@@ -1813,17 +2201,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_9_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_9">
-            <span class="md-nav__icon md-icon"></span>
-            Miscellaneous
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_9_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_3_9">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Miscellaneous
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -1832,27 +2224,35 @@
       <a href="../../../concepts/miscellaneous/braindump/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Architecture – A Brain Dump
+    
+  
+  Architecture – A Brain Dump
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
@@ -1885,6 +2285,7 @@
       
         
       
+    
     
     
       
@@ -1901,14 +2302,19 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Developers
+    
+  
+  Developers
+
+    
   </span>
+  
   
 
             </a>
@@ -1920,17 +2326,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4">
-            <span class="md-nav__icon md-icon"></span>
-            Developers
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Developers
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
     
@@ -1944,6 +2354,7 @@
       
         
       
+    
     
     
       
@@ -1960,23 +2371,33 @@
           <label class="md-nav__link" for="__nav_4_2" id="__nav_4_2_label" tabindex="0">
             
   
+  
   <span class="md-ellipsis">
-    Controllers
+    
+  
+  Controllers
+
+    
   </span>
+  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_4_2">
-            <span class="md-nav__icon md-icon"></span>
-            Controllers
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_2_label" aria-expanded="true">
+            <label class="md-nav__title" for="__nav_4_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Controllers
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
   
@@ -1985,19 +2406,25 @@
       <a href="../writing-kcp-aware-controllers/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Writing kcp-aware Controllers
+    
+  
+  Writing kcp-aware Controllers
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
     
@@ -2006,18 +2433,24 @@
   
     <li class="md-nav__item md-nav__item--active">
       
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
       
       
         
       
       
-      <a href="./" class="md-nav__link md-nav__link--active">
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
+  
   <span class="md-ellipsis">
-    client-go
+    
+  
+  client-go
+
+    
   </span>
+  
   
 
       </a>
@@ -2025,18 +2458,19 @@
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2045,19 +2479,25 @@
       <a href="../../running-sharded/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Running a Sharded Environment
+    
+  
+  Running a Sharded Environment
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2066,19 +2506,25 @@
       <a href="../../storage-to-rest-patterns/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Storage to REST Patterns
+    
+  
+  Storage to REST Patterns
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2087,19 +2533,25 @@
       <a href="../../testing-migration/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Testing Logical Cluster Migration
+    
+  
+  Testing Logical Cluster Migration
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2111,6 +2563,7 @@
       
         
       
+    
     
     
       
@@ -2129,23 +2582,33 @@
           <label class="md-nav__link" for="__nav_4_6" id="__nav_4_6_label" tabindex="0">
             
   
+  
   <span class="md-ellipsis">
-    Internals
+    
+  
+  Internals
+
+    
   </span>
+  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_6">
-            <span class="md-nav__icon md-icon"></span>
-            Internals
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4_6">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Internals
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
   
@@ -2154,19 +2617,25 @@
       <a href="../../internals/etcd-structure/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    etcd structure
+    
+  
+  etcd structure
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2175,27 +2644,34 @@
       <a href="../../internals/using-kcp-as-a-library/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Using kcp as a library
+    
+  
+  Using kcp as a library
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2221,6 +2697,7 @@
       
         
       
+    
     
     
       
@@ -2236,14 +2713,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_7" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../investigations/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Investigations
+    
+  
+  Investigations
+
+    
   </span>
+  
   
 
             </a>
@@ -2255,17 +2737,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_7">
-            <span class="md-nav__icon md-icon"></span>
-            Investigations
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_4_7">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Investigations
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -2274,19 +2760,25 @@
       <a href="../../investigations/loadtest-report-apr-2026/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Loadtest Report Apr 2026 - "Focus on Workspace Creation"
+    
+  
+  Loadtest Report Apr 2026 - "Focus on Workspace Creation"
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2295,19 +2787,25 @@
       <a href="../../investigations/loadtest-report-sep-2026/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Loadtest Report Sep 2026 - "Scaling kcp to 10000 Tenants"
+    
+  
+  Loadtest Report Sep 2026 - "Scaling kcp to 10000 Tenants"
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2316,19 +2814,25 @@
       <a href="../../investigations/logical-clusters/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Logical Clusters
+    
+  
+  Logical Clusters
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2337,19 +2841,25 @@
       <a href="../../investigations/memory-leak-attribution/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Memory and goroutine leak attribution
+    
+  
+  Memory and goroutine leak attribution
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2358,19 +2868,25 @@
       <a href="../../investigations/minimal-api-server/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Minimal API Server
+    
+  
+  Minimal API Server
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2379,19 +2895,25 @@
       <a href="../../investigations/self-service-policy/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Self-service Policy
+    
+  
+  Self-service Policy
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2400,27 +2922,35 @@
       <a href="../../investigations/transparent-multi-cluster/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Transparent Multi-Cluster
+    
+  
+  Transparent Multi-Cluster
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
@@ -2451,6 +2981,7 @@
       
         
       
+    
     
     
       
@@ -2466,14 +2997,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../contributing/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Contributing
+    
+  
+  Contributing
+
+    
   </span>
+  
   
 
             </a>
@@ -2485,17 +3021,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            Contributing
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Contributing
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -2504,19 +3044,25 @@
       <a href="../../../contributing/getting-started/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Getting Started
+    
+  
+  Getting Started
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2525,19 +3071,25 @@
       <a href="../../../contributing/coding/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Coding Guidelines & Conventions
+    
+  
+  Coding Guidelines &amp; Conventions
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2546,19 +3098,25 @@
       <a href="../../../contributing/monorepo/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Monorepo Structure
+    
+  
+  Monorepo Structure
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2570,6 +3128,7 @@
       
         
       
+    
     
     
       
@@ -2588,23 +3147,33 @@
           <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
             
   
+  
   <span class="md-ellipsis">
-    Governance
+    
+  
+  Governance
+
+    
   </span>
+  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_5">
-            <span class="md-nav__icon md-icon"></span>
-            Governance
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_5">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Governance
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
   
@@ -2613,19 +3182,25 @@
       <a href="../../../contributing/governance/general-technical-review/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    General Technical Review
+    
+  
+  General Technical Review
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2634,27 +3209,34 @@
       <a href="../../../contributing/governance/security-self-assessment/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Security Self-Assessment
+    
+  
+  Security Self-Assessment
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2668,6 +3250,7 @@
       
         
       
+    
     
     
       
@@ -2683,14 +3266,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_6" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../contributing/continuous-integration/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Continuous integration
+    
+  
+  Continuous integration
+
+    
   </span>
+  
   
 
             </a>
@@ -2702,17 +3290,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_6">
-            <span class="md-nav__icon md-icon"></span>
-            Continuous integration
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_6">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Continuous integration
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -2721,27 +3313,34 @@
       <a href="../../../contributing/continuous-integration/inspecting-e2e-metrics/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Inspecting Prometheus Metrics for e2e Runs
+    
+  
+  Inspecting Prometheus Metrics for e2e Runs
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2757,6 +3356,7 @@
       
         
       
+    
     
     
       
@@ -2775,23 +3375,33 @@
           <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
             
   
+  
   <span class="md-ellipsis">
-    Guides
+    
+  
+  Guides
+
+    
   </span>
+  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_7">
-            <span class="md-nav__icon md-icon"></span>
-            Guides
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_5_7">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  Guides
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
   
@@ -2800,19 +3410,25 @@
       <a href="../../../contributing/guides/accessing-embedded-etcd/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Accessing Embedded etcd for Local Development
+    
+  
+  Accessing Embedded etcd for Local Development
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2821,19 +3437,25 @@
       <a href="../../../contributing/guides/publishing-a-new-kcp-release/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Publishing a New kcp Release
+    
+  
+  Publishing a New kcp Release
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2842,19 +3464,25 @@
       <a href="../../../contributing/guides/replicate-new-resource/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Replicating New Resources in the Cache Server
+    
+  
+  Replicating New Resources in the Cache Server
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -2866,6 +3494,7 @@
           
         
       
+    
     
     
       
@@ -2881,47 +3510,44 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_7_4" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../contributing/guides/rebasing-kubernetes/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Rebasing kubernetes
+    
+  
+  Rebasing kubernetes
+
+    
   </span>
+  
   
 
             </a>
             
           </div>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_7_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_7_4">
-            <span class="md-nav__icon md-icon"></span>
-            Rebasing kubernetes
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-            
-          </ul>
-        </nav>
+        
       
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
@@ -2944,6 +3570,7 @@
       
         
       
+    
     
     
       
@@ -2959,14 +3586,19 @@
         <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
         
           
-          
           <div class="md-nav__link md-nav__container">
             <a href="../../../reference/" class="md-nav__link ">
               
   
+  
   <span class="md-ellipsis">
-    Reference
+    
+  
+  Reference
+
+    
   </span>
+  
   
 
             </a>
@@ -2978,17 +3610,21 @@
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
-            <span class="md-nav__icon md-icon"></span>
-            Reference
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6">
+              <span class="md-nav__icon md-icon"></span>
               
-            
+  
+  Reference
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+              
+                
+                  
   
   
   
@@ -3040,6 +3676,7 @@
       
         
       
+    
     
     
       
@@ -3058,23 +3695,33 @@
           <label class="md-nav__link" for="__nav_6_2" id="__nav_6_2_label" tabindex="0">
             
   
+  
   <span class="md-ellipsis">
-    CLI
+    
+  
+  CLI
+
+    
   </span>
+  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_2">
-            <span class="md-nav__icon md-icon"></span>
-            CLI
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  CLI
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
   
@@ -3083,19 +3730,25 @@
       <a href="../../../reference/cli/create_workspace/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    create workspace
+    
+  
+  create workspace
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3104,19 +3757,25 @@
       <a href="../../../reference/cli/kcp/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp
+    
+  
+  kcp
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3125,19 +3784,25 @@
       <a href="../../../reference/cli/kcp_bind/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp bind
+    
+  
+  kcp bind
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3146,19 +3811,25 @@
       <a href="../../../reference/cli/kcp_bind_apiexport/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp bind apiexport
+    
+  
+  kcp bind apiexport
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3167,19 +3838,25 @@
       <a href="../../../reference/cli/kcp_claims/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp claims
+    
+  
+  kcp claims
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3188,19 +3865,25 @@
       <a href="../../../reference/cli/kcp_claims_accept/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp claims accept
+    
+  
+  kcp claims accept
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3209,19 +3892,25 @@
       <a href="../../../reference/cli/kcp_claims_get/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp claims get
+    
+  
+  kcp claims get
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3230,19 +3919,25 @@
       <a href="../../../reference/cli/kcp_claims_get_apibinding/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp claims get apibinding
+    
+  
+  kcp claims get apibinding
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3251,19 +3946,25 @@
       <a href="../../../reference/cli/kcp_claims_reject/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp claims reject
+    
+  
+  kcp claims reject
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3272,19 +3973,25 @@
       <a href="../../../reference/cli/kcp_crd/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp crd
+    
+  
+  kcp crd
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3293,19 +4000,25 @@
       <a href="../../../reference/cli/kcp_crd_snapshot/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp crd snapshot
+    
+  
+  kcp crd snapshot
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3314,19 +4027,25 @@
       <a href="../../../reference/cli/kcp_quickstart/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp quickstart
+    
+  
+  kcp quickstart
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3335,19 +4054,25 @@
       <a href="../../../reference/cli/kcp_workspace/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp workspace
+    
+  
+  kcp workspace
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3356,19 +4081,25 @@
       <a href="../../../reference/cli/kcp_workspace_create-context/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp workspace create-context
+    
+  
+  kcp workspace create-context
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3377,19 +4108,25 @@
       <a href="../../../reference/cli/kcp_workspace_current/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp workspace current
+    
+  
+  kcp workspace current
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3398,19 +4135,25 @@
       <a href="../../../reference/cli/kcp_workspace_tree/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp workspace tree
+    
+  
+  kcp workspace tree
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3419,19 +4162,25 @@
       <a href="../../../reference/cli/kcp_workspace_use/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    kcp workspace use
+    
+  
+  kcp workspace use
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3440,19 +4189,25 @@
       <a href="../../../reference/cli/workspace/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    workspace
+    
+  
+  workspace
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3461,19 +4216,25 @@
       <a href="../../../reference/cli/workspace_create-context/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    workspace create-context
+    
+  
+  workspace create-context
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3482,19 +4243,25 @@
       <a href="../../../reference/cli/workspace_current/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    workspace current
+    
+  
+  workspace current
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3503,19 +4270,25 @@
       <a href="../../../reference/cli/workspace_tree/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    workspace tree
+    
+  
+  workspace tree
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3524,27 +4297,34 @@
       <a href="../../../reference/cli/workspace_use/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    workspace use
+    
+  
+  workspace use
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3560,6 +4340,7 @@
       
         
       
+    
     
     
       
@@ -3578,23 +4359,33 @@
           <label class="md-nav__link" for="__nav_6_3" id="__nav_6_3_label" tabindex="0">
             
   
+  
   <span class="md-ellipsis">
-    CRD
+    
+  
+  CRD
+
+    
   </span>
+  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_3">
-            <span class="md-nav__icon md-icon"></span>
-            CRD
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_6_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  CRD
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
   
@@ -3612,6 +4403,7 @@
       
         
       
+    
     
     
       
@@ -3630,23 +4422,33 @@
           <label class="md-nav__link" for="__nav_6_3_1" id="__nav_6_3_1_label" tabindex="0">
             
   
+  
   <span class="md-ellipsis">
-    apis.kcp.io
+    
+  
+  apis.kcp.io
+
+    
   </span>
+  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_3_1">
-            <span class="md-nav__icon md-icon"></span>
-            apis.kcp.io
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_1_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_3_1">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  apis.kcp.io
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
   
@@ -3655,19 +4457,25 @@
       <a href="../../../reference/crd/apis.kcp.io/apibindings/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    APIBinding
+    
+  
+  APIBinding
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3676,19 +4484,25 @@
       <a href="../../../reference/crd/apis.kcp.io/apiconversions/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    APIConversion
+    
+  
+  APIConversion
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3697,19 +4511,25 @@
       <a href="../../../reference/crd/apis.kcp.io/apiexportendpointslices/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    APIExportEndpointSlice
+    
+  
+  APIExportEndpointSlice
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3718,19 +4538,25 @@
       <a href="../../../reference/crd/apis.kcp.io/apiexports/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    APIExport
+    
+  
+  APIExport
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3739,27 +4565,34 @@
       <a href="../../../reference/crd/apis.kcp.io/apiresourceschemas/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    APIResourceSchema
+    
+  
+  APIResourceSchema
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3771,6 +4604,7 @@
       
         
       
+    
     
     
       
@@ -3789,23 +4623,33 @@
           <label class="md-nav__link" for="__nav_6_3_2" id="__nav_6_3_2_label" tabindex="0">
             
   
+  
   <span class="md-ellipsis">
-    core.kcp.io
+    
+  
+  core.kcp.io
+
+    
   </span>
+  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_3_2">
-            <span class="md-nav__icon md-icon"></span>
-            core.kcp.io
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_2_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_3_2">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  core.kcp.io
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
   
@@ -3814,19 +4658,25 @@
       <a href="../../../reference/crd/core.kcp.io/logicalclusters/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    LogicalCluster
+    
+  
+  LogicalCluster
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3835,27 +4685,34 @@
       <a href="../../../reference/crd/core.kcp.io/shards/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Shard
+    
+  
+  Shard
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3867,6 +4724,7 @@
       
         
       
+    
     
     
       
@@ -3885,23 +4743,33 @@
           <label class="md-nav__link" for="__nav_6_3_3" id="__nav_6_3_3_label" tabindex="0">
             
   
+  
   <span class="md-ellipsis">
-    tenancy.kcp.io
+    
+  
+  tenancy.kcp.io
+
+    
   </span>
+  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_3_3">
-            <span class="md-nav__icon md-icon"></span>
-            tenancy.kcp.io
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_3_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_3_3">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  tenancy.kcp.io
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
   
@@ -3910,19 +4778,25 @@
       <a href="../../../reference/crd/tenancy.kcp.io/workspaces/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Workspace
+    
+  
+  Workspace
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3931,27 +4805,34 @@
       <a href="../../../reference/crd/tenancy.kcp.io/workspacetypes/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    WorkspaceType
+    
+  
+  WorkspaceType
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -3963,6 +4844,7 @@
       
         
       
+    
     
     
       
@@ -3981,23 +4863,33 @@
           <label class="md-nav__link" for="__nav_6_3_4" id="__nav_6_3_4_label" tabindex="0">
             
   
+  
   <span class="md-ellipsis">
-    topology.kcp.io
+    
+  
+  topology.kcp.io
+
+    
   </span>
+  
   
 
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6_3_4">
-            <span class="md-nav__icon md-icon"></span>
-            topology.kcp.io
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
+        
+          <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_6_3_4_label" aria-expanded="false">
+            <label class="md-nav__title" for="__nav_6_3_4">
+              <span class="md-nav__icon md-icon"></span>
+              
+  
+  topology.kcp.io
+
+            </label>
+            <ul class="md-nav__list" data-md-scrollfix>
               
                 
+                  
   
   
   
@@ -4006,19 +4898,25 @@
       <a href="../../../reference/crd/topology.kcp.io/partitions/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    Partition
+    
+  
+  Partition
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
-              
-            
+                
               
                 
+                  
   
   
   
@@ -4027,35 +4925,44 @@
       <a href="../../../reference/crd/topology.kcp.io/partitionsets/" class="md-nav__link">
         
   
+  
   <span class="md-ellipsis">
-    PartitionSet
+    
+  
+  PartitionSet
+
+    
   </span>
+  
   
 
       </a>
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
 
+                
               
-            
-          </ul>
-        </nav>
+            </ul>
+          </nav>
+        
       
     </li>
   
@@ -4071,10 +4978,19 @@
               
               <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
                 <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                  
                   <div class="md-sidebar__inner">
                     
 
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
   
   
   
@@ -4089,6 +5005,7 @@
           
           
             <div class="md-content" data-md-component="content">
+              
               <article class="md-content__inner md-typeset">
                 
                   
@@ -4111,6 +5028,8 @@
 
 
 
+
+
                 
               </article>
             </div>
@@ -4121,7 +5040,7 @@
         
           <button type="button" class="md-top md-icon" data-md-component="top" hidden>
   
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
   Back to top
 </button>
         
@@ -4135,13 +5054,14 @@
   
   
     Made with
-    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
-      Material for MkDocs
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
     </a>
   
 </div>
       
-        <div class="md-social">
+        
+<div class="md-social">
   
     
     
@@ -4151,7 +5071,7 @@
       
     
     <a href="https://github.com/kcp-dev/kcp" target="_blank" rel="noopener" title="github.com" class="md-social__link">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M216.5 362.5c-66-8-112.5-55.5-112.5-117 0-25 9-52 24-70-6.5-16.5-5.5-51.5 2-66 20-2.5 47 8 63 22.5 19-6 39-9 63.5-9s44.5 3 62.5 8.5c15.5-14 43-24.5 63-22 7 13.5 8 48.5 1.5 65.5 16 19 24.5 44.5 24.5 70.5 0 61.5-46.5 108-113.5 116.5 17 11 28.5 35 28.5 62.5v52c0 15 12.5 23.5 27.5 17.5C441 459.5 512 369 512 257 512 115.5 397 0 255.5 0S0 115.5 0 257c0 111 70.5 203 165.5 237.5 13.5 5 26.5-4 26.5-17.5v-40c-7 3-16 5-24 5-33 0-52.5-18-66.5-51.5-5.5-13.5-11.5-21.5-23-23-6-.5-8-3-8-6 0-6 10-10.5 20-10.5 14.5 0 27 9 40 27.5 10 14.5 20.5 21 33 21s20.5-4.5 32-16c8.5-8.5 15-16 21-21"/></svg>
     </a>
   
     
@@ -4162,7 +5082,7 @@
       
     
     <a href="https://kubernetes.slack.com/archives/C021U8WSAFK" target="_blank" rel="noopener" title="kubernetes.slack.com" class="md-social__link">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M94.12 315.1c0 25.9-21.16 47.06-47.06 47.06S0 341 0 315.1c0-25.9 21.16-47.06 47.06-47.06h47.06v47.06zm23.72 0c0-25.9 21.16-47.06 47.06-47.06s47.06 21.16 47.06 47.06v117.84c0 25.9-21.16 47.06-47.06 47.06s-47.06-21.16-47.06-47.06V315.1zm47.06-188.98c-25.9 0-47.06-21.16-47.06-47.06S139 32 164.9 32s47.06 21.16 47.06 47.06v47.06H164.9zm0 23.72c25.9 0 47.06 21.16 47.06 47.06s-21.16 47.06-47.06 47.06H47.06C21.16 243.96 0 222.8 0 196.9s21.16-47.06 47.06-47.06H164.9zm188.98 47.06c0-25.9 21.16-47.06 47.06-47.06 25.9 0 47.06 21.16 47.06 47.06s-21.16 47.06-47.06 47.06h-47.06V196.9zm-23.72 0c0 25.9-21.16 47.06-47.06 47.06-25.9 0-47.06-21.16-47.06-47.06V79.06c0-25.9 21.16-47.06 47.06-47.06 25.9 0 47.06 21.16 47.06 47.06V196.9zM283.1 385.88c25.9 0 47.06 21.16 47.06 47.06 0 25.9-21.16 47.06-47.06 47.06-25.9 0-47.06-21.16-47.06-47.06v-47.06h47.06zm0-23.72c-25.9 0-47.06-21.16-47.06-47.06 0-25.9 21.16-47.06 47.06-47.06h117.84c25.9 0 47.06 21.16 47.06 47.06 0 25.9-21.16 47.06-47.06 47.06H283.1z"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M94.1 315.1c0 25.9-21.2 47.1-47.1 47.1S0 341 0 315.1 21.2 268 47.1 268h47.1v47.1zm23.7 0c0-25.9 21.2-47.1 47.1-47.1s47.1 21.2 47.1 47.1v117.8c0 25.9-21.2 47.1-47.1 47.1s-47.1-21.2-47.1-47.1zm47.1-189c-25.9 0-47.1-21.2-47.1-47.1s21.2-47 47.1-47S212 53.2 212 79.1v47.1h-47.1zm0 23.7c25.9 0 47.1 21.2 47.1 47.1S190.8 244 164.9 244H47.1C21.2 244 0 222.8 0 196.9s21.2-47.1 47.1-47.1zm189 47.1c0-25.9 21.2-47.1 47.1-47.1s47 21.2 47 47.1-21.2 47.1-47.1 47.1h-47.1v-47.1zm-23.7 0c0 25.9-21.2 47.1-47.1 47.1S236 222.8 236 196.9V79.1c0-25.9 21.2-47.1 47.1-47.1s47.1 21.2 47.1 47.1zm-47.1 189c25.9 0 47.1 21.2 47.1 47.1s-21.2 47-47.1 47-47.1-21.2-47.1-47.1v-47.1h47.1zm0-23.7c-25.9 0-47.1-21.2-47.1-47.1s21.2-47.1 47.1-47.1h117.8c25.9 0 47.1 21.2 47.1 47.1s-21.2 47.1-47.1 47.1z"/></svg>
     </a>
   
     
@@ -4173,7 +5093,7 @@
       
     
     <a href="https://www.youtube.com/@kcp-dev" target="_blank" rel="noopener" title="www.youtube.com" class="md-social__link">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.5.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M549.655 124.083c-6.281-23.65-24.787-42.276-48.284-48.597C458.781 64 288 64 288 64S117.22 64 74.629 75.486c-23.497 6.322-42.003 24.947-48.284 48.597-11.412 42.867-11.412 132.305-11.412 132.305s0 89.438 11.412 132.305c6.281 23.65 24.787 41.5 48.284 47.821C117.22 448 288 448 288 448s170.78 0 213.371-11.486c23.497-6.321 42.003-24.171 48.284-47.821 11.412-42.867 11.412-132.305 11.412-132.305s0-89.438-11.412-132.305zm-317.51 213.508V175.185l142.739 81.205-142.739 81.201z"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M549.7 124.1c-6.2-23.7-24.8-42.3-48.3-48.6C458.9 64 288.1 64 288.1 64S117.3 64 74.7 75.5c-23.5 6.3-42 24.9-48.3 48.6C15 167 15 256.4 15 256.4s0 89.4 11.4 132.3c6.3 23.6 24.8 41.5 48.3 47.8C117.3 448 288.1 448 288.1 448s170.8 0 213.4-11.5c23.5-6.3 42-24.2 48.3-47.8 11.4-42.9 11.4-132.3 11.4-132.3s0-89.4-11.4-132.3zM232.2 337.6V175.2l142.7 81.2z"/></svg>
     </a>
   
 </div>
@@ -4183,20 +5103,25 @@
 </footer>
       
     </div>
-    <div class="md-dialog" data-md-component="dialog">
+    <div class="md-dialog" data-md-component="dialog" role="status" aria-atomic="true">
       <div class="md-dialog__inner md-typeset"></div>
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.indexes", "navigation.tabs", "navigation.expand", "navigation.top", "content.code.copy", "content.code.annotate"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+      
+      
+      
+      
+        
+        
+      <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["navigation.indexes","navigation.tabs","navigation.expand","navigation.top","content.code.copy","content.code.annotate"],"redirect":null,"search":"../../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"provider":"mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.1e8ae164.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.67a597eb.min.js"></script>
       
         <script src="../../../scripts/version_banner.js"></script>
       
     
-  <script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
-document$.subscribe(() => { lightbox.reload() });
-</script></body>
+  </body>
 </html>
