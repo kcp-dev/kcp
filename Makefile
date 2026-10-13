@@ -191,23 +191,19 @@ generate-api-docs: ## Generate api docs
 	git clean -fdX docs/content/reference/crd
 	docs/generators/crd-ref/run-crd-ref-gen.sh
 
-VENVDIR=$(abspath docs/venv)
-REQUIREMENTS_TXT=docs/requirements.txt
+UV ?= uv
 
 .PHONY: local-docs
-local-docs: venv ## Run mkdocs serve
-	. $(VENV)/activate; \
-	VENV=$(VENV) cd docs && mkdocs serve
+local-docs: ## Run zensical serve
+	cd docs && $(UV) run zensical serve
 
 .PHONY: serve-docs
-serve-docs: venv ## Serve docs
-	. $(VENV)/activate; \
-	VENV=$(VENV) REMOTE=$(REMOTE) BRANCH=$(BRANCH) docs/scripts/serve-docs.sh
+serve-docs: ## Serve docs
+	cd docs && REMOTE=$(REMOTE) BRANCH=$(BRANCH) $(UV) run scripts/serve-docs.sh
 
 .PHONY: deploy-docs
-deploy-docs: venv ## Deploy docs
-	. $(VENV)/activate; \
-	REMOTE=$(REMOTE) BRANCH=$(BRANCH) docs/scripts/deploy-docs.sh
+deploy-docs: ## Deploy docs
+	cd docs && REMOTE=$(REMOTE) BRANCH=$(BRANCH) $(UV) run scripts/deploy-docs.sh
 
 vendor: ## Vendor the dependencies
 	go mod tidy
@@ -292,7 +288,7 @@ BOILERPLATE_KUBERNETES_FILES := $(abspath ./hack/boilerplate/boilerplate_kuberne
 
 .PHONY: verify-boilerplate
 verify-boilerplate: ## Verify boilerplate
-	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip hack/uget.sh --skip docs/venv --skip pkg/network/dialer --skip-files-list $(BOILERPLATE_MODIFIED_FILES) --skip-files-list $(BOILERPLATE_KUBERNETES_FILES)
+	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate --skip hack/uget.sh --skip docs/.venv --skip pkg/network/dialer --skip-files-list $(BOILERPLATE_MODIFIED_FILES) --skip-files-list $(BOILERPLATE_KUBERNETES_FILES)
 	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate/boilerplate_modified --filenames-list $(BOILERPLATE_MODIFIED_FILES)
 	hack/verify_boilerplate.py --boilerplate-dir=hack/boilerplate/boilerplate_kubernetes --filenames-list $(BOILERPLATE_KUBERNETES_FILES)
 
@@ -559,4 +555,3 @@ tilt-kind-up-static:
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-include Makefile.venv

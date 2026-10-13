@@ -67,7 +67,7 @@ You can run kcp inside a [Lima](https://github.com/lima-vm/lima)-managed VM, whi
     This is essentially a development environment, where one can start a single instance of kcp for testing or limited-scope use cases. This is in no way intended for production usage.
 
 Create a Lima template for kcp and save the following as `kcp.yaml`:
- ```yaml
+```yaml
 minimumLimaVersion: 1.1.0
 
 base: template://_images/ubuntu-lts
@@ -136,17 +136,17 @@ probes:
 
 copyToHost:
 - guest: "/var/.kcp/admin.kubeconfig"
-  host: "{{ '{{.Dir}}' }}/copied-from-guest/kubeconfig.yaml"
+  host: "{{.Dir}}/copied-from-guest/kubeconfig.yaml"
   deleteOnStop: true
 
 message: |
   To run `kubectl` on the host (assumes kubectl is installed), run:
   ------
-  export KUBECONFIG="{{ '{{.Dir}}' }}/copied-from-guest/kubeconfig.yaml"
+  export KUBECONFIG="{{.Dir}}/copied-from-guest/kubeconfig.yaml"
   kubectl get workspaces
   ------
 
- ```
+```
 Initialize the VM
 ```sh
 limactl create --name=kcp ./kcp.yaml

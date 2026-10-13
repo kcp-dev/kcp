@@ -7,4 +7,4 @@ nav:
     - Authentication: authentication
     - Authorization: authorization
     - Sharding: sharding
-    - ...
+    - "*"

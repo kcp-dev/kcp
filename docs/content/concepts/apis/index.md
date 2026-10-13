@@ -31,4 +31,15 @@ server (each one consumes memory), and kcp offers an improved workflow that sign
 
 ## Pages
 
-{% include "partials/section-overview.html" %}
+### [Admission Webhooks](admission-webhooks.md)
+How admission webhooks and validating admission policies work across workspaces in kcp.
+
+### [Built-in APIs](built-in.md)
+
+### [Cached resource API](cached-resources.md)
+
+### [Exporting and Binding APIs](exporting-apis.md)
+
+### [REST Access Patterns](rest-access-patterns.md)
+Information on the different types of URLs that kcp serves.
+

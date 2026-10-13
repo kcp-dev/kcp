@@ -77,6 +77,11 @@ kcp server generates a kubeconfig file (admin.kubeconfig) containing credentials
 
 ## Pages
 
-{% include "partials/section-overview.html" %}
+### [OIDC Setup](oidc.md)
+How to setup OIDC authentication in kcp.
+
+### [Per-Workspace Authentication](workspace.md)
+How to admit users into workspaces by using custom JWT validators.
+
 
 [OIDC]: ./oidc.md

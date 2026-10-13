@@ -72,26 +72,11 @@ extra:
       link: https://www.youtube.com/@kcp-dev
 
 plugins:
-  # https://github.com/lukasgeiter/mkdocs-awesome-pages-plugin
-  # Greater control over how navigation links are shown
-  - awesome-pages
+  # https://lukasgeiter.github.io/mkdocs-awesome-nav/
+  # Greater control over how navigation links are shown (configured via .nav.yml files)
+  - awesome-nav
   # Docs site search
   - search
-  # Use Jinja macros in .md files
-  - macros:
-      include_dir: "overrides"
-      module_name: "main"
-  # Configure multiple language support
-  - i18n:
-      docs_structure: suffix
-      fallback_to_default: true
-      languages:
-        - build: true
-          default: true
-          locale: en
-          name: English
-      reconfigure_material: true
-      reconfigure_search: true
   # Configure multi-version plugin
   - mike:
       alias_type: redirect
@@ -103,21 +88,22 @@ markdown_extensions:
   - pymdownx.highlight:
       # Allows linking directly to specific lines in code blocks
       anchor_linenums: true
+  # Arbitrary nesting of code/content blocks inside each other
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
           class: mermaid
           format:
-            !!python/name:pymdownx.superfences.fence_code_format # Inline code block highlighting
-
-
+            !!python/name:pymdownx.superfences.fence_code_format
+  # Inline code block highlighting
   - pymdownx.inlinehilite
   # Lets you embed content from another file
   - pymdownx.snippets
-  # Arbitrary nesting of code/content blocks inside each other
-  - pymdownx.superfences
   # Enable note/warning/etc. callouts
   - admonition
+  # Render "- [ ]" / "- [x]" items as checkboxes
+  - pymdownx.tasklist:
+      custom_checkbox: true
   # Add permalinks to all headlines
   - toc:
       permalink: true
