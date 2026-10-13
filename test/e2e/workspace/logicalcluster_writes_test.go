@@ -135,7 +135,7 @@ func TestLogicalClusterWritesRestrictedToKcpAdmin(t *testing.T) {
 	// its logical cluster name on the shard hosting it. Every group but
 	// system:masters is obtained by impersonating it from system:masters.
 	clusterPath := logicalcluster.Name(ws.Spec.Cluster).Path()
-	shardCfg := server.ShardSystemMasterBaseConfig(t, kcptesting.WorkspaceShardOrDie(t, cfg, ws).Name)
+	shardCfg := server.ShardSystemMasterBaseConfig(t, kcptesting.WorkspaceShardOrDie(t, adminKcpClient, ws).Name)
 	for _, group := range []string{
 		bootstrap.SystemMastersGroup,
 		bootstrap.SystemLogicalClusterAdmin,
