@@ -78,7 +78,7 @@ The following authorizers work together to implement RBAC in kcp:
 #### Required Groups Authorizer
 
 A `authorization.kcp.io/required-groups` annotation can be added to a LogicalCluster
-to specify which groups a user must be a member of to access the workspace.
+by kcp-admin or kcp system identities to specify which groups a user must be a member of to access the workspace.
 The syntax uses semicolons (`;`) to separate OR conditions and commas (`,`) to separate AND conditions within each group set.
 
 For example, `<group1>,<group2>;<group3>` means that a user must be a member of both `<group1>` AND `<group2>`, OR be a member of `<group3>`.
