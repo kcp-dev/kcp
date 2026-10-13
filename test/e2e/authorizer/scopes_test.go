@@ -27,6 +27,7 @@ import (
 
 	authorizationv1 "k8s.io/api/authorization/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/serviceaccount"
@@ -233,6 +234,10 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 		groups    []string
 		extra     map[string][]string
 		wantRules []authorizationv1.ResourceRule
+		// wantForbidden is set when the impersonation itself is rejected.
+		// Only system:masters may claim a service account cluster name other
+		// than the cluster the request goes to.
+		wantForbidden bool
 	}
 	for _, tt := range []tests{
 		{
@@ -271,7 +276,7 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 		{
 			name: "service account with other cluster",
 			user: "system:serviceaccount:default:default", groups: []string{"system:kcp:admin"}, extra: map[string][]string{serviceaccount.ClusterNameKey: {"other"}},
-			wantRules: authenticatedBaseRules,
+			wantForbidden: true,
 		},
 		{
 			name: "admin scoped to other cluster",
@@ -292,9 +297,14 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 				serviceaccount.ClusterNameKey:          {"other"},
 				rbacregistryvalidation.WarrantExtraKey: {`{"user":"user","groups":["system:kcp:admin"]}`},
 			},
-			wantRules: append([]authorizationv1.ResourceRule{
-				{Verbs: []string{"*"}, APIGroups: []string{"*"}, Resources: []string{"*"}},
-			}, authenticatedBaseRules...),
+			wantForbidden: true,
+		},
+		{
+			name: "user with warrant for service account of other cluster",
+			user: "user", groups: []string{"system:kcp:admin"}, extra: map[string][]string{
+				rbacregistryvalidation.WarrantExtraKey: {`{"user":"system:serviceaccount:default:default","extra":{"authentication.kcp.io/cluster-name":["other"]}}`},
+			},
+			wantForbidden: true,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -321,6 +331,10 @@ func TestSelfSubjectRulesReview(t *testing.T) {
 				},
 			}
 			resp, err := impersonatedClient.Cluster(wsPath).AuthorizationV1().SelfSubjectRulesReviews().Create(ctx, req, metav1.CreateOptions{})
+			if tt.wantForbidden {
+				require.True(t, apierrors.IsForbidden(err), "expected forbidden, got: %v", err)
+				return
+			}
 			require.NoError(t, err)
 
 			sort.Sort(sortedResourceRules(resp.Status.ResourceRules))

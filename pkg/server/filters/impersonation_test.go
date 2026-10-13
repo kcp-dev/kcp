@@ -29,6 +29,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 
 	authorizationbootstrap "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
@@ -309,6 +310,90 @@ func TestWithImpersonationGatekeeper(t *testing.T) {
 			expectedOriginalUser:     true,
 			handlerCalled:            true,
 		},
+		{
+			name:                  "Unprivileged requestor cannot inject a reserved kcp extra",
+			impersonateUserHeader: "puppet",
+			otherHeaders: map[string]string{
+				// percent-encoded key, as a client sends it: authentication.kcp.io/reserved
+				"Impersonate-Extra-authentication.kcp.io%2Freserved": "value",
+			},
+			user: &mockUser{
+				Name:   "requester",
+				UID:    "uid-202",
+				Groups: []string{"group1", user.AllAuthenticated},
+				Extra:  nil,
+			},
+			expectedStatus: http.StatusForbidden,
+			handlerCalled:  false,
+		},
+		{
+			name:                  "Unprivileged requestor may supply a kcp scopes extra (scopes only narrow access)",
+			impersonateUserHeader: "puppet",
+			otherHeaders: map[string]string{
+				"Impersonate-Extra-authentication.kcp.io%2Fscopes": "cluster:other",
+			},
+			user: &mockUser{
+				Name:   "requester",
+				UID:    "uid-203",
+				Groups: []string{"group1"},
+				Extra:  nil,
+			},
+			expectedStatus:           http.StatusOK,
+			expectedImpersonationKey: true,
+			expectedOriginalUser:     true,
+			handlerCalled:            true,
+		},
+		{
+			name:                  "Unprivileged requestor may supply a service account cluster name (foreign cluster is out of scope)",
+			impersonateUserHeader: "system:serviceaccount:default:default",
+			otherHeaders: map[string]string{
+				"Impersonate-Extra-authentication.kcp.io%2Fcluster-name": "other-cluster",
+			},
+			user: &mockUser{
+				Name:   "requester",
+				UID:    "uid-206",
+				Groups: []string{"group1", user.AllAuthenticated},
+				Extra:  nil,
+			},
+			expectedStatus:           http.StatusOK,
+			expectedImpersonationKey: true,
+			expectedOriginalUser:     true,
+			handlerCalled:            true,
+		},
+		{
+			name:                  "Unprivileged requestor may supply a kcp warrant extra (scoped later in WithImpersonationScoping)",
+			impersonateUserHeader: "puppet",
+			otherHeaders: map[string]string{
+				"Impersonate-Extra-authorization.kcp.io%2Fwarrant": `{"groups":["system:masters"]}`,
+			},
+			user: &mockUser{
+				Name:   "requester",
+				UID:    "uid-205",
+				Groups: []string{"group1", user.AllAuthenticated},
+				Extra:  nil,
+			},
+			expectedStatus:           http.StatusOK,
+			expectedImpersonationKey: true,
+			expectedOriginalUser:     true,
+			handlerCalled:            true,
+		},
+		{
+			name:                  "system:masters requestor may carry any kcp extra (trusted VW path)",
+			impersonateUserHeader: "puppet",
+			otherHeaders: map[string]string{
+				"Impersonate-Extra-authentication.kcp.io%2Freserved": "value",
+			},
+			user: &mockUser{
+				Name:   "requester",
+				UID:    "uid-204",
+				Groups: []string{authorizationbootstrap.SystemMastersGroup},
+				Extra:  nil,
+			},
+			expectedStatus:           http.StatusOK,
+			expectedImpersonationKey: true,
+			expectedOriginalUser:     true,
+			handlerCalled:            true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -386,6 +471,7 @@ func TestWithScoping(t *testing.T) {
 		expectedStatus     int
 		handlerCalled      bool
 		expectedExtraScope string
+		expectedWarrants   []string
 		noImpersonationKey bool
 	}{
 		{
@@ -453,11 +539,153 @@ func TestWithScoping(t *testing.T) {
 			impersonatedUser: &mockUser{
 				Name: "test-user",
 				UID:  "uid-789",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"w","groups":["system:kcp:admin"]}`},
+				},
 			},
 			cluster:            &request.Cluster{Name: "cluster-4"},
 			expectedStatus:     http.StatusOK,
 			handlerCalled:      true,
 			expectedExtraScope: "",
+			// warrants of system:masters are left untouched.
+			expectedWarrants: []string{`{"user":"w","groups":["system:kcp:admin"]}`},
+		},
+		{
+			name:         "Client-supplied warrant without scope gets scoped to the cluster",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-900",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"w","groups":["system:kcp:admin"]}`},
+				},
+			},
+			cluster:            &request.Cluster{Name: "cluster-5"},
+			expectedStatus:     http.StatusOK,
+			handlerCalled:      true,
+			expectedExtraScope: "cluster:cluster-5",
+			expectedWarrants:   []string{`{"user":"w","groups":["system:kcp:admin"],"extra":{"authentication.kcp.io/scopes":["cluster:cluster-5"]}}`},
+		},
+		{
+			name:         "Client-supplied warrant with foreign scope is intersected with the cluster",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-901",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"w","extra":{"authentication.kcp.io/scopes":["cluster:other"]}}`},
+				},
+			},
+			cluster:            &request.Cluster{Name: "cluster-6"},
+			expectedStatus:     http.StatusOK,
+			handlerCalled:      true,
+			expectedExtraScope: "cluster:cluster-6",
+			expectedWarrants:   []string{`{"user":"w","extra":{"authentication.kcp.io/scopes":["cluster:other","cluster:cluster-6"]}}`},
+		},
+		{
+			name:         "Service account impersonated with the request cluster as cluster name is allowed",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name:  "system:serviceaccount:default:sa",
+				UID:   "uid-903",
+				Extra: map[string][]string{"authentication.kcp.io/cluster-name": {"cluster-8"}},
+			},
+			cluster:            &request.Cluster{Name: "cluster-8"},
+			expectedStatus:     http.StatusOK,
+			handlerCalled:      true,
+			expectedExtraScope: "cluster:cluster-8",
+		},
+		{
+			name:         "Service account impersonated with a foreign cluster name is forbidden",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name:  "system:serviceaccount:default:sa",
+				UID:   "uid-904",
+				Extra: map[string][]string{"authentication.kcp.io/cluster-name": {"victim"}},
+			},
+			cluster:        &request.Cluster{Name: "cluster-9"},
+			expectedStatus: http.StatusForbidden,
+			handlerCalled:  false,
+		},
+		{
+			name:         "Warrant claiming a foreign service account cluster name is forbidden",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-905",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"system:serviceaccount:default:controller","extra":{"authentication.kcp.io/cluster-name":["victim"]}}`},
+				},
+			},
+			cluster:        &request.Cluster{Name: "cluster-10"},
+			expectedStatus: http.StatusForbidden,
+			handlerCalled:  false,
+		},
+		{
+			name:         "Nested warrant claiming a foreign service account cluster name is forbidden",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-906",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"outer","extra":{"authorization.kcp.io/warrant":["{\"user\":\"system:serviceaccount:default:controller\",\"extra\":{\"authentication.kcp.io/cluster-name\":[\"victim\"]}}"]}}`},
+				},
+			},
+			cluster:        &request.Cluster{Name: "cluster-11"},
+			expectedStatus: http.StatusForbidden,
+			handlerCalled:  false,
+		},
+		{
+			name:         "Warrant claiming the request cluster as service account cluster name is scoped and allowed",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-907",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"system:serviceaccount:default:controller","extra":{"authentication.kcp.io/cluster-name":["cluster-12"]}}`},
+				},
+			},
+			cluster:            &request.Cluster{Name: "cluster-12"},
+			expectedStatus:     http.StatusOK,
+			handlerCalled:      true,
+			expectedExtraScope: "cluster:cluster-12",
+			expectedWarrants:   []string{`{"user":"system:serviceaccount:default:controller","extra":{"authentication.kcp.io/cluster-name":["cluster-12"],"authentication.kcp.io/scopes":["cluster:cluster-12"]}}`},
+		},
+		{
+			name:         "system:masters may carry a warrant with a foreign service account cluster name (trusted VW path)",
+			originalUser: &mockUser{Name: "original-user", Groups: []string{"system:masters"}},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-908",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {`{"user":"system:serviceaccount:default:rest","groups":["system:kcp:admin"],"extra":{"authentication.kcp.io/cluster-name":["target"]}}`},
+				},
+			},
+			cluster:          &request.Cluster{Name: "cluster-13"},
+			expectedStatus:   http.StatusOK,
+			handlerCalled:    true,
+			expectedWarrants: []string{`{"user":"system:serviceaccount:default:rest","groups":["system:kcp:admin"],"extra":{"authentication.kcp.io/cluster-name":["target"]}}`},
+		},
+		{
+			name:         "Nested warrants are scoped recursively and malformed warrants are dropped",
+			originalUser: &mockUser{Name: "original-user"},
+			impersonatedUser: &mockUser{
+				Name: "test-user",
+				UID:  "uid-902",
+				Extra: map[string][]string{
+					rbacregistryvalidation.WarrantExtraKey: {
+						`{"user":"outer","extra":{"authorization.kcp.io/warrant":["{\"user\":\"inner\",\"groups\":[\"system:masters\"]}"]}}`,
+						`not-json`,
+					},
+				},
+			},
+			cluster:            &request.Cluster{Name: "cluster-7"},
+			expectedStatus:     http.StatusOK,
+			handlerCalled:      true,
+			expectedExtraScope: "cluster:cluster-7",
+			expectedWarrants: []string{
+				`{"user":"outer","extra":{"authentication.kcp.io/scopes":["cluster:cluster-7"],"authorization.kcp.io/warrant":["{\"user\":\"inner\",\"groups\":[\"system:masters\"],\"extra\":{\"authentication.kcp.io/scopes\":[\"cluster:cluster-7\"]}}"]}}`,
+			},
 		},
 	}
 
@@ -485,6 +713,9 @@ func TestWithScoping(t *testing.T) {
 					scopes, ok := extra["authentication.kcp.io/scopes"]
 					assert.True(t, ok, "Expected 'authentication.kcp.io/scopes' in user extra")
 					assert.Contains(t, scopes, expectedScope, "Expected scope not found in user extra")
+				}
+				if tt.expectedWarrants != nil {
+					assert.Equal(t, tt.expectedWarrants, extra[rbacregistryvalidation.WarrantExtraKey], "Unexpected warrants in user extra")
 				}
 
 				w.WriteHeader(http.StatusOK)

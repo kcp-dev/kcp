@@ -419,7 +419,15 @@ The intersection can be empty, in which case it falls back in every logical
 cluster.
 
 When impersonating a user in a logical cluster, the resulting user identity is
-scoped to the logical cluster the impersonation is happening in.
+scoped to the logical cluster the impersonation is happening in. Warrants (see
+next section) supplied through impersonation headers are scoped to that logical
+cluster as well, including nested warrants. A service account cluster name
+(`authentication.kcp.io/cluster-name`) supplied through impersonation, directly
+or inside a warrant, must name that same logical cluster, because the global
+service account identity derived from it is not subject to scopes. Only members
+of `system:masters` are exempt from these rules, and only they may impersonate
+`kcp.io` extra fields other than scopes, warrants and the service account
+cluster name.
 
 A scope mismatch does not invalidate the warrants (see next section) of a user.
 
