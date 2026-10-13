@@ -42,8 +42,18 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authorization"
 )
 
+// updateAttr builds an update as a kcp admin, the only non-system identity
+// that gets past the write restriction and into the field validations.
 func updateAttr(obj, old *corev1alpha1.LogicalCluster) admission.Attributes {
-	return updateAttrWithUser(obj, old, &kuser.DefaultInfo{})
+	return updateAttrWithUser(obj, old, kcpAdmin())
+}
+
+func kcpAdmin() *kuser.DefaultInfo {
+	return &kuser.DefaultInfo{Name: "admin", Groups: []string{"system:kcp:admin"}}
+}
+
+func regularUser() *kuser.DefaultInfo {
+	return &kuser.DefaultInfo{Name: "user-1", Groups: []string{kuser.AllAuthenticated}}
 }
 
 func updateAttrWithUser(obj, old *corev1alpha1.LogicalCluster, userInfo *kuser.DefaultInfo) admission.Attributes {
@@ -409,18 +419,73 @@ func TestValidate(t *testing.T) {
 		{
 			name:        "fails marking inactive as regular user",
 			clusterName: "root:org:ws",
-			attr: updateAttr(
+			attr: updateAttrWithUser(
 				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				}).LogicalCluster,
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
 					Phase: corev1alpha1.LogicalClusterPhaseReady,
 				}).LogicalCluster,
+				regularUser(),
 			),
-			wantErr: "annotation core.kcp.io/inactive may only be changed by system identities",
+			wantErr: "may write LogicalClusters",
 		},
 		{
-			name:        "fails reactivating (removing inactive) as regular user",
+			name:        "fails no-op update as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				regularUser(),
+			),
+			wantErr: "may write LogicalClusters",
+		},
+		{
+			name:        "fails adding an arbitrary annotation as regular user",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
+				newLogicalCluster("root:org:ws").withAnnotation("example.com/foo", "bar").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				regularUser(),
+			),
+			wantErr: "may write LogicalClusters",
+		},
+		{
+			name:        "fails update as user without any groups",
+			clusterName: "root:org:ws",
+			attr: updateAttrWithUser(
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				&kuser.DefaultInfo{},
+			),
+			wantErr: "may write LogicalClusters",
+		},
+		{
+			name:        "passes adding an arbitrary annotation as system:kcp:admin",
+			clusterName: "root:org:ws",
+			attr: updateAttr(
+				newLogicalCluster("root:org:ws").withAnnotation("example.com/foo", "bar").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
+					Phase: corev1alpha1.LogicalClusterPhaseReady,
+				}).LogicalCluster,
+			),
+		},
+		{
+			name:        "fails reactivating (removing inactive) as system:kcp:admin",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
@@ -459,7 +524,7 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
-			name:        "passes updates on an already inactive cluster",
+			name:        "passes updates on an already inactive cluster as system:kcp:admin",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").inactive().withStatus(corev1alpha1.LogicalClusterStatus{
@@ -471,7 +536,7 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
-			name:        "fails changing required-groups annotation as regular user",
+			name:        "fails changing required-groups annotation as system:kcp:admin",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:other").withStatus(corev1alpha1.LogicalClusterStatus{
@@ -484,7 +549,7 @@ func TestValidate(t *testing.T) {
 			wantErr: "annotation authorization.kcp.io/required-groups may only be changed by system identities",
 		},
 		{
-			name:        "fails removing required-groups annotation as regular user",
+			name:        "fails removing required-groups annotation as system:kcp:admin",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withStatus(corev1alpha1.LogicalClusterStatus{
@@ -497,7 +562,7 @@ func TestValidate(t *testing.T) {
 			wantErr: "annotation authorization.kcp.io/required-groups may only be changed by system identities",
 		},
 		{
-			name:        "fails adding required-groups annotation as regular user",
+			name:        "fails adding required-groups annotation as system:kcp:admin",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
@@ -510,7 +575,7 @@ func TestValidate(t *testing.T) {
 			wantErr: "annotation authorization.kcp.io/required-groups may only be changed by system identities",
 		},
 		{
-			name:        "passes unchanged required-groups annotation as regular user",
+			name:        "passes unchanged required-groups annotation as system:kcp:admin",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withAnnotation(authorization.RequiredGroupsAnnotationKey, "idp:special").withStatus(corev1alpha1.LogicalClusterStatus{
@@ -535,7 +600,7 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
-			name:        "fails changing workspace owner annotation as regular user",
+			name:        "fails changing workspace owner annotation as system:kcp:admin",
 			clusterName: "root:org:ws",
 			attr: updateAttr(
 				newLogicalCluster("root:org:ws").withAnnotation(tenancyv1alpha1.ExperimentalWorkspaceOwnerAnnotationKey, `{"username":"eve"}`).withStatus(corev1alpha1.LogicalClusterStatus{
@@ -548,9 +613,9 @@ func TestValidate(t *testing.T) {
 			wantErr: "annotation experimental.tenancy.kcp.io/owner may only be changed by system identities",
 		},
 		{
-			name:        "fails deletion as another user",
+			name:        "fails deletion as system:kcp:admin if LogicalCluster is not found",
 			clusterName: "root:org:ws",
-			attr:        deleteAttr(newLogicalCluster("root:org:ws").LogicalCluster, &kuser.DefaultInfo{}),
+			attr:        deleteAttr(newLogicalCluster("root:org:ws").LogicalCluster, kcpAdmin()),
 			wantErr:     "LogicalCluster cannot be deleted",
 		},
 		{
@@ -578,34 +643,55 @@ func TestValidate(t *testing.T) {
 			),
 		},
 		{
-			name:        "fails deletion as another user if not directly deletable",
+			name:        "fails deletion as system:kcp:admin if not directly deletable",
 			clusterName: "root:org:ws",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster("root:org:ws").LogicalCluster,
 			},
 			attr: deleteAttr(
 				newLogicalCluster("root:org:ws").LogicalCluster,
-				&kuser.DefaultInfo{},
+				kcpAdmin(),
 			),
 			wantErr: "LogicalCluster cannot be deleted",
 		},
 		{
-			name:        "passed deletion as another user if directly deletable",
+			name:        "passed deletion as system:kcp:admin if directly deletable",
 			clusterName: "root:org:ws",
 			logicalClusters: []*corev1alpha1.LogicalCluster{
 				newLogicalCluster("root:org:ws").directlyDeletable().LogicalCluster,
 			},
 			attr: deleteAttr(
 				newLogicalCluster("root:org:ws").directlyDeletable().LogicalCluster,
-				&kuser.DefaultInfo{},
+				kcpAdmin(),
 			),
 		},
 		{
-			name:        "fails creation as non-privileged user",
+			name:        "fails deletion as regular user even if directly deletable",
+			clusterName: "root:org:ws",
+			logicalClusters: []*corev1alpha1.LogicalCluster{
+				newLogicalCluster("root:org:ws").directlyDeletable().LogicalCluster,
+			},
+			attr: deleteAttr(
+				newLogicalCluster("root:org:ws").directlyDeletable().LogicalCluster,
+				regularUser(),
+			),
+			wantErr: "may write LogicalClusters",
+		},
+		{
+			name:        "fails creation as regular user",
 			clusterName: "root:org:ws",
 			attr: createAttr(
 				newLogicalCluster("root:org:ws").LogicalCluster,
-				&kuser.DefaultInfo{},
+				regularUser(),
+			),
+			wantErr: "may write LogicalClusters",
+		},
+		{
+			name:        "fails creation as system:kcp:admin",
+			clusterName: "root:org:ws",
+			attr: createAttr(
+				newLogicalCluster("root:org:ws").LogicalCluster,
+				kcpAdmin(),
 			),
 			wantErr: "LogicalCluster cannot be created",
 		},
