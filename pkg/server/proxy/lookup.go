@@ -251,7 +251,18 @@ const (
 	shardNameContextKey
 	shardNameHolderContextKey
 	workspaceTypeContextKey
+	mountContextKey
 )
+
+// Mount describes the target of a request for a mounted workspace.
+type Mount struct {
+	// URL is the validated mount target (spec.URL of the mounted Workspace).
+	URL *url.URL
+	// Workspace is the full path of the mounted workspace as requested.
+	Workspace logicalcluster.Path
+	// ParentCluster holds the Workspace object describing the mount.
+	ParentCluster logicalcluster.Name
+}
 
 func WithShardURL(parent context.Context, shardURL *url.URL) context.Context {
 	return context.WithValue(parent, shardContextKey, shardURL)
@@ -329,4 +340,15 @@ func ForbiddenHandler() http.Handler {
 			kubernetesscheme.Codecs, schema.GroupVersion{}, w, req,
 		)
 	})
+}
+
+// WithMount stores the mount target of the request.
+func WithMount(parent context.Context, mount *Mount) context.Context {
+	return context.WithValue(parent, mountContextKey, mount)
+}
+
+// MountFrom returns the mount target, or nil if the request is not for a mounted workspace.
+func MountFrom(ctx context.Context) *Mount {
+	mount, _ := ctx.Value(mountContextKey).(*Mount)
+	return mount
 }
