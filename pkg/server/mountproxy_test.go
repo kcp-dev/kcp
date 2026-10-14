@@ -68,6 +68,15 @@ func newMountIndex(mountURL string) *index.State {
 	return idx
 }
 
+// newLocalProxy returns the shard's local proxy as wired in the handler
+// chain: cluster resolution against idx in front of WithLocalProxy.
+func newLocalProxy(t *testing.T, next http.Handler, idx *index.State) http.Handler {
+	t.Helper()
+	h, err := WithLocalProxy(next, "test-shard", "")
+	require.NoError(t, err)
+	return lookup.WithClusterResolution(h, idx)
+}
+
 // withUser stands in for the authentication filter: it puts u (if non-nil)
 // into the request context and leaves the request untouched otherwise.
 func withUser(u userinfo.Info, next http.Handler) http.Handler {
@@ -103,8 +112,7 @@ func TestWithLocalProxy_MountIsResolvedNotForwarded(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 
-	h, err := WithLocalProxy(downstream, "test-shard", "", newMountIndex("https://mount.example.com/base"))
-	require.NoError(t, err)
+	h := newLocalProxy(t, downstream, newMountIndex("https://mount.example.com/base"))
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/root:mnt/api/v1/secrets", http.NoBody)
 	rr := httptest.NewRecorder()
@@ -135,8 +143,7 @@ func TestWithLocalProxy_MountRejectsImpersonation(t *testing.T) {
 			downstream := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 				t.Error("an impersonating request for a mount must not continue into the handler chain")
 			})
-			h, err := WithLocalProxy(downstream, "test-shard", "", newMountIndex("https://mount.example.com"))
-			require.NoError(t, err)
+			h := newLocalProxy(t, downstream, newMountIndex("https://mount.example.com"))
 
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/root:mnt/api/v1/secrets", http.NoBody)
 			req.Header.Set(header, value)
@@ -160,13 +167,12 @@ func TestWithLocalProxy_MountWithInsecureURLIsNotRouted(t *testing.T) {
 			downstream := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 				t.Error("a request for a mount with an unacceptable target must not continue into the handler chain")
 			})
-			h, err := WithLocalProxy(downstream, "test-shard", "", newMountIndex(mountURL))
-			require.NoError(t, err)
+			h := newLocalProxy(t, downstream, newMountIndex(mountURL))
 
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/root:mnt/api/v1/secrets", http.NoBody)
 			rr := httptest.NewRecorder()
 			h.ServeHTTP(rr, req)
-			require.Equal(t, http.StatusNotFound, rr.Code, "body=%s", rr.Body.String())
+			require.Equal(t, http.StatusForbidden, rr.Code, "body=%s", rr.Body.String())
 		})
 	}
 }
@@ -261,8 +267,7 @@ func TestWithMountProxy_ForwardsAuthenticatedIdentityOnly(t *testing.T) {
 			}
 			h := WithMountProxy(downstream, backend.Client().Transport, authz)
 			h = injectForged(withUser(tc.user, h))
-			h, err := WithLocalProxy(h, "test-shard", "", newMountIndex(backend.URL+"/base"))
-			require.NoError(t, err)
+			h = newLocalProxy(t, h, newMountIndex(backend.URL+"/base"))
 
 			ctx := audit.WithAuditContext(t.Context())
 			require.NoError(t, audit.AuditContextFrom(ctx).Init(audit.RequestAuditConfig{Level: auditinternal.LevelMetadata}, fakeAuditSink{}))
@@ -375,8 +380,7 @@ func TestWithMountProxy_Errors(t *testing.T) {
 				t.Error("request for a mounted workspace must not reach the shard API handler")
 			})
 			h := withUser(tc.user, WithMountProxy(downstream, transport, tc.authz))
-			h, err := WithLocalProxy(h, "test-shard", "", newMountIndex(backend.URL))
-			require.NoError(t, err)
+			h = newLocalProxy(t, h, newMountIndex(backend.URL))
 
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/root:mnt/api/v1/secrets", http.NoBody)
 			rr := httptest.NewRecorder()
@@ -411,8 +415,7 @@ func TestWithMountProxy_ClientDisconnectIsNotAnError(t *testing.T) {
 		t.Error("request for a mounted workspace must not reach the shard API handler")
 	})
 	h := withUser(alice, WithMountProxy(downstream, backend.Client().Transport, allowAll))
-	h, err := WithLocalProxy(h, "test-shard", "", newMountIndex(backend.URL))
-	require.NoError(t, err)
+	h = newLocalProxy(t, h, newMountIndex(backend.URL))
 
 	ctx, cancel := context.WithCancel(t.Context())
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clusters/root:mnt/api/v1/secrets", http.NoBody)
@@ -536,8 +539,7 @@ func TestWithMountProxy_CountsMountHops(t *testing.T) {
 				t.Error("request for a mounted workspace must not reach the shard API handler")
 			})
 			h := withUser(alice, WithMountProxy(downstream, backend.Client().Transport, allowAll))
-			h, err := WithLocalProxy(h, "test-shard", "", newMountIndex(backend.URL))
-			require.NoError(t, err)
+			h = newLocalProxy(t, h, newMountIndex(backend.URL))
 
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/root:mnt/api/v1/secrets", http.NoBody)
 			for _, v := range tc.inbound {

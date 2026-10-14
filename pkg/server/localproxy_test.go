@@ -23,10 +23,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	userinfo "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 
+	"github.com/kcp-dev/logicalcluster/v3"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+
 	"github.com/kcp-dev/kcp/pkg/index"
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 // TestWithLocalProxy_UnresolvablePathIsRejected is a regression test for an
@@ -38,7 +44,7 @@ import (
 // /registry/<group>/<resource>/customresources/root:internal-cluster/...
 // that are invisible to the normal read path but still consume etcd space.
 //
-// The fix rejects such requests with 404 before they ever reach the
+// Such requests are rejected with 403 before they ever reach the
 // downstream handler chain.
 func TestWithLocalProxy_UnresolvablePathIsRejected(t *testing.T) {
 	t.Parallel()
@@ -58,10 +64,7 @@ func TestWithLocalProxy_UnresolvablePathIsRejected(t *testing.T) {
 	// An empty index: any path lookup returns found=false, which is exactly
 	// the race condition (cold informer / wrong shard / deleted workspace)
 	// that the original bug exploited.
-	emptyIndex := index.New(nil)
-
-	h, err := WithLocalProxy(downstream, "test-shard", "", emptyIndex)
-	require.NoError(t, err)
+	h := newLocalProxy(t, downstream, index.New(nil))
 
 	req := httptest.NewRequestWithContext(t.Context(),
 		http.MethodGet,
@@ -71,38 +74,88 @@ func TestWithLocalProxy_UnresolvablePathIsRejected(t *testing.T) {
 
 	h.ServeHTTP(rr, req)
 
-	require.Equal(t, http.StatusNotFound, rr.Code,
-		"expected 404 for unresolvable workspace path, got %d; body=%s", rr.Code, rr.Body.String())
+	require.Equal(t, http.StatusForbidden, rr.Code,
+		"expected 403 for unresolvable workspace path, got %d; body=%s", rr.Code, rr.Body.String())
 	require.False(t, called,
 		"downstream handler must NOT be invoked for an unresolvable workspace path; the request must be rejected before it can reach storage")
 }
 
-// TestWithLocalProxy_BareNameIsForwarded makes sure the happy path is
-// unchanged: a single-segment cluster name (a hash) is forwarded through to
-// the downstream handler with cluster.Name set to that name.
-func TestWithLocalProxy_BareNameIsForwarded(t *testing.T) {
+// TestWithLocalProxy_ClusterIDIsForwarded: a request by cluster ID for a
+// cluster on this shard is forwarded with cluster ID, workspace type and
+// stripped path.
+func TestWithLocalProxy_ClusterIDIsForwarded(t *testing.T) {
 	t.Parallel()
-	var gotName string
+	const clusterID = "25t3xbr5iceb0155"
+
+	var (
+		gotCluster *request.Cluster
+		gotType    logicalcluster.Path
+		gotPath    string
+	)
 	downstream := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if cluster := request.ClusterFrom(req.Context()); cluster != nil {
-			gotName = cluster.Name.String()
-		}
+		gotCluster = request.ClusterFrom(req.Context())
+		gotType = lookup.WorkspaceTypeFrom(req.Context())
+		gotPath = req.URL.Path
 		w.WriteHeader(http.StatusOK)
 	})
 
-	h, err := WithLocalProxy(downstream, "test-shard", "", index.New(nil))
-	require.NoError(t, err)
+	idx := index.New(nil)
+	idx.UpsertLogicalCluster("test-shard", &corev1alpha1.LogicalCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{
+			logicalcluster.AnnotationKey:                    clusterID,
+			tenancyv1alpha1.LogicalClusterTypeAnnotationKey: "root:universal",
+		}},
+	})
+	h := newLocalProxy(t, downstream, idx)
 
 	req := httptest.NewRequestWithContext(t.Context(),
 		http.MethodGet,
-		"/clusters/25t3xbr5iceb0155/apis/networking.dev/v1/namespaces/proj-x/ipallocations/foo",
+		"/clusters/"+clusterID+"/apis/networking.dev/v1/namespaces/proj-x/ipallocations/foo",
 		http.NoBody)
 	rr := httptest.NewRecorder()
 
 	h.ServeHTTP(rr, req)
 
-	require.Equal(t, http.StatusOK, rr.Code, "bare cluster name must be forwarded, got %d", rr.Code)
-	require.Equal(t, "25t3xbr5iceb0155", gotName, "downstream must see the bare cluster name on context")
+	require.Equal(t, http.StatusOK, rr.Code, "body=%s", rr.Body.String())
+	require.Equal(t, &request.Cluster{Name: clusterID}, gotCluster)
+	require.Equal(t, logicalcluster.NewPath("root:universal"), gotType)
+	require.Equal(t, "/apis/networking.dev/v1/namespaces/proj-x/ipallocations/foo", gotPath)
+}
+
+// TestWithLocalProxy_UnknownClusterIDIsRejected: a shard serves only the
+// logical clusters in its local index.
+func TestWithLocalProxy_UnknownClusterIDIsRejected(t *testing.T) {
+	t.Parallel()
+	downstream := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("a request for an unknown cluster must not continue into the handler chain")
+	})
+
+	h := newLocalProxy(t, downstream, index.New(nil))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/25t3xbr5iceb0155/api/v1", http.NoBody)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusForbidden, rr.Code, "body=%s", rr.Body.String())
+}
+
+// TestWithLocalProxy_NonClusterRequestIsForwarded: requests without a
+// /clusters/ prefix get an empty cluster and pass through.
+func TestWithLocalProxy_NonClusterRequestIsForwarded(t *testing.T) {
+	t.Parallel()
+	var gotCluster *request.Cluster
+	downstream := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		gotCluster = request.ClusterFrom(req.Context())
+		w.WriteHeader(http.StatusOK)
+	})
+
+	h := newLocalProxy(t, downstream, index.New(nil))
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/healthz", http.NoBody))
+
+	require.Equal(t, http.StatusOK, rr.Code)
+	require.Equal(t, &request.Cluster{}, gotCluster)
 }
 
 // TestWithProxyAuthHeaders_StripsForgedIdentityHeaders is the regression test for
