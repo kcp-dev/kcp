@@ -44,15 +44,11 @@ func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, id
 	// fallback for all unrecognized URLs
 	mux.Handle("/", delegate)
 
-	// Use the extra path mappings as an additional source of cluster names in URLs;
-	// it's okay for a virtual workspace URL to not match here or to not have a
-	// cluster placeholder in its URL pattern, since the default handler will simply
-	// forward the request unchanged (and most likely, unauthenticated).
-
-	// We can use the same handler for all mappings, since the actual muxing to
-	// the destinations happens later in proxy.HttpHandler; here we only care about
-	// detecting the cluster name.
-	mappingHandler := newMappingHandler(delegate, idx)
+	// Mappings are an additional source of cluster names in URLs: a {cluster}
+	// placeholder in the mapping path, or failing that a /clusters/<x> segment
+	// in the request path, resolves the cluster into the context. The actual
+	// muxing to the destinations happens later in proxy.HttpHandler.
+	mappingHandler := WithClusterResolutionPattern(delegate, idx, "cluster")
 
 	for _, mapping := range mappings {
 		p := strings.TrimRight(mapping.Path, "/")
@@ -73,8 +69,8 @@ func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, id
 			// mappings are configured with *prefixes*; in order to match both exact matches
 			// and prefix matches (i.e. if "/foo" is configured, both "/foo" and "/foo/bar"
 			// must match), each mapping is added twice to the mux.
-			mux.HandleFunc(p, mappingHandler)
-			mux.HandleFunc(p+"/{trail...}", mappingHandler)
+			mux.Handle(p, mappingHandler)
+			mux.Handle(p+"/{trail...}", mappingHandler)
 		}
 	}
 
@@ -152,60 +148,6 @@ func isInProgressWatch(req *http.Request) bool {
 	}
 
 	return isWatchRequest(req)
-}
-
-func newMappingHandler(delegate http.Handler, idx index.Index) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		// Not every virtual workspace and/or every mapping has a {cluster} in its URL;
-		// also wildcard requests have to be passed without lookup.
-		//
-		// For /clusters paths, the mux pattern is /clusters/{cluster}/{trail...}, so
-		// req.PathValue("cluster") returns the cluster name directly.
-		//
-		// For /services/... paths, the mux pattern is /services/<name>/{trail...} - there's
-		// no {cluster} placeholder. The entire "clusters/root:orgs:bob/apis/..." is captured
-		// as {trail...}, so req.PathValue("cluster") returns empty. In this case, we need to
-		// parse the cluster from the URL path using extractClusterFromPath.
-		clusterName := req.PathValue("cluster")
-
-		// If no cluster from path pattern, try to extract from URL path.
-		// Virtual workspace URLs often have the pattern: /services/<name>/clusters/<cluster>/...
-		if clusterName == "" {
-			clusterName = extractClusterFromPath(req.URL.Path)
-		}
-
-		if clusterName == "" || clusterName == "*" {
-			delegate.ServeHTTP(w, req)
-			return
-		}
-
-		req, _ = resolveClusterName(w, req, idx, clusterName)
-		if req == nil {
-			return
-		}
-
-		delegate.ServeHTTP(w, req)
-	}
-}
-
-// extractClusterFromPath extracts the cluster name from URLs containing /clusters/<cluster>/
-// For example: /services/foo/clusters/root:orgs:bob/apis/... -> root:orgs:bob.
-func extractClusterFromPath(path string) string {
-	const clustersPrefix = "/clusters/"
-	idx := strings.Index(path, clustersPrefix)
-	if idx == -1 {
-		return ""
-	}
-
-	// Get everything after /clusters/
-	rest := path[idx+len(clustersPrefix):]
-
-	// Find the end of the cluster name (next / or end of string)
-	endIdx := strings.Index(rest, "/")
-	if endIdx == -1 {
-		return rest
-	}
-	return rest[:endIdx]
 }
 
 func resolveClusterName(w http.ResponseWriter, req *http.Request, idx index.Index, clusterName string) (*http.Request, *index.Result) {
