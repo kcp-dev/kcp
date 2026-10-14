@@ -504,6 +504,10 @@ func (c *State) DeleteShard(shardName string) {
 
 func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 	segments := strings.Split(path.String(), ":")
+	// system:<x> is a single logical cluster name, not a path.
+	if name, isName := path.Name(); isName {
+		segments = []string{name.String()}
+	}
 
 	for _, rewriter := range c.rewriters {
 		segments = rewriter(segments)

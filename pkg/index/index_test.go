@@ -354,6 +354,19 @@ func TestLookup(t *testing.T) {
 	}
 }
 
+func TestLookupSystemClusterName(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertLogicalCluster("root", newLogicalCluster("system:shard"))
+
+	r, found := target.Lookup(logicalcluster.NewPath("system:shard"))
+	validateLookupOutput(t, logicalcluster.NewPath("system:shard"), r.Shard, r.Cluster, r.URL, found, "root", "system:shard", "", true)
+
+	r, found = target.Lookup(logicalcluster.NewPath("system:unknown"))
+	validateLookupOutput(t, logicalcluster.NewPath("system:unknown"), r.Shard, r.Cluster, r.URL, found, "", "", "", false)
+}
+
 func TestDeleteShard(t *testing.T) {
 	t.Parallel()
 	target := New(nil)
