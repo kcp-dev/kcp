@@ -21,7 +21,10 @@ import (
 	"fmt"
 	"strings"
 
+	clientv3 "go.etcd.io/etcd/client/v3"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/storage/value"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
@@ -29,6 +32,7 @@ import (
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 
+	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces"
 )
@@ -57,6 +61,7 @@ func (c *Controller) copyPageFromOriginViaHTTP(ctx context.Context, lcName logic
 
 	dump, err := client.MigrationV1alpha1().LogicalClusterDumps().Create(ctx, &migrationv1alpha1.LogicalClusterDump{
 		Spec: migrationv1alpha1.LogicalClusterDumpSpec{
+			Encoding: migrationv1alpha1.DumpEncodingPlaintext,
 			Continue: continueToken,
 		},
 	}, metav1.CreateOptions{})
@@ -64,24 +69,39 @@ func (c *Controller) copyPageFromOriginViaHTTP(ctx context.Context, lcName logic
 		return 0, "", fmt.Errorf("failed to dump logical cluster from origin: %w", err)
 	}
 
-	destPrefix := c.etcdStoragePrefix
-	if !strings.HasSuffix(destPrefix, "/") {
-		destPrefix += "/"
+	if dump.Status.Encoding != migrationv1alpha1.DumpEncodingPlaintext {
+		return 0, "", fmt.Errorf("origin returned unsupported dump encoding %q", dump.Status.Encoding)
 	}
-
-	logger.V(2).Info("writing dump page entries to local etcd", "logicalCluster", lcName, "entries", len(dump.Status.Entries))
-
-	for _, entry := range dump.Status.Entries {
-		if err := ctx.Err(); err != nil {
-			return 0, "", err
-		}
-		key := destPrefix + strings.TrimPrefix(entry.Key, "/")
-		if _, err := c.etcdClient.Put(ctx, key, string(entry.Value)); err != nil {
-			return 0, "", fmt.Errorf("failed to write etcd key %q: %w", key, err)
-		}
+	if err := writeDumpEntries(ctx, c.etcdClient, c.etcdStoragePrefix, c.resourceTransformers, dump.Status.Entries); err != nil {
+		return 0, "", err
 	}
 
 	return int64(len(dump.Status.Entries)), dump.Status.Continue, nil
+}
+
+// writeDumpEntries applies the destination's current resource transformers using
+// the complete destination key as authenticated data before writing each entry.
+func writeDumpEntries(ctx context.Context, kv clientv3.KV, prefix string, transformers value.ResourceTransformers, entries []migrationv1alpha1.EtcdEntry) error {
+	prefix = strings.TrimRight(prefix, "/") + "/"
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		relativeKey := strings.TrimPrefix(entry.Key, "/")
+		transformer, err := kcpetcd.TransformerForKey(transformers, relativeKey)
+		if err != nil {
+			return err
+		}
+		key := prefix + relativeKey
+		data, err := transformer.TransformToStorage(ctx, entry.Value, value.DefaultContext(key))
+		if err != nil {
+			return fmt.Errorf("failed to transform destination key %q: %w", key, err)
+		}
+		if _, err := kv.Put(ctx, key, string(data)); err != nil {
+			return fmt.Errorf("failed to write etcd key %q: %w", key, err)
+		}
+	}
+	return nil
 }
 
 // acquireOriginClient returns the shared, cluster-aware client for

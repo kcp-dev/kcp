@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v260702-7381341f5.logicalclusterdumps.migration.kcp.io
+  name: v261014-8a1a11ca0.logicalclusterdumps.migration.kcp.io
 spec:
   group: migration.kcp.io
   names:
@@ -15,8 +15,8 @@ spec:
     schema:
       description: |-
         LogicalClusterDump is an ephemeral request/response type used by the
-        destination shard during a logical cluster migration to fetch the raw
-        etcd contents of the migration logical cluster from the origin shard.
+        destination shard during a logical cluster migration to fetch the
+        serialized contents of the migrating logical cluster from the origin shard.
 
         The server populates Status.Entries on Create. The object is not
         persisted.
@@ -52,6 +52,11 @@ spec:
                 returned by that page. If empty, the scan starts from the
                 beginning of the logical cluster's etcd keyspace.
               type: string
+            encoding:
+              description: |-
+                encoding must be Plaintext. Explicit negotiation prevents older shards from
+                interpreting decrypted data as raw encrypted storage values.
+              type: string
             limit:
               description: |-
                 limit caps the number of entries returned in a single page. If
@@ -66,6 +71,8 @@ spec:
                 If zero, the server picks a default byte budget.
               format: int64
               type: integer
+          required:
+          - encoding
           type: object
         status:
           description: LogicalClusterDumpStatus carries the dump payload populated
@@ -77,10 +84,15 @@ spec:
                 spec.continue on the next LogicalClusterDump request to get the
                 next page. Empty means this was the last page.
               type: string
+            encoding:
+              description: |-
+                encoding is Plaintext when storage encryption has been removed from values.
+                Clients must verify this before writing entries using local transformers.
+              type: string
             entries:
               description: |-
                 entries is the page of etcd key/value pairs belonging to the
-                logical cluster, in the origin shard's etcd encoding (proto for
+                logical cluster, without storage encryption (proto for
                 built-ins, JSON for CRs).
               items:
                 description: EtcdEntry is a single etcd key/value pair from the origin
@@ -92,8 +104,9 @@ spec:
                       The destination shard prepends its own storage prefix before writing.
                     type: string
                   value:
-                    description: value is the raw etcd value bytes. JSON-encoded as
-                      base64 on the wire.
+                    description: |-
+                      value is the serialized object with storage encryption removed, encoded
+                      as base64 on the wire. It must be transformed before writing to etcd.
                     format: byte
                     type: string
                 required:
@@ -101,6 +114,8 @@ spec:
                 - value
                 type: object
               type: array
+          required:
+          - encoding
           type: object
       type: object
     served: true

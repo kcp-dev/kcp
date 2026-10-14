@@ -21,8 +21,8 @@ import (
 )
 
 // LogicalClusterDump is an ephemeral request/response type used by the
-// destination shard during a logical cluster migration to fetch the raw
-// etcd contents of the migration logical cluster from the origin shard.
+// destination shard during a logical cluster migration to fetch the
+// serialized contents of the migrating logical cluster from the origin shard.
 //
 // The server populates Status.Entries on Create. The object is not
 // persisted.
@@ -42,11 +42,18 @@ type LogicalClusterDump struct {
 	Status LogicalClusterDumpStatus `json:"status,omitempty"`
 }
 
+// DumpEncodingPlaintext identifies serialized objects with storage encryption removed.
+const DumpEncodingPlaintext = "Plaintext"
+
 // LogicalClusterDumpSpec is the desired state for a dump request.
 //
 // The logical cluster to dump is taken from the request's cluster context
 // (i.e. the URL the request arrived on).
 type LogicalClusterDumpSpec struct {
+	// encoding must be Plaintext. Explicit negotiation prevents older shards from
+	// interpreting decrypted data as raw encrypted storage values.
+	Encoding string `json:"encoding"`
+
 	// continue is the token returned by a previous LogicalClusterDump's
 	// status.continue. If set, the scan resumes right after the last key
 	// returned by that page. If empty, the scan starts from the
@@ -72,8 +79,12 @@ type LogicalClusterDumpSpec struct {
 
 // LogicalClusterDumpStatus carries the dump payload populated by the server.
 type LogicalClusterDumpStatus struct {
+	// encoding is Plaintext when storage encryption has been removed from values.
+	// Clients must verify this before writing entries using local transformers.
+	Encoding string `json:"encoding"`
+
 	// entries is the page of etcd key/value pairs belonging to the
-	// logical cluster, in the origin shard's etcd encoding (proto for
+	// logical cluster, without storage encryption (proto for
 	// built-ins, JSON for CRs).
 	//
 	// +optional
@@ -93,6 +104,7 @@ type EtcdEntry struct {
 	// The destination shard prepends its own storage prefix before writing.
 	Key string `json:"key"`
 
-	// value is the raw etcd value bytes. JSON-encoded as base64 on the wire.
+	// value is the serialized object with storage encryption removed, encoded
+	// as base64 on the wire. It must be transformed before writing to etcd.
 	Value []byte `json:"value"`
 }

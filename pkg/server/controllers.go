@@ -1234,6 +1234,7 @@ func (s *Server) installLogicalClusterMigrationController(ctx context.Context, c
 		s.ExternalLogicalClusterAdminConfig,
 		etcdClient,
 		s.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,
+		s.GenericConfig.ResourceTransformers,
 		s.CacheKcpSharedInformerFactory.Migration().V1alpha1().LogicalClusterMigrations(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),

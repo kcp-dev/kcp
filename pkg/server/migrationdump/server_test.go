@@ -43,7 +43,7 @@ func TestScanEtcdEntries_singlePageReturnsEverythingWhenItFits(t *testing.T) {
 		"/registry/apps/deployments/root:other/default/x": "v3",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 0, 0)
+	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 0, 0, nil)
 	require.NoError(t, err)
 	require.Empty(t, next)
 
@@ -77,7 +77,7 @@ func TestScanEtcdEntries_limitPaginatesAndCoversAllEntriesAcrossPages(t *testing
 		pages++
 		require.LessOrEqual(t, pages, len(kvs)+1, "too many pages, pagination is likely stuck")
 
-		entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, continueToken, 2, 0)
+		entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, continueToken, 2, 0, nil)
 		require.NoError(t, err)
 		require.LessOrEqual(t, len(entries), 2)
 
@@ -114,7 +114,7 @@ func TestScanEtcdEntries_maxBytesStopsPageBeforeLimit(t *testing.T) {
 		"/registry/apps/deployments/root:ws/default/c": "0123456789",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 1000, 25)
+	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 1000, 25, nil)
 	require.NoError(t, err)
 	require.Len(t, entries, 2)
 	require.NotEmpty(t, next)
@@ -132,7 +132,7 @@ func TestScanEtcdEntries_singleEntryLargerThanMaxBytesIsStillReturnedAlone(t *te
 		"/registry/apps/deployments/root:ws/default/small2": "v",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 1000, 10)
+	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 1000, 10, nil)
 	require.NoError(t, err)
 	require.Len(t, entries, 1, "the oversized entry must be returned alone, not dropped")
 	require.NotEmpty(t, next, "pagination must continue after the oversized entry")
@@ -151,12 +151,12 @@ func TestScanEtcdEntries_resumesFromContinueTokenWithoutDuplicatesOrGaps(t *test
 		"/registry/apps/deployments/root:ws/default/d": "v",
 	})
 
-	first, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 2, 0)
+	first, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 2, 0, nil)
 	require.NoError(t, err)
 	require.Len(t, first, 2)
 	require.NotEmpty(t, next)
 
-	second, next2, err := scanEtcdEntries(context.Background(), kv, prefix, target, next, 1000, 0)
+	second, next2, err := scanEtcdEntries(context.Background(), kv, prefix, target, next, 1000, 0, nil)
 	require.NoError(t, err)
 	require.Empty(t, next2)
 
@@ -181,7 +181,7 @@ func TestScanEtcdEntries_ignoresOtherClusters(t *testing.T) {
 		"/registry/core/configmaps/root:other/default/b":  "v",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 0, 0)
+	entries, next, err := scanEtcdEntries(context.Background(), kv, prefix, target, "", 0, 0, nil)
 	require.NoError(t, err)
 	require.Empty(t, next)
 	require.Empty(t, entries)
