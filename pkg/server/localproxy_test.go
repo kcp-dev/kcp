@@ -122,21 +122,31 @@ func TestWithLocalProxy_ClusterIDIsForwarded(t *testing.T) {
 	require.Equal(t, "/apis/networking.dev/v1/namespaces/proj-x/ipallocations/foo", gotPath)
 }
 
-// TestWithLocalProxy_UnknownClusterIDIsRejected: a shard serves only the
-// logical clusters in its local index.
-func TestWithLocalProxy_UnknownClusterIDIsRejected(t *testing.T) {
+// TestWithLocalProxy_UnknownClusterIDIsForwarded validates that unknown
+// clusters are passed along without a WorkspaceType.
+func TestWithLocalProxy_UnknownClusterIDIsForwarded(t *testing.T) {
 	t.Parallel()
-	downstream := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		t.Error("a request for an unknown cluster must not continue into the handler chain")
+	var (
+		gotCluster *request.Cluster
+		gotType    logicalcluster.Path
+		gotShard   string
+	)
+	downstream := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		gotCluster = request.ClusterFrom(req.Context())
+		gotType = lookup.WorkspaceTypeFrom(req.Context())
+		gotShard = lookup.ShardNameFrom(req.Context())
+		w.WriteHeader(http.StatusOK)
 	})
 
 	h := newLocalProxy(t, downstream, index.New(nil))
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/25t3xbr5iceb0155/api/v1", http.NoBody)
 	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, req)
+	h.ServeHTTP(rr, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/25t3xbr5iceb0155/api/v1", http.NoBody))
 
-	require.Equal(t, http.StatusForbidden, rr.Code, "body=%s", rr.Body.String())
+	require.Equal(t, http.StatusOK, rr.Code, "body=%s", rr.Body.String())
+	require.Equal(t, &request.Cluster{Name: "25t3xbr5iceb0155"}, gotCluster)
+	require.True(t, gotType.Empty())
+	require.Empty(t, gotShard)
 }
 
 // TestWithLocalProxy_NonClusterRequestIsForwarded: requests without a

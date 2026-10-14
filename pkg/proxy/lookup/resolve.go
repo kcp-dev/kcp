@@ -132,8 +132,10 @@ func clusterSegmentFromPath(path string) string {
 // Returns the request context extended with the result,
 // and false if a response was written.
 //
-// A malformed segment is rejected with 400,
-// a segment unknown to idx with 403.
+// A malformed segment is rejected with 400.
+// A workspace path unknown to idx is rejected with 403.
+// A logical cluster name unknown to idx is passed through without
+// workspace type and shard.
 func resolveCluster(w http.ResponseWriter, req *http.Request, idx index.Index, segment string) (context.Context, bool) {
 	ctx := req.Context()
 	logger := klog.FromContext(ctx)
@@ -154,7 +156,17 @@ func resolveCluster(w http.ResponseWriter, req *http.Request, idx index.Index, s
 
 	result, found := idx.Lookup(path)
 	if !found {
-		logger.WithValues("path", path).V(4).Info("unknown cluster")
+		name, isName := path.Name()
+		if isName {
+			// The path is a bare cluster name - e.g. a bare logical cluster id.
+			// When a new logical cluster is created this must pass to
+			// create the LogicalCluster singleton.
+			// A later middleware after authn/authz validates that this
+			// only passes for kcp components.
+			return request.WithCluster(ctx, request.Cluster{Name: name}), true
+		}
+
+		logger.WithValues("path", path).V(4).Info("unknown workspace path")
 		forbidden(w, req, path)
 		return nil, false
 	}
