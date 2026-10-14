@@ -26,28 +26,18 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/index"
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
-func NewStandaloneWorkspaceAuthenticator(clusterIndex *index.State, authIndex AuthenticatorIndex) authenticator.Request {
+func NewStandaloneWorkspaceAuthenticator(authIndex AuthenticatorIndex) authenticator.Request {
 	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
-		clusterName, err := request.ClusterNameFrom(req.Context())
-		if err != nil {
-			klog.FromContext(req.Context()).V(4).Info("standalone workspace authenticator skipped: request has no cluster context", "path", req.URL.Path, "err", err)
-			return nil, false, nil
-		}
-
-		result, found := clusterIndex.Lookup(clusterName.Path())
-		if !found {
-			return nil, false, nil
-		}
-
 		// workspacemounts have no type
-		if result.Type.Empty() {
+		wsType := lookup.WorkspaceTypeFrom(req.Context())
+		if wsType.Empty() {
 			return nil, false, nil
 		}
 
-		reqAuthenticator, ok := authIndex.Lookup(result.Type)
+		reqAuthenticator, ok := authIndex.Lookup(wsType)
 		if !ok {
 			return nil, false, nil
 		}
