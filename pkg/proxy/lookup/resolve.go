@@ -193,3 +193,13 @@ func forbidden(w http.ResponseWriter, req *http.Request, path logicalcluster.Pat
 		errorCodecs, schema.GroupVersion{}, w, req,
 	)
 }
+
+// ForbiddenHandler rejects every request with 403.
+func ForbiddenHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewForbidden(schema.GroupResource{}, "", errors.New(kcpauthorization.WorkspaceAccessNotPermittedReason)),
+			errorCodecs, schema.GroupVersion{}, w, req,
+		)
+	})
+}
