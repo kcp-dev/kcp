@@ -23,6 +23,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 
 	"sigs.k8s.io/yaml"
 
@@ -42,6 +43,14 @@ func loadMappings(filename string) ([]types.PathMapping, error) {
 	var mapping []types.PathMapping
 	if err := yaml.Unmarshal(mappingData, &mapping); err != nil {
 		return nil, err
+	}
+
+	// /clusters/ is routed by the built-in shard handler; a more specific
+	// mapping below it would take precedence in the mux.
+	for _, m := range mapping {
+		if strings.HasPrefix(m.Path, "/clusters/") && !isShardMapping(m) {
+			return nil, fmt.Errorf("invalid mapping path %q: paths below /clusters/ are reserved", m.Path)
+		}
 	}
 
 	return mapping, nil
