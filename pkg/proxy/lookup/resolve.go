@@ -179,7 +179,6 @@ func resolveCluster(w http.ResponseWriter, req *http.Request, idx index.Index, s
 			logger.WithValues("from", path, "to", result.Cluster).V(4).Info("rewriting cluster")
 		}
 		ctx = request.WithCluster(ctx, request.Cluster{Name: result.Cluster})
-		ctx = WithClusterName(ctx, result.Cluster)
 		ctx = WithWorkspaceType(ctx, result.Type)
 		ctx = WithShardName(ctx, result.Shard)
 	}
