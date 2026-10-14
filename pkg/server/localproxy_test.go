@@ -149,6 +149,27 @@ func TestWithLocalProxy_UnknownClusterIDIsForwarded(t *testing.T) {
 	require.Empty(t, gotShard)
 }
 
+// TestWithLocalProxy_ClusterOnOtherShardIsRejected: a cluster known to be
+// on another shard is answered like an unknown workspace.
+func TestWithLocalProxy_ClusterOnOtherShardIsRejected(t *testing.T) {
+	t.Parallel()
+	downstream := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("a request for a cluster on another shard must not continue into the handler chain")
+	})
+
+	idx := index.New(nil)
+	idx.UpsertShard("other-shard", "https://other.example.com")
+	idx.UpsertLogicalCluster("other-shard", &corev1alpha1.LogicalCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "25t3xbr5iceb0155"}},
+	})
+	h := newLocalProxy(t, downstream, idx)
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/25t3xbr5iceb0155/api/v1", http.NoBody))
+
+	require.Equal(t, http.StatusForbidden, rr.Code, "body=%s", rr.Body.String())
+}
+
 // TestWithLocalProxy_NonClusterRequestIsForwarded: requests without a
 // /clusters/ prefix get an empty cluster and pass through.
 func TestWithLocalProxy_NonClusterRequestIsForwarded(t *testing.T) {
