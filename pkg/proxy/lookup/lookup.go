@@ -40,15 +40,13 @@ import (
 func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, idx index.Index) http.Handler {
 	mux := http.NewServeMux()
 
-	// fallback for all unrecognized URLs
-	mux.Handle("/", delegate)
-
 	// Mappings are an additional source of cluster names in URLs: a {cluster}
 	// placeholder in the mapping path, or failing that a /clusters/<x> segment
 	// in the request path, resolves the cluster into the context. The actual
 	// muxing to the destinations happens later in proxy.HttpHandler.
 	mappingHandler := WithClusterResolutionPattern(delegate, idx, "cluster")
 
+	hasRootMapping := false
 	for _, mapping := range mappings {
 		p := strings.TrimRight(mapping.Path, "/")
 
@@ -64,11 +62,21 @@ func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, id
 			continue
 		}
 
+		if p == "" {
+			hasRootMapping = true
+			mux.Handle("/", mappingHandler)
+			continue
+		}
 		// mappings are configured with *prefixes*; in order to match both exact matches
 		// and prefix matches (i.e. if "/foo" is configured, both "/foo" and "/foo/bar"
 		// must match), each mapping is added twice to the mux.
 		mux.Handle(p, mappingHandler)
 		mux.Handle(p+"/{trail...}", mappingHandler)
+	}
+
+	if !hasRootMapping {
+		// fallback for all unrecognized URLs
+		mux.Handle("/", delegate)
 	}
 
 	return mux
