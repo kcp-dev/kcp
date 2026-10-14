@@ -89,15 +89,20 @@ func WithClusterResolution(handler http.Handler, idx index.Index) http.Handler {
 // WithClusterResolutionPattern resolves the cluster segment matched by
 // the mux pattern wildcard named pathValue against idx and stores the
 // result in the request context.
+// Without a matched wildcard the first /clusters/<segment> in the URL
+// path is resolved.
 //
 // The URL is left unchanged. This differs from
 // WithClusterResolution since this is used e.g. for the mounted
 // front-proxy services, where the path needs to be retained.
 //
-// Requests without a matched segment pass through unchanged.
+// Requests without a cluster segment pass through unchanged.
 func WithClusterResolutionPattern(handler http.Handler, idx index.Index, pathValue string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		segment := req.PathValue(pathValue)
+		if segment == "" {
+			segment = clusterSegmentFromPath(req.URL.Path)
+		}
 		if segment == "" {
 			handler.ServeHTTP(w, req)
 			return
@@ -110,6 +115,17 @@ func WithClusterResolutionPattern(handler http.Handler, idx index.Index, pathVal
 
 		handler.ServeHTTP(w, req.WithContext(ctx))
 	})
+}
+
+// clusterSegmentFromPath returns the segment following the first /clusters/
+// in path, or "" if there is none.
+func clusterSegmentFromPath(path string) string {
+	_, rest, found := strings.Cut(path, clustersPrefix)
+	if !found {
+		return ""
+	}
+	segment, _, _ := strings.Cut(rest, "/")
+	return segment
 }
 
 // resolveCluster resolves a cluster segment against idx.

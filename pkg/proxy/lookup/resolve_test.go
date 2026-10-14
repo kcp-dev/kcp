@@ -312,4 +312,44 @@ func TestWithClusterResolutionPattern(t *testing.T) {
 		require.Equal(t, "/healthz", got.url)
 		require.Nil(t, got.cluster)
 	})
+
+	t.Run("segment from path without matched wildcard", func(t *testing.T) {
+		t.Parallel()
+
+		var got resolved
+		handler := WithClusterResolutionPattern(capture(&got), idx, "cluster")
+
+		url := "/services/foo/clusters/" + wsWorkspacePath + "/apis"
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, http.NoBody))
+
+		require.True(t, got.called)
+		require.Equal(t, url, got.url)
+		require.Equal(t, &request.Cluster{Name: wsClusterID}, got.cluster)
+		require.Equal(t, logicalcluster.NewPath("root:universal"), got.workspaceType)
+	})
+}
+
+func TestClusterSegmentFromPath(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		path string
+		want string
+	}{
+		"virtual workspace URL":        {path: "/services/foo/clusters/root:orgs:bob/apis/v1", want: "root:orgs:bob"},
+		"segment at end without slash": {path: "/services/foo/clusters/root:orgs:bob", want: "root:orgs:bob"},
+		"clusters prefix":              {path: "/clusters/root:orgs:bob/api/v1", want: "root:orgs:bob"},
+		"wildcard":                     {path: "/services/foo/clusters/*/apis/v1", want: "*"},
+		"no clusters segment":          {path: "/services/foo/apis/v1", want: ""},
+		"empty":                        {path: "", want: ""},
+		"empty segment":                {path: "/services/foo/clusters//apis", want: ""},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tc.want, clusterSegmentFromPath(tc.path))
+		})
+	}
 }
