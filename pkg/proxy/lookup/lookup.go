@@ -37,6 +37,12 @@ import (
 	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/index"
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
+	"github.com/kcp-dev/kcp/pkg/virtual/admin"
+	"github.com/kcp-dev/kcp/pkg/virtual/apiresourceschema"
+	"github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces"
+	"github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces"
+	"github.com/kcp-dev/kcp/pkg/virtual/replication"
+	"github.com/kcp-dev/kcp/pkg/virtual/terminatingworkspaces"
 )
 
 func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, idx index.Index) http.Handler {
@@ -189,9 +195,48 @@ func newMappingHandler(delegate http.Handler, idx index.Index) http.HandlerFunc 
 	}
 }
 
+// apiExportVirtualWorkspaceName is the apiexport virtual workspace's name,
+// builder.VirtualWorkspaceName in pkg/virtual/apiexport/builder, a package too
+// heavy to import here. A test keeps the two equal.
+const apiExportVirtualWorkspaceName = "apiexport"
+
+// virtualWorkspaceClusterOffsets is, for each built-in virtual workspace, the
+// number of path segments its URLs carry between /services/<name>/ and the
+// clusters/<cluster> segment, as its shard-side path resolver parses them:
+//
+//	/services/apiexport/<export cluster>/<export name>/clusters/<cluster>/...
+//	/services/replication/<slice cluster>/<slice name>/clusters/<cluster>/...
+//	/services/apiresourceschema/<consumer cluster>/clusters/<cluster>/...
+//	/services/initializingworkspaces/<initializer>/clusters/<cluster>/...
+//	/services/terminatingworkspaces/<terminator>/clusters/<cluster>/...
+//	/services/admin/clusters/<cluster>/...
+//	/services/migratingworkspaces/clusters/<cluster>/...
+var virtualWorkspaceClusterOffsets = map[string]int{
+	apiExportVirtualWorkspaceName:               2,
+	replication.VirtualWorkspaceName:            2,
+	apiresourceschema.VirtualWorkspaceName:      1,
+	initializingworkspaces.VirtualWorkspaceName: 1,
+	terminatingworkspaces.VirtualWorkspaceName:  1,
+	admin.VirtualWorkspaceName:                  0,
+	migratingworkspaces.VirtualWorkspaceName:    0,
+}
+
 // extractClusterFromPath extracts the cluster name from URLs containing /clusters/<cluster>/
 // For example: /services/foo/clusters/root:orgs:bob/apis/... -> root:orgs:bob.
+//
+// For a built-in virtual workspace the cluster is read where that workspace's
+// URL layout puts it, so a segment before it named "clusters" — an APIExport
+// or a CachedResource of that name — is not taken for the cluster. Other
+// virtual workspaces' layouts are unknown here, and their cluster is the
+// segment after the first /clusters/.
 func extractClusterFromPath(path string) string {
+	if rest, ok := strings.CutPrefix(path, "/services/"); ok {
+		name, rest, _ := strings.Cut(rest, "/")
+		if offset, known := virtualWorkspaceClusterOffsets[name]; known {
+			return clusterAtOffset(rest, offset)
+		}
+	}
+
 	const clustersPrefix = "/clusters/"
 	idx := strings.Index(path, clustersPrefix)
 	if idx == -1 {
@@ -207,6 +252,18 @@ func extractClusterFromPath(path string) string {
 		return rest
 	}
 	return rest[:endIdx]
+}
+
+// clusterAtOffset returns the cluster of a virtual workspace path, given the
+// path after /services/<name>/ and the number of segments before its
+// clusters/<cluster> segment. A path without clusters/<cluster> at that
+// position names no cluster.
+func clusterAtOffset(path string, offset int) string {
+	segments := strings.SplitN(path, "/", offset+3)
+	if len(segments) < offset+2 || segments[offset] != "clusters" {
+		return ""
+	}
+	return segments[offset+1]
 }
 
 func resolveClusterName(w http.ResponseWriter, req *http.Request, idx index.Index, clusterName string) (*http.Request, *index.Result) {
