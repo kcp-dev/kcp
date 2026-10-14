@@ -93,6 +93,13 @@ func TestWithRejectUnknownCluster(t *testing.T) {
 			},
 			wantStatus: http.StatusOK,
 		},
+		"shard-level path scoped to root": {
+			ctx: func(ctx context.Context) context.Context {
+				ctx = request.WithRequestInfo(ctx, &request.RequestInfo{Path: "/metrics"})
+				return request.WithUser(request.WithCluster(ctx, request.Cluster{Name: "root"}), alice)
+			},
+			wantStatus: http.StatusOK,
+		},
 		"unknown cluster, no user": {
 			ctx: func(ctx context.Context) context.Context {
 				return request.WithCluster(ctx, request.Cluster{Name: clusterID})

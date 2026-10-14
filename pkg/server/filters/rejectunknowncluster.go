@@ -32,6 +32,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/authorization/shardpaths"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
@@ -71,6 +72,12 @@ func WithRejectUnknownCluster(handler http.Handler) http.Handler {
 
 		if lookup.ShardNameFrom(ctx) != "" {
 			// a /clusters/ request that has been resolved by the index
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		if info, ok := request.RequestInfoFrom(ctx); ok && !info.IsResourceRequest && shardpaths.Paths.Has(info.Path) {
+			// a non-resource shard-level request, e.g. /metrics
 			handler.ServeHTTP(w, req)
 			return
 		}
