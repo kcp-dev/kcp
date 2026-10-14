@@ -25,6 +25,7 @@ import (
 	"github.com/kcp-dev/sdk/apis/core"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/shardpaths"
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 // WithShardLevelPaths enforces that shard-level URLs (see
@@ -54,7 +55,7 @@ func WithShardLevelPaths(handler http.Handler) http.HandlerFunc {
 		// A request for a mounted workspace has no cluster in the context, but
 		// it is workspace-scoped: the path belongs to the mount target, which
 		// decides whether it serves it.
-		if MountTargetFrom(req.Context()) != nil {
+		if lookup.MountFrom(req.Context()) != nil {
 			handler.ServeHTTP(w, req)
 			return
 		}
