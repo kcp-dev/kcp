@@ -598,7 +598,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.WorkspaceAuthentication) {
 			genericConfig.Authentication.Authenticator = authenticatorunion.New(
 				genericConfig.Authentication.Authenticator,
-				authentication.NewStandaloneWorkspaceAuthenticator(authIndex),
+				authentication.NewStandaloneWorkspaceAuthenticator(clusterIndex, authIndex),
 			)
 		}
 
