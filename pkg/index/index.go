@@ -47,7 +47,16 @@ const defaultMigrationGracePeriod = 90 * time.Second
 type Index interface {
 	Lookup(path logicalcluster.Path) (Result, bool)
 	LookupURL(logicalCluster logicalcluster.Path) (Result, bool)
+	// BaseURL returns the base URL of the named shard.
+	BaseURL(shardName string) (string, bool)
+	// RecentlyMigrated returns true if the given cluster was recently migrated.
+	RecentlyMigrated(cluster logicalcluster.Name) bool
+	// ClusterContext returns a context derived from the parent that will be
+	// cancelled when the cluster is deleted or migrated.
+	ClusterContext(parent context.Context, cluster logicalcluster.Name) (context.Context, context.CancelFunc)
 }
+
+var _ Index = &State{}
 
 // Result is the result of a lookup.
 type Result struct {
@@ -463,6 +472,15 @@ func (c *State) UpsertShard(shardName, baseURL string) {
 
 		c.shardBaseURLs[shardName] = baseURL
 	}
+}
+
+// BaseURL returns the base URL of the named shard.
+func (c *State) BaseURL(shardName string) (string, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	baseURL, found := c.shardBaseURLs[shardName]
+	return baseURL, found
 }
 
 func (c *State) DeleteShard(shardName string) {
