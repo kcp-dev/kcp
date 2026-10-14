@@ -35,11 +35,11 @@ import (
 // or owner impersonation fallback).
 func ServeProxy(writer http.ResponseWriter, request *http.Request, forwardedHost *url.URL, rt http.RoundTripper) {
 	proxy := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.Header.Del("Authorization")
-			authentication.ScrubImpersonationHeaders(req.Header)
-			req.URL.Scheme = forwardedHost.Scheme
-			req.URL.Host = forwardedHost.Host
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.Out.Header.Del("Authorization")
+			authentication.ScrubImpersonationHeaders(pr.Out.Header)
+			pr.Out.URL.Scheme = forwardedHost.Scheme
+			pr.Out.URL.Host = forwardedHost.Host
 		},
 		Transport: rt,
 	}

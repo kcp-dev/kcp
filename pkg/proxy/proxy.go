@@ -69,19 +69,19 @@ func WithProxyAuthHeaders(delegate http.Handler, userHeader, groupHeader string,
 }
 
 func newShardReverseProxy() *httputil.ReverseProxy {
-	director := func(req *http.Request) {
-		shardURL := lookup.ShardURLFrom(req.Context())
+	rewrite := func(pr *httputil.ProxyRequest) {
+		shardURL := lookup.ShardURLFrom(pr.In.Context())
 		if shardURL == nil {
 			// should not happen if wiring is correct
 			utilruntime.HandleError(fmt.Errorf("no shard URL found in request context"))
-			req.URL.Scheme = "https"
-			req.URL.Host = "notfound"
+			pr.Out.URL.Scheme = "https"
+			pr.Out.URL.Host = "notfound"
 			return
 		}
 
-		req.URL.Scheme = shardURL.Scheme
-		req.URL.Host = shardURL.Host
-		req.URL.Path = shardURL.Path
+		pr.Out.URL.Scheme = shardURL.Scheme
+		pr.Out.URL.Host = shardURL.Host
+		pr.Out.URL.Path = shardURL.Path
 	}
-	return &httputil.ReverseProxy{Director: director}
+	return &httputil.ReverseProxy{Rewrite: rewrite}
 }

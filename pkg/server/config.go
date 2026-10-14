@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -591,10 +592,13 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// Only include this when the virtual workspace server is external
 		if shardVirtualWorkspaceURL != nil && virtualWorkspaceServerProxyTransport != nil {
 			proxy := &httputil.ReverseProxy{
-				Director: func(r *http.Request) {
-					r.URL.Scheme = shardVirtualWorkspaceURL.Scheme
-					r.URL.Host = shardVirtualWorkspaceURL.Host
-					delete(r.Header, "X-Forwarded-For")
+				Rewrite: func(pr *httputil.ProxyRequest) {
+					pr.Out.URL.Scheme = shardVirtualWorkspaceURL.Scheme
+					pr.Out.URL.Host = shardVirtualWorkspaceURL.Host
+					// inbound X-Forwarded-For is already stripped from Out; forward only the real client IP
+					if clientIP, _, err := net.SplitHostPort(pr.In.RemoteAddr); err == nil {
+						pr.Out.Header.Set("X-Forwarded-For", clientIP)
+					}
 				},
 			}
 			// Note: this has to come after DefaultBuildHandlerChainBeforeAuthz because it needs the user info, which
