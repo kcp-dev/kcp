@@ -29,14 +29,23 @@ import (
 	"github.com/kcp-dev/kcp/pkg/index"
 )
 
-// fakeIndex is a test double for proxyindex.Index.
+// fakeIndex is a test double for index.Index.
 type fakeIndex struct {
 	result           index.Result
 	found            bool
+	baseURL          string
 	recentlyMigrated bool
 
 	registered int
 	released   int
+}
+
+func (f *fakeIndex) BaseURL(shardName string) (string, bool) {
+	return f.baseURL, f.baseURL != ""
+}
+
+func (f *fakeIndex) Lookup(path logicalcluster.Path) (index.Result, bool) {
+	return f.result, f.found
 }
 
 func (f *fakeIndex) LookupURL(path logicalcluster.Path) (index.Result, bool) {
