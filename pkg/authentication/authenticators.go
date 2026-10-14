@@ -26,13 +26,37 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/index"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
-func NewStandaloneWorkspaceAuthenticator(authIndex AuthenticatorIndex) authenticator.Request {
+func NewStandaloneWorkspaceAuthenticator(clusterIndex index.Index, authIndex AuthenticatorIndex) authenticator.Request {
 	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
+		ctx := req.Context()
+		wsType := lookup.WorkspaceTypeFrom(ctx)
+		if wsType.Empty() {
+			// TODO(ntnn): Requests that are passed directly into the
+			// authn/authz chain are missing the workspace resolution
+			// from the http handler chain.
+			// This impacts e.g. the crafted TokenReviews that are build
+			// in the kcp kube fork, which only contain the clusterID.
+			//
+			// To still handle these correctly the same workspace
+			// resolution as in the http handler chain is done here to
+			// get the correct WorkspaceType.
+			clusterName, err := request.ClusterNameFrom(ctx)
+			if err != nil {
+				klog.FromContext(ctx).V(4).Info("standalone workspace authenticator skipped: request has no cluster context", "path", req.URL.Path, "err", err)
+				return nil, false, nil
+			}
+			resolved, err := lookup.Resolve(ctx, clusterIndex, clusterName.Path())
+			if err != nil {
+				klog.FromContext(ctx).V(4).Info("standalone workspace authenticator skipped: cluster not resolved", "cluster", clusterName, "err", err)
+				return nil, false, nil
+			}
+			wsType = lookup.WorkspaceTypeFrom(resolved)
+		}
 		// workspacemounts have no type
-		wsType := lookup.WorkspaceTypeFrom(req.Context())
 		if wsType.Empty() {
 			return nil, false, nil
 		}
