@@ -161,8 +161,8 @@ var resolveCases = map[string]resolveCase{
 		wantShard:         betaShard,
 	},
 	"unknown cluster ID": {
-		url:        "/clusters/system:unknown/apis",
-		wantStatus: http.StatusForbidden,
+		url:         "/clusters/system:unknown/apis",
+		wantCluster: &request.Cluster{Name: "system:unknown"},
 	},
 	"unknown workspace path": {
 		url:        "/clusters/root:nope/apis",
@@ -228,6 +228,7 @@ func TestWithClusterResolution(t *testing.T) {
 		"workspace path":                       "/apis/v1?watch=true",
 		"workspace path without trailing path": "/",
 		"cluster ID":                           "/apis",
+		"unknown cluster ID":                   "/apis",
 		"mount by workspace path":              "/apis",
 		"mount by parent cluster ID":           "/apis",
 	}
