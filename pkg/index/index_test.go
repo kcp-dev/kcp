@@ -367,6 +367,37 @@ func TestLookupSystemClusterName(t *testing.T) {
 	validateLookupOutput(t, logicalcluster.NewPath("system:unknown"), r.Shard, r.Cluster, r.URL, found, "", "", "", false)
 }
 
+func TestLookupUnavailableByClusterName(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
+	target.UpsertWorkspace("root", withPhase(newWorkspace("down", "root", "34"), corev1alpha1.LogicalClusterPhaseUnavailable))
+	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+
+	for _, path := range []string{"root:down", "34"} {
+		r, found := target.Lookup(logicalcluster.NewPath(path))
+		if !found {
+			t.Fatalf("%q: expected to be found", path)
+		}
+		if r.ErrorCode != 503 {
+			t.Fatalf("%q: expected error code 503, got %d", path, r.ErrorCode)
+		}
+	}
+
+	// recovery clears the error code for both forms
+	target.UpsertWorkspace("root", newWorkspace("down", "root", "34"))
+	for _, path := range []string{"root:down", "34"} {
+		r, found := target.Lookup(logicalcluster.NewPath(path))
+		if !found {
+			t.Fatalf("%q: expected to be found", path)
+		}
+		if r.ErrorCode != 0 {
+			t.Fatalf("%q: expected no error code, got %d", path, r.ErrorCode)
+		}
+	}
+}
+
 func TestDeleteShard(t *testing.T) {
 	t.Parallel()
 	target := New(nil)

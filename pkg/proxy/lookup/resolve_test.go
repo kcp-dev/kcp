@@ -172,8 +172,12 @@ var resolveCases = map[string]resolveCase{
 		url:        "/clusters/root:Bad!/apis",
 		wantStatus: http.StatusBadRequest,
 	},
-	"error code": {
+	"unavailable by workspace path": {
 		url:        "/clusters/" + downWorkspacePath + "/apis",
+		wantStatus: http.StatusServiceUnavailable,
+	},
+	"unavailable by cluster ID": {
+		url:        "/clusters/" + downClusterID + "/apis",
 		wantStatus: http.StatusServiceUnavailable,
 	},
 	"mount by workspace path": {
