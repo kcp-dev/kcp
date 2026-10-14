@@ -32,8 +32,8 @@ import (
 // pkg/authorization/shardpaths) are only served at the top of the shard's HTTP
 // path tree.
 //
-// It must run AFTER WithLocalProxy so the cluster context reflects whether the
-// request was made through a /clusters/<ws>/ prefix.
+// It must run AFTER lookup.WithClusterResolution so the cluster context
+// reflects whether the request was made through a /clusters/<ws>/ prefix.
 //
 //   - any workspace-scoped form, including /clusters/root/<path>, is rejected
 //     with 501 Not Implemented. The data exposed is shard-wide and has no
