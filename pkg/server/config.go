@@ -474,9 +474,8 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		return nil, err
 	}
 
-	// Prepare a local cluster index that can be used both by the LocalProxy, as well as the authenticator
-	// (the authenticator cannot always use the data the localproxy puts into the context because the
-	// authentication rest storage provider calls the authenticator outside of the handler chain).
+	// Prepare a local cluster index used by lookup.WithClusterResolution
+	// and the workspace authenticator .
 	clusterIndex := newLocalClusterIndex(
 		opts.Extra.ShardName,
 		opts.Extra.ShardBaseURL,
@@ -584,8 +583,8 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			apiHandler = WithVirtualWorkspacesProxy(apiHandler, shardVirtualWorkspaceURL, virtualWorkspaceServerProxyTransport, proxy)
 		}
 
-		// Requests for mounted workspaces are resolved by WithLocalProxy in front of
-		// the chain and forwarded here, after authentication, audit, flow control
+		// Requests for mounted workspaces are resolved by lookup.WithClusterResolution
+		// in front of the chain and forwarded here, after authentication, audit, flow control
 		// and impersonation, and before authorization (there is no logical cluster
 		// to authorize against; the caller is instead required to be able to get
 		// the Workspace object of the mount in its parent). Like the virtual
@@ -644,12 +643,12 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		apiHandler = kcpfilters.WithMountBypass(mux, apiHandler)
 
 		apiHandler = filters.WithAuditInit(apiHandler) // Must run before any audit annotation is made
-		// Defense-in-depth: after WithLocalProxy has resolved the workspace path to
-		// a logical cluster name, reject any request whose cluster.Name is still
-		// path-shaped. Prevents path strings from leaking into etcd keys if the
-		// localproxy logic ever regresses.
+		// Defense-in-depth: after lookup.WithClusterResolution has resolved the
+		// `/clusters/a1b2c3/` to a logical cluster name, reject any request whose
+		// cluster.Name is still path-shaped. Prevents path strings from leaking
+		// into etcd keys if the resolution ever regresses.
 		apiHandler = kcpfilters.WithClusterNameShapeInvariant(apiHandler)
-		// After WithLocalProxy has set (or left empty) the cluster context, decide
+		// After the cluster context is set (or left empty), decide
 		// whether shard-wide URLs like /metrics may be served. Workspace-scoped
 		// requests are 501'd; top-level requests are evaluated against root RBAC.
 		apiHandler = kcpfilters.WithShardLevelPaths(apiHandler)
