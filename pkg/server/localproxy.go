@@ -41,6 +41,7 @@ import (
 	tenancyv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/tenancy/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/authentication"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
@@ -135,11 +136,20 @@ func WithLocalProxy(
 			cluster = &request.Cluster{}
 		}
 
+		// If cluster is known but its not on this shard respond with a 403.
+		// Responding with anything else would let an attacker with
+		// access to a shard enumerate workspaces on other shards that
+		// are replicated via the cache-server.
 		if shard := lookup.ShardNameFrom(ctx); shard != "" && shard != shardName {
-			logger.WithValues("cluster", cluster.Name, "requestedShard", shard, "actualShard", shardName).Info("cluster is not on this shard, but on another")
-
-			w.Header().Set("Retry-After", fmt.Sprintf("%d", 1))
-			http.Error(w, "Not found on this shard", http.StatusTooManyRequests)
+			logger.WithValues("cluster", cluster.Name, "requestedShard", shard, "actualShard", shardName).V(4).Info("cluster is not on this shard")
+			responsewriters.ErrorNegotiated(
+				apierrors.NewForbidden(
+					schema.GroupResource{Group: tenancyv1alpha1.SchemeGroupVersion.Group, Resource: "workspaces"},
+					cluster.Name.String(),
+					errors.New(authorization.WorkspaceAccessNotPermittedReason),
+				),
+				errorCodecs, schema.GroupVersion{}, w, req,
+			)
 			return
 		}
 
