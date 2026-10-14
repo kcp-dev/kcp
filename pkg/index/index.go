@@ -549,7 +549,8 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 			// Lets check if we have a mount for this workspace, and if we do, we can return the URL from the mount.
 			// Else we get back to default behavior.
 			wsSpec, foundMount := c.shardClusterWorkspaceMount[shard][originalCluster][s] // experimental feature
-			if foundMount {
+			// A mount has no children in the index.
+			if foundMount && i == len(segments)-1 {
 				if wsSpec.Mount != nil && wsSpec.URL != "" {
 					// Only route to mount targets that pass the same validation
 					// admission applies; objects written before that validation
