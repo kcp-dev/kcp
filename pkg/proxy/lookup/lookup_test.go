@@ -30,6 +30,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/index"
+	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
 
 // fakeIndex is a test double for index.Index.
@@ -248,6 +249,112 @@ func TestShardHandlerURL(t *testing.T) {
 			if tc.wantStatus != 0 {
 				require.Nil(t, shardURL)
 				require.Equal(t, tc.wantStatus, rec.Code)
+				return
+			}
+			require.NotNil(t, shardURL)
+			require.Equal(t, tc.wantShardURL, shardURL.String())
+		})
+	}
+}
+
+func TestWithClusterResolver(t *testing.T) {
+	t.Parallel()
+
+	mappings := []types.PathMapping{
+		{Path: "/clusters/"},
+		{Path: "/services/singleton/{cluster}"},
+		{Path: "/services/org/clusters/{cluster}"},
+		{Path: "/services/plain"},
+		{Path: "/"},
+	}
+
+	tests := map[string]struct {
+		url string
+
+		wantStatus   int
+		wantShardURL string
+		wantCluster  *request.Cluster
+		wantURL      string
+	}{
+		"workspace path to shard": {
+			url:          "/clusters/" + wsWorkspacePath + "/api/v1",
+			wantShardURL: "https://beta.example.com/clusters/" + wsClusterID + "/api/v1",
+			wantCluster:  &request.Cluster{Name: wsClusterID},
+			wantURL:      "/api/v1",
+		},
+		"clusterID to shard": {
+			url:          "/clusters/" + wsClusterID + "/api/v1",
+			wantShardURL: "https://beta.example.com/clusters/" + wsClusterID + "/api/v1",
+			wantCluster:  &request.Cluster{Name: wsClusterID},
+			wantURL:      "/api/v1",
+		},
+		"unknown cluster to shard": {
+			url:        "/clusters/root:nope/api/v1",
+			wantStatus: http.StatusForbidden,
+		},
+		"service with cluster placeholder": {
+			url:         "/services/singleton/" + wsWorkspacePath + "/api/v1",
+			wantCluster: &request.Cluster{Name: wsClusterID},
+			wantURL:     "/services/singleton/" + wsWorkspacePath + "/api/v1",
+		},
+		"service with default /clusters/x": {
+			url:         "/services/org/clusters/" + wsWorkspacePath + "/api/v1",
+			wantCluster: &request.Cluster{Name: wsClusterID},
+			wantURL:     "/services/org/clusters/" + wsWorkspacePath + "/api/v1",
+		},
+		"service with unknown cluster": {
+			url:        "/services/org/clusters/root:nope/api/v1",
+			wantStatus: http.StatusForbidden,
+		},
+		"service without cluster placeholder": {
+			url:     "/services/plain/api/v1",
+			wantURL: "/services/plain/api/v1",
+		},
+		"unmatched goes to delegate": {
+			url:     "/healthz",
+			wantURL: "/healthz",
+		},
+	}
+
+	idx := newResolveIndex()
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var (
+				called   bool
+				gotURL   string
+				cluster  *request.Cluster
+				shardURL *url.URL
+			)
+			delegate := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				called = true
+				gotURL = req.URL.String()
+				cluster = request.ClusterFrom(req.Context())
+				shardURL = ShardURLFrom(req.Context())
+			})
+
+			rec := httptest.NewRecorder()
+			WithClusterResolver(delegate, mappings, idx).
+				ServeHTTP(rec, httptest.NewRequestWithContext(
+					t.Context(),
+					http.MethodGet,
+					tc.url,
+					http.NoBody,
+				))
+
+			if tc.wantStatus != 0 {
+				require.False(t, called)
+				require.Equal(t, tc.wantStatus, rec.Code)
+				return
+			}
+
+			require.True(t, called)
+			require.Equal(t, tc.wantURL, gotURL)
+			require.Equal(t, tc.wantCluster, cluster)
+			if tc.wantShardURL == "" {
+				require.Nil(t, shardURL)
 				return
 			}
 			require.NotNil(t, shardURL)
