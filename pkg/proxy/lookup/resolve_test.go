@@ -180,6 +180,14 @@ var resolveCases = map[string]resolveCase{
 		url:        "/clusters/" + downClusterID + "/apis",
 		wantStatus: http.StatusServiceUnavailable,
 	},
+	"segment below mount by workspace path": {
+		url:        "/clusters/" + mntWorkspacePath + ":sub/apis",
+		wantStatus: http.StatusForbidden,
+	},
+	"segment below mount by parent cluster ID": {
+		url:        "/clusters/" + orgClusterID + ":mnt:sub/apis",
+		wantStatus: http.StatusForbidden,
+	},
 	"mount by workspace path": {
 		url:       "/clusters/" + mntWorkspacePath + "/apis",
 		wantShard: rootShard,
