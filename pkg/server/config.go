@@ -75,6 +75,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/network"
 	"github.com/kcp-dev/kcp/pkg/objectcount"
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/migration/logicalclustermigration"
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
@@ -670,10 +671,11 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// whether shard-wide URLs like /metrics may be served. Workspace-scoped
 		// requests are 501'd; top-level requests are evaluated against root RBAC.
 		apiHandler = kcpfilters.WithShardLevelPaths(apiHandler)
-		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile, clusterIndex)
+		apiHandler, err = WithLocalProxy(apiHandler, opts.Extra.ShardName, opts.Extra.AdditionalMappingsFile)
 		if err != nil {
 			panic(err) // shouldn't happen due to flag validation
 		}
+		apiHandler = lookup.WithClusterResolution(apiHandler, clusterIndex)
 		apiHandler = kcpfilters.WithInClusterServiceAccountRequestRewrite(apiHandler)
 		apiHandler = kcpfilters.WithAcceptHeader(apiHandler)
 		apiHandler = kcpfilters.WithUserAgent(apiHandler)
