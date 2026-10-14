@@ -20,7 +20,10 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"k8s.io/apiserver/pkg/endpoints/request"
 
@@ -65,10 +68,10 @@ func (f *fakeIndex) ClusterContext(parent context.Context, cluster logicalcluste
 	}
 }
 
-func TestClusterResolveHandlerMigration(t *testing.T) {
+func TestShardHandlerMigration(t *testing.T) {
 	t.Parallel()
 
-	const cluster = "abcdef"
+	const clusterID = "abcdef"
 
 	tests := []struct {
 		name             string
@@ -144,13 +147,8 @@ func TestClusterResolveHandlerMigration(t *testing.T) {
 			t.Parallel()
 
 			fake := &fakeIndex{
-				found:            true,
+				baseURL:          "https://shard-1.example",
 				recentlyMigrated: tt.recentlyMigrated,
-				result: index.Result{
-					Cluster: logicalcluster.Name(cluster),
-					Shard:   "shard-1",
-					URL:     "https://shard-1.example/clusters/" + cluster,
-				},
 			}
 
 			delegateCalled := false
@@ -159,20 +157,22 @@ func TestClusterResolveHandlerMigration(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			handler := newClusterResolveHandler(delegate, fake)
+			handler := newShardHandler(delegate, fake)
 
 			query := "?resourceVersion=" + tt.resourceVersion
 			if tt.watch {
 				query += "&watch=true"
 			}
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/"+cluster+"/api/v1/configmaps"+query, http.NoBody)
-			req.SetPathValue("cluster", cluster)
+			// URL as left by WithClusterResolution: /clusters/<segment> stripped.
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/configmaps"+query, http.NoBody)
 			ctx := request.WithRequestInfo(req.Context(), &request.RequestInfo{
 				IsResourceRequest: true,
 				Verb:              tt.verb,
 				APIVersion:        "v1",
 				Resource:          "configmaps",
 			})
+			ctx = request.WithCluster(ctx, request.Cluster{Name: clusterID})
+			ctx = WithShardName(ctx, "shard-1")
 			req = req.WithContext(ctx)
 
 			rec := httptest.NewRecorder()
@@ -191,6 +191,67 @@ func TestClusterResolveHandlerMigration(t *testing.T) {
 			if fake.registered != fake.released {
 				t.Errorf("registered (%d) != released (%d): in-flight watch not released", fake.registered, fake.released)
 			}
+		})
+	}
+}
+
+func TestShardHandlerURL(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		url string
+
+		wantStatus   int
+		wantShardURL string
+	}{
+		"cluster ID": {
+			url:          "/clusters/" + wsClusterID + "/api/v1/configmaps?watch=true",
+			wantShardURL: "https://beta.example.com/clusters/" + wsClusterID + "/api/v1/configmaps?watch=true",
+		},
+		"workspace path": {
+			url:          "/clusters/" + wsWorkspacePath + "/api/v1",
+			wantShardURL: "https://beta.example.com/clusters/" + wsClusterID + "/api/v1",
+		},
+		"workspace path without trailing path": {
+			url:          "/clusters/" + orgWorkspacePath,
+			wantShardURL: "https://root.example.com/clusters/" + orgClusterID,
+		},
+		"mount to parent shard": {
+			url:          "/clusters/" + mntWorkspacePath + "/api/v1",
+			wantShardURL: "https://root.example.com/clusters/" + orgClusterID + ":mnt/api/v1",
+		},
+		"wildcard has no shard": {
+			url:        "/clusters/*/api/v1",
+			wantStatus: http.StatusForbidden,
+		},
+		"unknown workspace path": {
+			url:        "/clusters/root:nope/api/v1",
+			wantStatus: http.StatusForbidden,
+		},
+	}
+
+	idx := newResolveIndex()
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var shardURL *url.URL
+			delegate := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				shardURL = ShardURLFrom(req.Context())
+			})
+			handler := WithClusterResolution(newShardHandler(delegate, idx), idx)
+
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, tc.url, http.NoBody))
+
+			if tc.wantStatus != 0 {
+				require.Nil(t, shardURL)
+				require.Equal(t, tc.wantStatus, rec.Code)
+				return
+			}
+			require.NotNil(t, shardURL)
+			require.Equal(t, tc.wantShardURL, shardURL.String())
 		})
 	}
 }

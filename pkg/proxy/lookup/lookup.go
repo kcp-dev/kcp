@@ -18,6 +18,7 @@ package lookup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -25,7 +26,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
@@ -33,7 +33,6 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/index"
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
@@ -61,28 +60,55 @@ func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, id
 		// we only enable the built-in clusterResolveHandler if we actually find
 		// an appropriate mapping.
 		if p == "/clusters" {
-			// we know how to parse cluster URLs
-			resolveHandler := newClusterResolveHandler(delegate, idx)
-			mux.HandleFunc("/clusters/{cluster}", resolveHandler)
-			mux.HandleFunc("/clusters/{cluster}/{trail...}", resolveHandler)
-		} else {
-			// mappings are configured with *prefixes*; in order to match both exact matches
-			// and prefix matches (i.e. if "/foo" is configured, both "/foo" and "/foo/bar"
-			// must match), each mapping is added twice to the mux.
-			mux.Handle(p, mappingHandler)
-			mux.Handle(p+"/{trail...}", mappingHandler)
+			mux.Handle("/clusters/", WithClusterResolution(newShardHandler(delegate, idx), idx))
+			continue
 		}
+
+		// mappings are configured with *prefixes*; in order to match both exact matches
+		// and prefix matches (i.e. if "/foo" is configured, both "/foo" and "/foo/bar"
+		// must match), each mapping is added twice to the mux.
+		mux.Handle(p, mappingHandler)
+		mux.Handle(p+"/{trail...}", mappingHandler)
 	}
 
 	return mux
 }
 
-func newClusterResolveHandler(delegate http.Handler, idx index.Index) http.HandlerFunc {
+// newShardHandler stores the shard URL of the resolved cluster in the
+// context and forwards to delegate.
+func newShardHandler(delegate http.Handler, idx index.Index) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		clusterName := req.PathValue("cluster")
+		ctx := req.Context()
+		logger := klog.FromContext(ctx)
 
-		req, result := resolveClusterName(w, req, idx, clusterName)
-		if req == nil {
+		var segment string
+		var clusterName logicalcluster.Name
+		switch cluster, mount := request.ClusterFrom(ctx), MountFrom(ctx); {
+		case mount != nil:
+			// <parentID>:<name>
+			_, name := mount.Workspace.Split()
+			segment = mount.ParentCluster.Path().Join(name).String()
+		case cluster == nil:
+			responsewriters.InternalError(w, req, errors.New("no cluster in request context"))
+			return
+		case cluster.Wildcard:
+			// Wildcard requests have no owning shard.
+			ForbiddenHandler().ServeHTTP(w, req)
+			return
+		default:
+			clusterName = cluster.Name
+			segment = clusterName.String()
+		}
+
+		baseURL, found := idx.BaseURL(ShardNameFrom(ctx))
+		if !found {
+			logger.WithValues("shard", ShardNameFrom(ctx)).V(4).Info("unknown shard")
+			ForbiddenHandler().ServeHTTP(w, req)
+			return
+		}
+		shardURL, err := url.Parse(baseURL)
+		if err != nil {
+			responsewriters.InternalError(w, req, err)
 			return
 		}
 
@@ -92,41 +118,26 @@ func newClusterResolveHandler(delegate http.Handler, idx index.Index) http.Handl
 		// This is only required for watches.
 		// Lists with a lower RV will get appropriate objects from the shard.
 		// Lists with a higher RV will get a 504 from the shard.
-		if idx.RecentlyMigrated(result.Cluster) && isInProgressWatch(req) {
-			err := apierrors.NewResourceExpired(fmt.Sprintf("logical cluster %q was recently migrated to another shard; watches with an explicit resourceVersion are temporarily denied to force a relist against the new shard", result.Cluster))
+		if !clusterName.Empty() && idx.RecentlyMigrated(clusterName) && isInProgressWatch(req) {
+			err := apierrors.NewResourceExpired(fmt.Sprintf("logical cluster %q was recently migrated to another shard; watches with an explicit resourceVersion are temporarily denied to force a relist against the new shard", clusterName))
 			responsewriters.ErrorNegotiated(err, kubernetesscheme.Codecs, schema.GroupVersion{}, w, req)
 			return
 		}
 
-		shardURL, err := url.Parse(result.URL)
-		if err != nil {
-			responsewriters.InternalError(w, req, err)
-			return
-		}
-
-		ctx := req.Context()
-
-		logger := klog.FromContext(ctx)
-		logger.WithValues("from", "/clusters/"+clusterName, "to", shardURL).V(4).Info("Redirecting")
-
+		shardURL.Path = strings.TrimSuffix(shardURL.Path, "/") + "/clusters/" + segment + strings.TrimSuffix(req.URL.Path, "/")
 		shardURL.RawQuery = req.URL.RawQuery
-		shardURL.Path = strings.TrimSuffix(shardURL.Path, "/")
-		if trail := req.PathValue("trail"); len(trail) != 0 {
-			shardURL.Path += "/" + trail
-		}
+		logger.WithValues("cluster", segment, "to", shardURL).V(4).Info("Redirecting")
 
 		ctx = WithShardURL(ctx, shardURL)
 
 		// Bound watch requests by the per-cluster context to cancel them when the cluster is migrated or deleted.
-		if isWatchRequest(req) {
+		if !clusterName.Empty() && isWatchRequest(req) {
 			var cancel context.CancelFunc
-			ctx, cancel = idx.ClusterContext(ctx, result.Cluster)
+			ctx, cancel = idx.ClusterContext(ctx, clusterName)
 			defer cancel()
 		}
 
-		req = req.WithContext(ctx)
-
-		delegate.ServeHTTP(w, req)
+		delegate.ServeHTTP(w, req.WithContext(ctx))
 	}
 }
 
@@ -148,40 +159,6 @@ func isInProgressWatch(req *http.Request) bool {
 	}
 
 	return isWatchRequest(req)
-}
-
-func resolveClusterName(w http.ResponseWriter, req *http.Request, idx index.Index, clusterName string) (*http.Request, *index.Result) {
-	ctx := req.Context()
-	logger := klog.FromContext(ctx)
-	attributes, err := filters.GetAuthorizerAttributes(ctx)
-	if err != nil {
-		responsewriters.InternalError(w, req, err)
-		return nil, nil
-	}
-
-	clusterPath := logicalcluster.NewPath(clusterName)
-	if !clusterPath.IsValid() {
-		// this includes wildcards
-		logger.WithValues("requestPath", req.URL.Path).V(4).Info("Invalid cluster path")
-		responsewriters.Forbidden(attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
-		return nil, nil
-	}
-
-	result, found := idx.LookupURL(clusterPath)
-	if result.ErrorCode != 0 {
-		http.Error(w, "Not available.", result.ErrorCode)
-		return nil, nil
-	}
-	if !found {
-		logger.WithValues("clusterPath", clusterPath).V(4).Info("Unknown cluster path")
-		responsewriters.Forbidden(attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
-		return nil, nil
-	}
-
-	ctx = WithWorkspaceType(ctx, result.Type)
-	ctx = WithShardName(ctx, result.Shard)
-
-	return req.WithContext(ctx), &result
 }
 
 type lookupKey int
