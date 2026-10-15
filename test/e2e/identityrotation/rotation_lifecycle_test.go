@@ -49,7 +49,13 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-var sheriffsGVR = wildwestv1alpha1.SchemeGroupVersion.WithResource("sheriffs")
+// deputiesGVR is a second, namespaced wildwest.dev resource that only this
+// package serves. It must not reuse "sheriffs": the shared wildwest fixture
+// serves sheriffs.wildwest.dev cluster-scoped, and a namespaced schema of the
+// same group/resource on the same shard poisons the shard-wide watch cache
+// for that resource ("couldn't compute key: Namespace parameter required"),
+// breaking sheriff replication for every other package on the shared server.
+var deputiesGVR = wildwestv1alpha1.SchemeGroupVersion.WithResource("deputies")
 
 // installWildwestSchema installs a copy of the embedded cowboys
 // APIResourceSchema under a different resource name, so one provider can
@@ -217,50 +223,50 @@ func TestAPIExportIdentityRotationSharedFence(t *testing.T) {
 		consumerPaths = append(consumerPaths, path)
 	}
 
-	t.Logf("Install two exports in %q: cowboys and sheriffs", providerPath)
+	t.Logf("Install two exports in %q: cowboys and deputies", providerPath)
 	oldCowboysHash := installCowboysExport(ctx, t, c, providerPath)
-	installWildwestSchema(ctx, t, c, providerPath, "today.sheriffs.wildwest.dev", "sheriffs", "sheriff", "Sheriff")
-	oldSheriffsHash := createWildwestExport(ctx, t, c, providerPath, "today-sheriffs", "sheriffs", "today.sheriffs.wildwest.dev")
+	installWildwestSchema(ctx, t, c, providerPath, "today.deputies.wildwest.dev", "deputies", "deputy", "Deputy")
+	oldDeputiesHash := createWildwestExport(ctx, t, c, providerPath, "today-deputies", "deputies", "today.deputies.wildwest.dev")
 
 	cowboyUIDs := make([]types.UID, consumerCount)
-	sheriffUIDs := make([]types.UID, consumerCount)
+	deputyUIDs := make([]types.UID, consumerCount)
 	for i, consumerPath := range consumerPaths {
 		bindExport(ctx, t, c, providerPath, consumerPath, "cowboys", "today-cowboys")
-		bindExport(ctx, t, c, providerPath, consumerPath, "sheriffs", "today-sheriffs")
+		bindExport(ctx, t, c, providerPath, consumerPath, "deputies", "today-deputies")
 		cowboyUIDs[i] = createWildwestObject(ctx, t, c, consumerPath, cowboysGVR, "Cowboy", fmt.Sprintf("woody-%d", i+1))
-		sheriffUIDs[i] = createWildwestObject(ctx, t, c, consumerPath, sheriffsGVR, "Sheriff", fmt.Sprintf("earp-%d", i+1))
+		deputyUIDs[i] = createWildwestObject(ctx, t, c, consumerPath, deputiesGVR, "Deputy", fmt.Sprintf("earp-%d", i+1))
 	}
 
 	bindMigrationAPI(ctx, t, c, opsPath)
 	createIdentitySecret(ctx, t, c, providerPath, "today-cowboys-rotated")
-	createIdentitySecret(ctx, t, c, providerPath, "today-sheriffs-rotated")
+	createIdentitySecret(ctx, t, c, providerPath, "today-deputies-rotated")
 
 	t.Logf("Rotate both exports back to back so both bindings of every consumer drain at the same time")
 	requestRotation(ctx, t, c, opsPath,
 		migrationv1alpha1.ExportReference{Path: providerPath.String(), Name: "today-cowboys"},
 		"rotate-today-cowboys", "today-cowboys-rotated", migrationv1alpha1.AliasRetirement{Policy: migrationv1alpha1.AliasRetirementImmediate})
 	requestRotation(ctx, t, c, opsPath,
-		migrationv1alpha1.ExportReference{Path: providerPath.String(), Name: "today-sheriffs"},
-		"rotate-today-sheriffs", "today-sheriffs-rotated", migrationv1alpha1.AliasRetirement{Policy: migrationv1alpha1.AliasRetirementImmediate})
+		migrationv1alpha1.ExportReference{Path: providerPath.String(), Name: "today-deputies"},
+		"rotate-today-deputies", "today-deputies-rotated", migrationv1alpha1.AliasRetirement{Policy: migrationv1alpha1.AliasRetirementImmediate})
 
 	t.Logf("Wait for both rotations to complete")
 	newCowboysHash := waitForRotationPhaseWithin(ctx, t, c, opsPath, "rotate-today-cowboys", migrationv1alpha1.APIExportIdentityRotationCompleted, 2*time.Minute)
-	newSheriffsHash := waitForRotationPhaseWithin(ctx, t, c, opsPath, "rotate-today-sheriffs", migrationv1alpha1.APIExportIdentityRotationCompleted, 2*time.Minute)
+	newDeputiesHash := waitForRotationPhaseWithin(ctx, t, c, opsPath, "rotate-today-deputies", migrationv1alpha1.APIExportIdentityRotationCompleted, 2*time.Minute)
 	require.NotEqual(t, oldCowboysHash, newCowboysHash)
-	require.NotEqual(t, oldSheriffsHash, newSheriffsHash)
+	require.NotEqual(t, oldDeputiesHash, newDeputiesHash)
 
 	t.Logf("Every consumer has both bindings on the new identities, both objects survived, and the fence is gone")
 	for i, consumerPath := range consumerPaths {
 		requireBindingOn(ctx, t, c, consumerPath, "cowboys", newCowboysHash)
-		requireBindingOn(ctx, t, c, consumerPath, "sheriffs", newSheriffsHash)
+		requireBindingOn(ctx, t, c, consumerPath, "deputies", newDeputiesHash)
 		requireUnfenced(ctx, t, c, consumerPath)
 
 		cowboy, err := c.dynamic.Cluster(consumerPath).Resource(cowboysGVR).Namespace("default").Get(ctx, fmt.Sprintf("woody-%d", i+1), metav1.GetOptions{})
 		require.NoError(t, err, "cowboy in %s must be readable after both drains", consumerPath)
 		require.Equal(t, cowboyUIDs[i], cowboy.GetUID(), "cowboy UID must survive the drain")
-		sheriff, err := c.dynamic.Cluster(consumerPath).Resource(sheriffsGVR).Namespace("default").Get(ctx, fmt.Sprintf("earp-%d", i+1), metav1.GetOptions{})
-		require.NoError(t, err, "sheriff in %s must be readable after both drains", consumerPath)
-		require.Equal(t, sheriffUIDs[i], sheriff.GetUID(), "sheriff UID must survive the drain")
+		deputy, err := c.dynamic.Cluster(consumerPath).Resource(deputiesGVR).Namespace("default").Get(ctx, fmt.Sprintf("earp-%d", i+1), metav1.GetOptions{})
+		require.NoError(t, err, "deputy in %s must be readable after both drains", consumerPath)
+		require.Equal(t, deputyUIDs[i], deputy.GetUID(), "deputy UID must survive the drain")
 	}
 }
 
