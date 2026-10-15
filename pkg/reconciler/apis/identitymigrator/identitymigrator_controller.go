@@ -430,8 +430,14 @@ func (c *Controller) reportProgress(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	counts := shardCounts{identityHash: target, total: int32(min(len(bindings), math.MaxInt32))}
+	// counted in int32 directly rather than converted from len(), which
+	// keeps every golangci-lint version happy about overflow.
+	counts := shardCounts{identityHash: target}
 	for _, binding := range bindings {
+		if counts.total == math.MaxInt32 {
+			break
+		}
+		counts.total++
 		if bindingFullyOn(binding, target) {
 			counts.migrated++
 		}
