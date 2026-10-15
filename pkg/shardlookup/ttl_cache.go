@@ -116,17 +116,45 @@ func (c *TTLCache[V]) Delete(key string) {
 // If the key is cached within the TTL the cached value is returned but
 // the TTL is not refreshed to prevent frequently used items from living
 // forever.
-// If the key is not cached or is expired the value is retrieved using
-// the provided function and cached.
-func (c *TTLCache[V]) Get(key string, fetch func() (V, error)) (V, error) {
-	if item := c.ttl.Get(key, ttlcache.WithDisableTouchOnHit[string, cacheValue[V]]()); item != nil {
-		if !item.IsExpired() {
-			cv := item.Value()
-			return cv.value, cv.err
+//
+// If stale is non-nil the function is called with the cached value.
+// If the stale function returns true the cached value is evicted and
+// reloaded.
+//
+// If the key is not cached, is expired or was evicted as stale the value
+// is retrieved using fetch and cached.
+func (c *TTLCache[V]) Get(key string, fetch func() (V, error), stale func(V) bool) (V, error) {
+	// a fast-path duplicate of the check running within the singleflight group below
+	if item := c.ttl.Get(key, ttlcache.WithDisableTouchOnHit[string, cacheValue[V]]()); item != nil && !item.IsExpired() {
+		// item is present and not expired
+		cv := item.Value()
+		if cv.err != nil {
+			var zero V
+			return zero, cv.err
+		}
+		// if stale was passed validate it
+		if stale == nil || !stale(cv.value) {
+			return cv.value, nil
 		}
 	}
 
 	result, err, _ := c.group.Do(key, func() (any, error) {
+		if item := c.ttl.Get(key, ttlcache.WithDisableTouchOnHit[string, cacheValue[V]]()); item != nil && !item.IsExpired() {
+			// item is present and not expired
+			cv := item.Value()
+			if cv.err != nil {
+				var zero V
+				return zero, cv.err
+			}
+			// if stale was passed validate it
+			if stale == nil || !stale(cv.value) {
+				return cv.value, nil
+			}
+			// stale was passed and invalidated the value, evict it
+			c.ttl.Delete(key)
+		}
+
+		// fetch a new value and return that
 		v, err := fetch()
 		cv := cacheValue[V]{value: v, err: err}
 		ttl := c.opts.SuccessTTL

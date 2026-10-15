@@ -125,7 +125,7 @@ func (idx *lazyIndex) Lookup(wsType logicalcluster.Path) (authenticator.Request,
 func (idx *lazyIndex) lookup(wsType, clusterPath logicalcluster.Path, wstName string) (authenticatorState, bool) {
 	state, err := idx.authenticators.Get(wsType.String(), func() (authenticatorState, error) {
 		return idx.buildUnionAuthenticator(clusterPath, wstName)
-	})
+	}, nil)
 	if err != nil {
 		if errors.Is(err, errCauseEmpty) {
 			return authenticatorState{}, false
