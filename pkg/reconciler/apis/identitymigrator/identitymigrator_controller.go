@@ -51,6 +51,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/storage/value"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -71,6 +72,7 @@ import (
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 
+	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
@@ -99,6 +101,7 @@ func NewController(
 	crdClusterClient kcpapiextensionsclientset.ClusterInterface,
 	etcdClient *clientv3.Client,
 	etcdStoragePrefix string,
+	resourceTransformers value.ResourceTransformers,
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
@@ -124,10 +127,11 @@ func NewController(
 				Name: ControllerName + "-report",
 			},
 		),
-		shardName:         shardName,
-		lastReported:      map[string]shardCounts{},
-		etcdClient:        etcdClient,
-		etcdStoragePrefix: strings.TrimSuffix(etcdStoragePrefix, "/"),
+		shardName:            shardName,
+		lastReported:         map[string]shardCounts{},
+		etcdClient:           etcdClient,
+		etcdStoragePrefix:    strings.TrimSuffix(etcdStoragePrefix, "/"),
+		resourceTransformers: resourceTransformers,
 		getAPIBinding: func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 			return apiBindingInformer.Cluster(cluster).Lister().Get(name)
 		},
@@ -273,8 +277,12 @@ type Controller struct {
 	mu           sync.Mutex
 	lastReported map[string]shardCounts
 
-	etcdClient        *clientv3.Client
+	etcdClient        clientv3.KV
 	etcdStoragePrefix string
+	// resourceTransformers are the shard's storage transformers (encryption
+	// at rest). Values are decrypted under their source key and re-encrypted
+	// under the target key, since AEAD providers authenticate the key.
+	resourceTransformers value.ResourceTransformers
 
 	getAPIBinding          func(cluster logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
 	getAPIExport           func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
@@ -785,9 +793,14 @@ func (c *Controller) copyPrefix(ctx context.Context, group, resource, source, ta
 			return fmt.Errorf("failed to page source prefix %q: %w", sourcePrefix, err)
 		}
 		for _, kv := range resp.Kvs {
-			targetKey := targetPrefix + strings.TrimPrefix(string(kv.Key), sourcePrefix)
-			if _, err := c.etcdClient.Put(ctx, targetKey, string(kv.Value)); err != nil {
-				return fmt.Errorf("failed to copy %q to %q: %w", string(kv.Key), targetKey, err)
+			sourceKey := string(kv.Key)
+			targetKey := targetPrefix + strings.TrimPrefix(sourceKey, sourcePrefix)
+			data, err := c.retransform(ctx, sourceKey, targetKey, kv.Value)
+			if err != nil {
+				return err
+			}
+			if _, err := c.etcdClient.Put(ctx, targetKey, string(data)); err != nil {
+				return fmt.Errorf("failed to copy %q to %q: %w", sourceKey, targetKey, err)
 			}
 			copied++
 		}
@@ -868,6 +881,27 @@ func (c *Controller) countPrefix(ctx context.Context, prefix string) (int64, err
 		return 0, fmt.Errorf("failed to count prefix %q: %w", prefix, err)
 	}
 	return resp.Count, nil
+}
+
+// retransform decodes a stored value through the shard's storage transformer
+// for its source key and encodes it again for the target key. The key is
+// authenticated data for AEAD encryption-at-rest providers (e.g. aesgcm), so
+// bytes copied verbatim under a new key would not decrypt. Without
+// encryption at rest the transformers are the identity and this is a no-op.
+func (c *Controller) retransform(ctx context.Context, sourceKey, targetKey string, stored []byte) ([]byte, error) {
+	transformer, err := kcpetcd.TransformerForKey(c.resourceTransformers, strings.TrimPrefix(sourceKey, c.etcdStoragePrefix+"/"))
+	if err != nil {
+		return nil, err
+	}
+	plain, _, err := transformer.TransformFromStorage(ctx, stored, value.DefaultContext(sourceKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to transform source key %q: %w", sourceKey, err)
+	}
+	data, err := transformer.TransformToStorage(ctx, plain, value.DefaultContext(targetKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to transform target key %q: %w", targetKey, err)
+	}
+	return data, nil
 }
 
 // identityPrefix is the etcd prefix of a bound resource's instances in one

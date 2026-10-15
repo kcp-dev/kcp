@@ -1296,6 +1296,7 @@ func (s *Server) installIdentityMigratorController(_ context.Context, config *re
 		crdClusterClient,
 		etcdClient,
 		s.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,
+		s.GenericConfig.ResourceTransformers,
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
