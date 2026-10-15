@@ -59,6 +59,15 @@ const (
 	rotationCooldown = time.Hour
 )
 
+// aliasRetirementRank orders the alias retirement policies from latest to
+// earliest retirement. An update may only move a rotation toward earlier
+// retirement, i.e. to a higher rank.
+var aliasRetirementRank = map[migrationv1alpha1.AliasRetirementPolicy]int{
+	migrationv1alpha1.AliasRetirementManual:    0,
+	migrationv1alpha1.AliasRetirementAfter:     1,
+	migrationv1alpha1.AliasRetirementImmediate: 2,
+}
+
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
@@ -221,12 +230,7 @@ func validateUpdate(a admission.Attributes, old, rotation *migrationv1alpha1.API
 	if newPolicy == "" {
 		newPolicy = migrationv1alpha1.AliasRetirementManual
 	}
-	rank := map[migrationv1alpha1.AliasRetirementPolicy]int{
-		migrationv1alpha1.AliasRetirementManual:    0,
-		migrationv1alpha1.AliasRetirementAfter:     1,
-		migrationv1alpha1.AliasRetirementImmediate: 2,
-	}
-	if rank[newPolicy] < rank[oldPolicy] {
+	if aliasRetirementRank[newPolicy] < aliasRetirementRank[oldPolicy] {
 		return admission.NewForbidden(a, fmt.Errorf("spec.aliasRetirement may only move toward earlier retirement (Manual -> After -> Immediate)"))
 	}
 	if oldPolicy == migrationv1alpha1.AliasRetirementAfter && newPolicy == migrationv1alpha1.AliasRetirementAfter {
