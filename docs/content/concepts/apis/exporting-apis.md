@@ -112,6 +112,14 @@ spec:
 
 An `APIResourceSchema`'s `spec` is immutable; if you need to make changes to your API schema, you create a new instance.
 
+### Multi-version schemas and conversion
+
+An `APIResourceSchema` can declare multiple versions (one storage version, additional
+served versions), similar to a CRD. To convert between those versions, create an
+[`APIConversion`](./api-conversion.md) object with the **same name** as the schema and
+define field mappings (with optional CEL transformations). You need to enable the `APIConversion`
+feature gate to use it.
+
 Once you've created at least one `APIResourceSchema`, you can proceed with creating your `APIExport`.
 
 ## Define Your APIExport
