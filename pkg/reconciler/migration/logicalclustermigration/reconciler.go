@@ -44,11 +44,18 @@ func (c *Controller) reconcile(ctx context.Context, migration *migrationv1alpha1
 		return false, nil
 	}
 
+	// Only the shard responsible for the current phase may hand off to
+	// cancellation. In particular, the origin must not start rollback while
+	// the destination is still writing a dump page.
+	if !migration.DeletionTimestamp.IsZero() && c.startCancellation(migration) {
+		return true, nil
+	}
+
 	// Detect LC deletion during migration. Only meaningful while the origin
 	// still owns the LC (Preparing/Migrating); after OriginCleanup the origin
 	// has deleted its copy by design, so a missing LC there is the expected
 	// steady state, not a deletion signal.
-	if isOrigin && originOwnsLC(migration.Status.Phase) {
+	if isOrigin && migration.DeletionTimestamp.IsZero() && originOwnsLC(migration.Status.Phase) {
 		lcName := logicalcluster.Name(migration.Spec.LogicalCluster)
 		lc, err := c.logicalClusterLister.Cluster(lcName).Get(corev1alpha1.LogicalClusterName)
 		if err == nil && !lc.DeletionTimestamp.IsZero() {
@@ -73,6 +80,44 @@ func (c *Controller) reconcile(ctx context.Context, migration *migrationv1alpha1
 	// Route through the process. The overview of the process id
 	// described in the doc.go, details are in the methods.
 	switch migration.Status.Phase {
+	case migrationv1alpha1.LogicalClusterMigrationPhaseCancellationPreparing:
+		if isOrigin {
+			return false, c.registerCancellation(migration)
+		}
+		if isDestination {
+			return c.reconcileCancellationPreparing(ctx, migration)
+		}
+		return false, nil
+
+	case migrationv1alpha1.LogicalClusterMigrationPhaseRestoring:
+		if isDestination {
+			return false, c.blockForCancellation(ctx, migration)
+		}
+		if isOrigin {
+			return c.reconcileRestoring(ctx, migration)
+		}
+		return false, nil
+
+	case migrationv1alpha1.LogicalClusterMigrationPhaseCancellationCleanup:
+		if isOrigin {
+			return false, c.registerCancellation(migration)
+		}
+		if isDestination {
+			return c.reconcileCancellationCleanup(ctx, migration)
+		}
+		return false, nil
+
+	case migrationv1alpha1.LogicalClusterMigrationPhaseCancellationFinalize:
+		if isOrigin {
+			return c.finalizeCancellation(ctx, migration)
+		}
+		return false, nil
+
+	case migrationv1alpha1.LogicalClusterMigrationPhaseCancelled:
+		if isOrigin {
+			removeFinalizer(migration)
+		}
+		return false, nil
 	case migrationv1alpha1.LogicalClusterMigrationPhaseCompleted:
 		// The migration is done, the destination releases the finalizer.
 		if isDestination {

@@ -52,4 +52,31 @@ limitations under the License.
 // The front-proxy automatically bars access to the LC and routes
 // requests to the new shard by discovering the objects on the shards
 // directly.
+//
+// Deleting an active LogicalClusterMigration requests cancellation after the
+// current phase writer finishes its in-flight operation.
+//
+// Cancellation during Preparing:
+//
+//   - Restores access on the origin (CancellationFinalize)
+//
+// Cancellation during Migrating:
+//
+//   - Deletes the destination's partial copy (CancellationCleanup)
+//   - Restores access on the origin (CancellationFinalize)
+//
+// Cancellation during OriginCleanup or DestinationFinalize:
+//
+//   - Freezes the destination (CancellationPreparing)
+//   - Copies data back to the origin (Restoring)
+//   - Deletes the destination data (CancellationCleanup)
+//   - Restores access on the origin (CancellationFinalize)
+//
+// Completing cancellation:
+//
+//   - Publishes Cancelled before the origin releases the migration finalizer
+//
+// Workspace deletion (Aborting):
+//
+//   - Deletes data on both shards
 package logicalclustermigration
