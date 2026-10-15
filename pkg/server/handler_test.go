@@ -44,10 +44,9 @@ func TestWithVirtualWorkspacesProxyUsesRequestScopedImpersonationTransport(t *te
 
 	baseTransport := &recordingRoundTripper{}
 	proxy := &httputil.ReverseProxy{
-		Director: func(r *http.Request) {
-			r.URL.Scheme = targetURL.Scheme
-			r.URL.Host = targetURL.Host
-			delete(r.Header, "X-Forwarded-For")
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.Out.URL.Scheme = targetURL.Scheme
+			pr.Out.URL.Host = targetURL.Host
 		},
 	}
 

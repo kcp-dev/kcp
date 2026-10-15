@@ -128,17 +128,17 @@ func NewFilteredDynamicInformer(client kcpdynamic.ClusterInterface, gvr schema.G
 		gvr: gvr,
 		informer: thirdpartyinformers.NewSharedIndexInformer(
 			&cache.ListWatch{
-				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+				ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
 					if tweakListOptions != nil {
 						tweakListOptions(&options)
 					}
-					return client.Resource(gvr).List(context.TODO(), options)
+					return client.Resource(gvr).List(ctx, options)
 				},
-				WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+				WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
 					if tweakListOptions != nil {
 						tweakListOptions(&options)
 					}
-					return client.Resource(gvr).Watch(context.TODO(), options)
+					return client.Resource(gvr).Watch(ctx, options)
 				},
 			},
 			&unstructured.Unstructured{},

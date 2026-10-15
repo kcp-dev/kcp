@@ -443,26 +443,26 @@ func createClusterRoleAndBindings(name, subjectName, subjectKind string, verbs [
 	}
 
 	return &rbacv1.ClusterRole{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: name,
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Rules: rules,
+	}, &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind: subjectKind,
+				Name: subjectName,
 			},
-			Rules: rules,
-		}, &rbacv1.ClusterRoleBinding{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: name,
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind: subjectKind,
-					Name: subjectName,
-				},
-			},
-			RoleRef: rbacv1.RoleRef{
-				APIGroup: rbacv1.SchemeGroupVersion.Group,
-				Kind:     "ClusterRole",
-				Name:     name,
-			},
-		}
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.SchemeGroupVersion.Group,
+			Kind:     "ClusterRole",
+			Name:     name,
+		},
+	}
 }
 
 func admit(t *testing.T, kubeClusterClient kubernetesclientset.Interface, ruleName, subjectName, subjectKind string, verbs []string, resources ...string) {

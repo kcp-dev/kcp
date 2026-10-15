@@ -42,54 +42,54 @@ func TestPuller(t *testing.T) {
 	puller := &schemaPuller{
 		serverGroupsAndResources: func() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
 			return []*metav1.APIGroup{
-					{
-						Name: "",
-						Versions: []metav1.GroupVersionForDiscovery{
-							{
-								GroupVersion: "v1",
-								Version:      "v1",
-							},
-						},
-						PreferredVersion: metav1.GroupVersionForDiscovery{
+				{
+					Name: "",
+					Versions: []metav1.GroupVersionForDiscovery{
+						{
 							GroupVersion: "v1",
 							Version:      "v1",
 						},
 					},
-					{
-						Name: "metrics.k8s.io",
-						Versions: []metav1.GroupVersionForDiscovery{
-							{
-								GroupVersion: "metrics.k8s.io/v1beta1",
-								Version:      "v1beta1",
-							},
-						},
-						PreferredVersion: metav1.GroupVersionForDiscovery{
+					PreferredVersion: metav1.GroupVersionForDiscovery{
+						GroupVersion: "v1",
+						Version:      "v1",
+					},
+				},
+				{
+					Name: "metrics.k8s.io",
+					Versions: []metav1.GroupVersionForDiscovery{
+						{
 							GroupVersion: "metrics.k8s.io/v1beta1",
 							Version:      "v1beta1",
 						},
 					},
-				}, []*metav1.APIResourceList{
-					{
-						GroupVersion: "v1",
-						APIResources: []metav1.APIResource{
-							{
-								Name:       "pods",
-								Namespaced: true,
-								Kind:       "Pod",
-							},
-						},
-					},
-					{
+					PreferredVersion: metav1.GroupVersionForDiscovery{
 						GroupVersion: "metrics.k8s.io/v1beta1",
-						APIResources: []metav1.APIResource{
-							{
-								Name:       "pods",
-								Namespaced: true,
-								Kind:       "Pod",
-							},
+						Version:      "v1beta1",
+					},
+				},
+			}, []*metav1.APIResourceList{
+				{
+					GroupVersion: "v1",
+					APIResources: []metav1.APIResource{
+						{
+							Name:       "pods",
+							Namespaced: true,
+							Kind:       "Pod",
 						},
 					},
-				}, nil
+				},
+				{
+					GroupVersion: "metrics.k8s.io/v1beta1",
+					APIResources: []metav1.APIResource{
+						{
+							Name:       "pods",
+							Namespaced: true,
+							Kind:       "Pod",
+						},
+					},
+				},
+			}, nil
 		},
 		serverPreferredResources: func() ([]*metav1.APIResourceList, error) {
 			return []*metav1.APIResourceList{

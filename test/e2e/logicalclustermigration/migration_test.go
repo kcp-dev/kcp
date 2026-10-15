@@ -105,11 +105,11 @@ func TestFullMigration(t *testing.T) {
 	cmClient := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps("default")
 	informerStore, informerController := cache.NewInformerWithOptions(cache.InformerOptions{
 		ListerWatcher: &cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				return cmClient.List(t.Context(), options)
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				return cmClient.List(ctx, options)
 			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return cmClient.Watch(t.Context(), options)
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				return cmClient.Watch(ctx, options)
 			},
 		},
 		ObjectType: &corev1.ConfigMap{},
@@ -617,11 +617,11 @@ func TestFullMigrationAPIBindings(t *testing.T) {
 	t.Log("Starting informer for post-migration verification")
 	informerStore, informerController := cache.NewInformerWithOptions(cache.InformerOptions{
 		ListerWatcher: &cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				return cowboyClient.List(t.Context(), options)
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				return cowboyClient.List(ctx, options)
 			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return cowboyClient.Watch(t.Context(), options)
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				return cowboyClient.Watch(ctx, options)
 			},
 		},
 		ObjectType: &wildwestv1alpha1.Cowboy{},
@@ -961,11 +961,11 @@ func TestFullMigrationAPIExportVirtualWorkspace(t *testing.T) {
 	t.Logf("Starting pre-migration informer on Cowboys via VW")
 	vwInformerStore, vwInformerController := cache.NewInformerWithOptions(cache.InformerOptions{
 		ListerWatcher: &cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-				return wildwestVWClient.WildwestV1alpha1().Cowboys().List(t.Context(), options)
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				return wildwestVWClient.WildwestV1alpha1().Cowboys().List(ctx, options)
 			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-				return wildwestVWClient.WildwestV1alpha1().Cowboys().Watch(t.Context(), options)
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				return wildwestVWClient.WildwestV1alpha1().Cowboys().Watch(ctx, options)
 			},
 		},
 		ObjectType: &wildwestv1alpha1.Cowboy{},

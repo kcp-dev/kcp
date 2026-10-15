@@ -106,7 +106,7 @@ func newMigratingHandler(cfg *rest.Config) (http.Handler, error) {
 	}
 	proxy := &httputil.ReverseProxy{
 		Transport: transport,
-		Director:  func(*http.Request) {}, // request is fully rewritten before ServeHTTP forwards
+		Rewrite:   func(*httputil.ProxyRequest) {}, // request is fully rewritten before ServeHTTP forwards
 	}
 	return &migratingHandler{proxy: proxy, host: target.Host}, nil
 }
