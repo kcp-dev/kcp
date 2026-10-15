@@ -99,42 +99,30 @@ func NewLazyIndex(
 // currently known RVs of the WorkspaceType and
 // WorkspaceAuthenticatorConfigurations.
 // If the WST or the WAC resource version does not match the cached
-// authenticators it is rebuild.
+// authenticators it is rebuilt.
 func (idx *lazyIndex) Lookup(wsType logicalcluster.Path) (authenticator.Request, bool) {
 	clusterPath, wstName := wsType.Split()
 	if clusterPath.Empty() {
 		return nil, false
 	}
 
-	state, ok := idx.lookup(wsType, clusterPath, wstName)
-	if !ok {
-		return nil, false
-	}
-
-	// check if the WAC has been updated in the meantime
-	if idx.isCurrent(clusterPath, wstName, state) {
-		return state.authenticator, true
-	}
-
-	// delete and fetch again, the authenticator will be rebuilt
-	idx.authenticators.Delete(wsType.String())
-	state, ok = idx.lookup(wsType, clusterPath, wstName)
-	return state.authenticator, ok
-}
-
-func (idx *lazyIndex) lookup(wsType, clusterPath logicalcluster.Path, wstName string) (authenticatorState, bool) {
-	state, err := idx.authenticators.Get(wsType.String(), func() (authenticatorState, error) {
-		return idx.buildUnionAuthenticator(clusterPath, wstName)
-	}, nil)
+	state, err := idx.authenticators.Get(wsType.String(),
+		func() (authenticatorState, error) {
+			return idx.buildUnionAuthenticator(clusterPath, wstName)
+		},
+		func(state authenticatorState) bool {
+			return !idx.isCurrent(clusterPath, wstName, state)
+		},
+	)
 	if err != nil {
 		if errors.Is(err, errCauseEmpty) {
-			return authenticatorState{}, false
+			return nil, false
 		}
 		logger := klog.Background().WithValues("controller", controllerName, "workspaceType", wsType)
 		logger.Error(err, "Failed to start workspace authenticator.")
-		return authenticatorState{}, false
+		return nil, false
 	}
-	return state, true
+	return state.authenticator, true
 }
 
 // isCurrent reports whether the WorkspaceType and WACs state was built from are unchanged.
