@@ -153,6 +153,11 @@ spec:
                 - Aborting
                 - Completed
                 - Failed
+                - CancellationPreparing
+                - Restoring
+                - CancellationCleanup
+                - CancellationFinalize
+                - Cancelled
                 type: string
             type: object
         type: object
