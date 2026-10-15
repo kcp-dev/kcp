@@ -17,12 +17,14 @@ limitations under the License.
 package apibinding
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -107,6 +109,101 @@ func TestNameConflictCheckerGetBoundCRDs(t *testing.T) {
 		"e2-s2": existingBinding2,
 	}
 	require.Equal(t, expectedMapping, ncc.crdToBinding)
+}
+
+// TestNameConflictCheckerSkipsMissingBoundCRDs verifies that a bound CRD which no
+// longer exists does not fail the conflict check for the other APIBindings in the
+// workspace. A bound CRD can legitimately be missing while a binding is still
+// being established, after an APIExport rotates a schema, or if it is deleted out
+// from under the binding; in every case the remaining bindings must still
+// reconcile, since a non-existent CRD serves no resources and so cannot create a
+// naming conflict.
+func TestNameConflictCheckerSkipsMissingBoundCRDs(t *testing.T) {
+	t.Parallel()
+
+	healthyBinding := new(bindingBuilder).
+		WithClusterName("root:org:ws").
+		WithName("healthy").
+		WithExportReference(logicalcluster.NewPath("root:org:exportWS"), "export1").
+		WithBoundResources(
+			new(boundAPIResourceBuilder).WithSchema("export1-schema1", "e1-s1").BoundAPIResource,
+		).
+		Build()
+
+	// This binding references a bound CRD that has been deleted.
+	danglingBinding := new(bindingBuilder).
+		WithClusterName("root:org:ws").
+		WithName("dangling").
+		WithExportReference(logicalcluster.NewPath("root:org:exportWS"), "export2").
+		WithBoundResources(
+			new(boundAPIResourceBuilder).WithSchema("export2-schema1", "gone").BoundAPIResource,
+			new(boundAPIResourceBuilder).WithSchema("export2-schema2", "e2-s2").BoundAPIResource,
+		).
+		Build()
+
+	ncc, err := newConflictChecker("root:org:ws",
+		func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+			return []*apisv1alpha2.APIBinding{healthyBinding, danglingBinding}, nil
+		},
+		func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+			return nil, nil
+		},
+		func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+			if name == "gone" {
+				return nil, apierrors.NewNotFound(apiextensionsv1.Resource("customresourcedefinitions"), name)
+			}
+			return &apiextensionsv1.CustomResourceDefinition{ObjectMeta: metav1.ObjectMeta{Name: name}}, nil
+		},
+		func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+			return nil, nil
+		},
+	)
+	require.NoError(t, err, "a missing bound CRD must not fail the conflict check")
+
+	// The missing CRD is skipped; every other bound CRD in the workspace is still
+	// collected, so conflicts against them continue to be detected.
+	expectedCRDs := sets.New[string]("e1-s1", "e2-s2")
+	actualCRDs := sets.New[string]()
+	for _, crd := range ncc.crds {
+		actualCRDs.Insert(crd.Name)
+	}
+	require.True(t, expectedCRDs.Equal(actualCRDs), "bound CRDs mismatch: %s", cmp.Diff(expectedCRDs, actualCRDs))
+
+	require.Equal(t, map[string]*apisv1alpha2.APIBinding{
+		"e1-s1": healthyBinding,
+		"e2-s2": danglingBinding,
+	}, ncc.crdToBinding)
+}
+
+// A non-NotFound error from getCRD is still fatal: it means we cannot tell whether
+// a conflict exists, so the reconcile must retry rather than bind blindly.
+func TestNameConflictCheckerPropagatesBoundCRDErrors(t *testing.T) {
+	t.Parallel()
+
+	binding := new(bindingBuilder).
+		WithClusterName("root:org:ws").
+		WithName("binding").
+		WithExportReference(logicalcluster.NewPath("root:org:exportWS"), "export1").
+		WithBoundResources(
+			new(boundAPIResourceBuilder).WithSchema("export1-schema1", "e1-s1").BoundAPIResource,
+		).
+		Build()
+
+	_, err := newConflictChecker("root:org:ws",
+		func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+			return []*apisv1alpha2.APIBinding{binding}, nil
+		},
+		func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
+			return nil, nil
+		},
+		func(clusterName logicalcluster.Name, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+			return nil, apierrors.NewInternalError(errors.New("boom"))
+		},
+		func(clusterName logicalcluster.Name) ([]*apiextensionsv1.CustomResourceDefinition, error) {
+			return nil, nil
+		},
+	)
+	require.Error(t, err)
 }
 
 func TestNamesConflict(t *testing.T) {
