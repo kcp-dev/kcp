@@ -4537,7 +4537,7 @@ func schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref common.ReferenceCallback) 
 					},
 					"value": {
 						SchemaProps: spec.SchemaProps{
-							Description: "value is the raw etcd value bytes. JSON-encoded as base64 on the wire.",
+							Description: "value is the serialized object with storage encryption removed, encoded as base64 on the wire. It must be transformed before writing to etcd.",
 							Type:        []string{"string"},
 							Format:      "byte",
 						},
@@ -4582,7 +4582,7 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterDump(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LogicalClusterDump is an ephemeral request/response type used by the destination shard during a logical cluster migration to fetch the raw etcd contents of the migration logical cluster from the origin shard.\n\nThe server populates Status.Entries on Create. The object is not persisted.",
+				Description: "LogicalClusterDump is an ephemeral request/response type used by the destination shard during a logical cluster migration to fetch the serialized contents of the migrating logical cluster from the origin shard.\n\nThe server populates Status.Entries on Create. The object is not persisted.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -4632,6 +4632,14 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpSpec(ref common.Refere
 				Description: "LogicalClusterDumpSpec is the desired state for a dump request.\n\nThe logical cluster to dump is taken from the request's cluster context (i.e. the URL the request arrived on).",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"encoding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "encoding must be Plaintext. Explicit negotiation prevents older shards from interpreting decrypted data as raw encrypted storage values.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"continue": {
 						SchemaProps: spec.SchemaProps{
 							Description: "continue is the token returned by a previous LogicalClusterDump's status.continue. If set, the scan resumes right after the last key returned by that page. If empty, the scan starts from the beginning of the logical cluster's etcd keyspace.",
@@ -4654,6 +4662,7 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpSpec(ref common.Refere
 						},
 					},
 				},
+				Required: []string{"encoding"},
 			},
 		},
 	}
@@ -4666,9 +4675,17 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpStatus(ref common.Refe
 				Description: "LogicalClusterDumpStatus carries the dump payload populated by the server.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"encoding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "encoding is Plaintext when storage encryption has been removed from values. Clients must verify this before writing entries using local transformers.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"entries": {
 						SchemaProps: spec.SchemaProps{
-							Description: "entries is the page of etcd key/value pairs belonging to the logical cluster, in the origin shard's etcd encoding (proto for built-ins, JSON for CRs).",
+							Description: "entries is the page of etcd key/value pairs belonging to the logical cluster, without storage encryption (proto for built-ins, JSON for CRs).",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -4688,6 +4705,7 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpStatus(ref common.Refe
 						},
 					},
 				},
+				Required: []string{"encoding"},
 			},
 		},
 		Dependencies: []string{

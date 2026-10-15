@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/storage/value"
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -61,17 +62,20 @@ type migratingClusters interface {
 type Handler struct {
 	etcdClient               *clientv3.Client
 	etcdStoragePrefix        string
+	resourceTransformers     value.ResourceTransformers
 	migratingLogicalClusters migratingClusters
 }
 
 func NewHandler(
 	etcdClient *clientv3.Client,
 	etcdStoragePrefix string,
+	resourceTransformers value.ResourceTransformers,
 	migratingLogicalClusters migratingClusters,
 ) *Handler {
 	return &Handler{
 		etcdClient:               etcdClient,
 		etcdStoragePrefix:        etcdStoragePrefix,
+		resourceTransformers:     resourceTransformers,
 		migratingLogicalClusters: migratingLogicalClusters,
 	}
 }
@@ -131,9 +135,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if dump.Spec.Encoding != migrationv1alpha1.DumpEncodingPlaintext {
+		writeError(w, r, apierrors.NewBadRequest("logical cluster dumps require Plaintext encoding"))
+		return
+	}
+
 	logger.V(2).Info("dumping logical cluster page from etcd", "cluster", cluster.Name, "continue", dump.Spec.Continue)
 
-	entries, nextContinue, err := scanEtcdEntries(ctx, h.etcdClient, h.etcdStoragePrefix, cluster.Name, dump.Spec.Continue, dump.Spec.Limit, dump.Spec.MaxBytes)
+	entries, nextContinue, err := scanEtcdEntries(ctx, h.etcdClient, h.etcdStoragePrefix, cluster.Name, dump.Spec.Continue, dump.Spec.Limit, dump.Spec.MaxBytes, h.resourceTransformers)
 	if err != nil {
 		writeError(w, r, apierrors.NewInternalError(fmt.Errorf("failed to dump logical cluster: %w", err)))
 		return
@@ -146,6 +155,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 		ObjectMeta: dump.ObjectMeta,
 		Status: migrationv1alpha1.LogicalClusterDumpStatus{
+			Encoding: migrationv1alpha1.DumpEncodingPlaintext,
 			Entries:  entries,
 			Continue: nextContinue,
 		},
@@ -170,7 +180,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // The second return value is the continue token for the next page, or the
 // empty string if the scan reached the end of the logical cluster's
 // keyspace.
-func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, target logicalcluster.Name, continueToken string, limit, maxBytes int64) ([]migrationv1alpha1.EtcdEntry, string, error) {
+func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, target logicalcluster.Name, continueToken string, limit, maxBytes int64, transformers value.ResourceTransformers) ([]migrationv1alpha1.EtcdEntry, string, error) {
 	prefix := storagePrefix
 	if !strings.HasSuffix(prefix, "/") {
 		prefix += "/"
@@ -215,15 +225,27 @@ func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, 
 				continue
 			}
 
-			if int64(len(entries)) >= limit || (len(entries) > 0 && totalBytes+int64(len(entry.Value)) > maxBytes) {
+			if int64(len(entries)) >= limit {
 				return entries, strings.TrimPrefix(string(entry.Key), prefix), nil
 			}
 
+			relativeKey := strings.TrimPrefix(string(entry.Key), prefix)
+			transformer, err := kcpetcd.TransformerForKey(transformers, relativeKey)
+			if err != nil {
+				return nil, "", err
+			}
+			data, _, err := transformer.TransformFromStorage(ctx, entry.Value, value.DefaultContext(entry.Key))
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to transform source key %q: %w", entry.Key, err)
+			}
+			if len(entries) > 0 && totalBytes+int64(len(data)) > maxBytes {
+				return entries, relativeKey, nil
+			}
 			entries = append(entries, migrationv1alpha1.EtcdEntry{
-				Key:   strings.TrimPrefix(string(entry.Key), prefix),
-				Value: append([]byte(nil), entry.Value...),
+				Key:   relativeKey,
+				Value: data,
 			})
-			totalBytes += int64(len(entry.Value))
+			totalBytes += int64(len(data))
 		}
 
 		if !resp.More {

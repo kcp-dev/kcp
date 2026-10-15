@@ -46,6 +46,14 @@ import (
 // allocated per test, independently of --kcp-kubeconfig and --shard-kubeconfigs.
 func privateMigrationServer(t *testing.T) kcptestingserver.RunningServer {
 	t.Helper()
+	server, _ := privateMigrationServerWithArgs(t, nil)
+	return server
+}
+
+// privateMigrationServerWithArgs also returns a destination restart function.
+// Extra arguments allow tests to configure different storage policies per shard.
+func privateMigrationServerWithArgs(t *testing.T, shardArgs map[string][]string) (kcptestingserver.RunningServer, func()) {
+	t.Helper()
 
 	artifacts, dataDir, err := kcptestingserver.ScratchDirs(t)
 	require.NoError(t, err)
@@ -179,19 +187,20 @@ func privateMigrationServer(t *testing.T) kcptestingserver.RunningServer {
 		"--shard-client-cert-file=" + adminCert, "--shard-client-key-file=" + adminKey,
 		"--shard-virtual-workspace-ca-file=" + servingCAFile,
 	}
-	startShard := func(name, port string, extraArgs ...string) {
+	startShard := func(name, port string, extraArgs ...string) kcptestingserver.RunningServer {
 		t.Helper()
 		args := append([]string{}, commonArgs...)
 		args = append(args, "--shard-name="+name, "--secure-port="+port)
 		args = append(args, extraArgs...)
-		kcptesting.PrivateKcpServer(t,
+		args = append(args, shardArgs[name]...)
+		return kcptesting.PrivateKcpServer(t,
 			kcptestingserver.WithScratchDirectories(filepath.Join(artifacts, name), filepath.Join(dataDir, name)),
 			kcptestingserver.WithClientCA(dataDir),
 			kcptestingserver.WithCustomArguments(args...),
 		)
 	}
 	startShard("root", rootPort)
-	startShard("shard-1", destinationPort, "--root-shard-kubeconfig-file="+rootConfig, "--cache-kubeconfig="+rootConfig)
+	destination := startShard("shard-1", destinationPort, "--root-shard-kubeconfig-file="+rootConfig, "--cache-kubeconfig="+rootConfig)
 	// Cleanup runs in reverse order: delete workspaces first, then stop the
 	// proxy's wildcard watches before shutting down the shards they watch.
 	t.Cleanup(stopProxy)
@@ -203,5 +212,9 @@ func privateMigrationServer(t *testing.T) kcptestingserver.RunningServer {
 	}, dataDir)
 	require.NoError(t, err)
 	require.NoError(t, kcptestingserver.WaitForReady(t.Context(), server.BaseConfig(t)))
-	return server
+	return server, func() {
+		t.Helper()
+		destination.Stop()
+		destination = startShard("shard-1", destinationPort, "--root-shard-kubeconfig-file="+rootConfig, "--cache-kubeconfig="+rootConfig)
+	}
 }

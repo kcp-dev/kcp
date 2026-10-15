@@ -907,6 +907,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		c.ExtraConfig.MigrationDumpHandler = migrationdump.NewHandler(
 			etcdClient,
 			c.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,
+			c.GenericConfig.ResourceTransformers,
 			c.ExtraConfig.MigratingLogicalClusters,
 		)
 	}

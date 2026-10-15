@@ -31,6 +31,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/storage/value"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -81,6 +82,7 @@ func NewController(
 	externalLogicalClusterAdminConfig *rest.Config,
 	etcdClient *clientv3.Client,
 	etcdStoragePrefix string,
+	resourceTransformers value.ResourceTransformers,
 	cachedLogicalClusterMigrationInformer migrationv1alpha1informers.LogicalClusterMigrationClusterInformer,
 	localLogicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
 	cachedShardInformer corev1alpha1informers.ShardClusterInformer,
@@ -106,6 +108,7 @@ func NewController(
 		externalLogicalClusterAdminConfig: externalLogicalClusterAdminConfig,
 		etcdClient:                        etcdClient,
 		etcdStoragePrefix:                 etcdStoragePrefix,
+		resourceTransformers:              resourceTransformers,
 		logicalClusterLister:              localLogicalClusterInformer.Lister(),
 		shardLister:                       cachedShardInformer.Lister(),
 		migrationIndexer:                  cachedLogicalClusterMigrationInformer.Informer().GetIndexer(),
@@ -174,6 +177,7 @@ type Controller struct {
 	externalLogicalClusterAdminConfig *rest.Config
 	etcdClient                        *clientv3.Client
 	etcdStoragePrefix                 string
+	resourceTransformers              value.ResourceTransformers
 
 	logicalClusterLister corev1alpha1listers.LogicalClusterClusterLister
 	shardLister          corev1alpha1listers.ShardClusterLister
