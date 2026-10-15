@@ -185,7 +185,7 @@ func TestReconcilePendingRetryAfterFlip(t *testing.T) {
 			expectedPhase:  migrationv1alpha1.APIExportIdentityRotationFailed,
 		},
 		{
-			name:           "an active rotation of a different rotation object does not mask the reuse error",
+			name:           "an active rotation of a different rotation object fails this one",
 			annotation:     "root|other-rot|" + newHash + "|" + oldHash,
 			exportIdentity: newHash,
 			expectedPhase:  migrationv1alpha1.APIExportIdentityRotationFailed,

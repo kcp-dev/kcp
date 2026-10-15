@@ -22,7 +22,12 @@ limitations under the License.
 //     (bounds even a delegated-but-compromised provider's ability to loop
 //     rotations into sustained consumer fencing),
 //   - spec immutability except aliasRetirement, which may only move toward
-//     earlier retirement (Manual -> After -> Immediate; After only shrinks).
+//     earlier retirement (Manual -> After -> Immediate; After only shrinks),
+//   - the After policy carries a positive duration,
+//   - a rotation cannot be deleted while it is Migrating or AliasActive:
+//     the controller retires the alias and clears the export's active-rotation
+//     marker only from the rotation object, so deleting it mid-flight would
+//     leave the old identity trusted forever.
 package apiexportidentityrotation
 
 import (
@@ -40,8 +45,8 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
-	migrationv1alpha1listers "github.com/kcp-dev/sdk/client/listers/migration/v1alpha1"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 )
@@ -58,7 +63,7 @@ func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
 		func(_ io.Reader) (admission.Interface, error) {
 			return &identityRotationAdmission{
-				Handler: admission.NewHandler(admission.Create, admission.Update),
+				Handler: admission.NewHandler(admission.Create, admission.Update, admission.Delete),
 			}, nil
 		})
 }
@@ -66,7 +71,7 @@ func Register(plugins *admission.Plugins) {
 type identityRotationAdmission struct {
 	*admission.Handler
 
-	rotationLister migrationv1alpha1listers.APIExportIdentityRotationClusterLister
+	listRotations func(cluster logicalcluster.Name) ([]*migrationv1alpha1.APIExportIdentityRotation, error)
 }
 
 // Ensure that the required admission interfaces are implemented.
@@ -80,7 +85,10 @@ func (o *identityRotationAdmission) SetKcpInformers(local, _ kcpinformers.Shared
 	o.SetReadyFunc(func() bool {
 		return rotationsReady()
 	})
-	o.rotationLister = local.Migration().V1alpha1().APIExportIdentityRotations().Lister()
+	lister := local.Migration().V1alpha1().APIExportIdentityRotations().Lister()
+	o.listRotations = func(cluster logicalcluster.Name) ([]*migrationv1alpha1.APIExportIdentityRotation, error) {
+		return lister.Cluster(cluster).List(labels.Everything())
+	}
 }
 
 func (o *identityRotationAdmission) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
@@ -91,8 +99,20 @@ func (o *identityRotationAdmission) Validate(ctx context.Context, a admission.At
 		return nil
 	}
 
+	if a.GetOperation() == admission.Delete {
+		// on delete the object being removed is the old object.
+		old, err := toRotation(a.GetOldObject())
+		if err != nil {
+			return err
+		}
+		return validateDelete(a, old)
+	}
+
 	rotation, err := toRotation(a.GetObject())
 	if err != nil {
+		return err
+	}
+	if err := validateSpec(a, rotation); err != nil {
 		return err
 	}
 
@@ -114,8 +134,33 @@ func (o *identityRotationAdmission) Validate(ctx context.Context, a admission.At
 	return nil
 }
 
+// validateSpec checks invariants of the spec on its own, regardless of the
+// operation.
+func validateSpec(a admission.Attributes, rotation *migrationv1alpha1.APIExportIdentityRotation) error {
+	if rotation.Spec.AliasRetirement.Policy == migrationv1alpha1.AliasRetirementAfter {
+		after := rotation.Spec.AliasRetirement.After
+		if after == nil || after.Duration <= 0 {
+			return admission.NewForbidden(a, fmt.Errorf("spec.aliasRetirement.after must be a positive duration for the %s policy", migrationv1alpha1.AliasRetirementAfter))
+		}
+	}
+	return nil
+}
+
+// validateDelete rejects deleting a rotation that has flipped the export and
+// not yet retired the alias. Everything the controller still has to undo on
+// the export (alias, active-rotation marker) is driven from the rotation
+// object; without it the old identity would stay trusted forever.
+func validateDelete(a admission.Attributes, rotation *migrationv1alpha1.APIExportIdentityRotation) error {
+	switch rotation.Status.Phase {
+	case migrationv1alpha1.APIExportIdentityRotationMigrating, migrationv1alpha1.APIExportIdentityRotationAliasActive:
+		return admission.NewForbidden(a, fmt.Errorf("rotation %q is %s; move spec.aliasRetirement.policy to Immediate and wait for it to complete before deleting it",
+			rotation.Name, rotation.Status.Phase))
+	}
+	return nil
+}
+
 func (o *identityRotationAdmission) validateCreate(clusterName logicalcluster.Name, a admission.Attributes, rotation *migrationv1alpha1.APIExportIdentityRotation) error {
-	existing, err := o.rotationLister.Cluster(clusterName).List(labels.Everything())
+	existing, err := o.listRotations(clusterName)
 	if err != nil {
 		return admission.NewForbidden(a, fmt.Errorf("failed to list existing rotations: %w", err))
 	}
@@ -127,7 +172,7 @@ func (o *identityRotationAdmission) validateCreate(clusterName logicalcluster.Na
 		}
 		switch r.Status.Phase {
 		case migrationv1alpha1.APIExportIdentityRotationCompleted:
-			if latestCompleted == nil || r.CreationTimestamp.After(latestCompleted.CreationTimestamp.Time) {
+			if latestCompleted == nil || completionTime(r).After(completionTime(latestCompleted)) {
 				latestCompleted = r
 			}
 		case migrationv1alpha1.APIExportIdentityRotationFailed:
@@ -138,13 +183,25 @@ func (o *identityRotationAdmission) validateCreate(clusterName logicalcluster.Na
 	}
 
 	if latestCompleted != nil {
-		if since := time.Since(latestCompleted.CreationTimestamp.Time); since < rotationCooldown {
+		if since := time.Since(completionTime(latestCompleted)); since < rotationCooldown {
 			return admission.NewForbidden(a, fmt.Errorf("APIExport %q was rotated %s ago by %q; rotations of the same export require a %s cooldown",
 				rotation.Spec.Export.Name, since.Round(time.Second), latestCompleted.Name, rotationCooldown))
 		}
 	}
 
 	return nil
+}
+
+// completionTime is when a Completed rotation retired its alias: the
+// transition time of the AliasRetired condition. The cooldown counts from
+// there, not from creation, so a long drain does not eat into it. Objects
+// without the condition (none are written by this controller) fall back to
+// their creation time.
+func completionTime(rotation *migrationv1alpha1.APIExportIdentityRotation) time.Time {
+	if cond := conditions.Get(rotation, migrationv1alpha1.IdentityRotationAliasRetired); cond != nil && !cond.LastTransitionTime.IsZero() {
+		return cond.LastTransitionTime.Time
+	}
+	return rotation.CreationTimestamp.Time
 }
 
 func validateUpdate(a admission.Attributes, old, rotation *migrationv1alpha1.APIExportIdentityRotation) error {

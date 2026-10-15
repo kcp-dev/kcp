@@ -146,6 +146,9 @@ func NewController(
 		listAPIBindings: func() ([]*apisv1alpha2.APIBinding, error) {
 			return apiBindingInformer.Lister().List(labels.Everything())
 		},
+		listAPIBindingsInCluster: func(cluster logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+			return apiBindingInformer.Cluster(cluster).Lister().List(labels.Everything())
+		},
 		getAPIResourceSchema: func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error) {
 			schema, err := apiResourceSchemaInformer.Cluster(cluster).Lister().Get(name)
 			if apierrors.IsNotFound(err) {
@@ -210,14 +213,31 @@ func NewController(
 
 	_, _ = apiBindingInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.enqueue(obj)
+			if binding, ok := obj.(*apisv1alpha2.APIBinding); ok && needsDrain(binding) {
+				c.enqueue(obj)
+			}
 			c.enqueueReportForBinding(obj)
 		},
-		UpdateFunc: func(_, obj interface{}) {
-			c.enqueue(obj)
+		UpdateFunc: func(oldObj, obj interface{}) {
+			// a binding leaving the drain state matters too: the workspace
+			// fence is shared with sibling bindings and is released by
+			// whichever drain finishes last, from a fresh view of the cache.
+			oldBinding, _ := oldObj.(*apisv1alpha2.APIBinding)
+			if binding, ok := obj.(*apisv1alpha2.APIBinding); ok && (needsDrain(binding) || (oldBinding != nil && needsDrain(oldBinding))) {
+				c.enqueue(obj)
+			}
 			c.enqueueReportForBinding(obj)
 		},
-		DeleteFunc: func(obj interface{}) { c.enqueueReportForBinding(obj) },
+		DeleteFunc: func(obj interface{}) {
+			// a binding deleted mid-drain must not leave its workspace fenced.
+			if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				obj = tombstone.Obj
+			}
+			if binding, ok := obj.(*apisv1alpha2.APIBinding); ok && needsDrain(binding) {
+				c.enqueue(obj)
+			}
+			c.enqueueReportForBinding(obj)
+		},
 	})
 
 	// exports carry the active-rotation annotation while a drain is in
@@ -262,22 +282,18 @@ type Controller struct {
 	getLogicalCluster      func(cluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 	updateLogicalCluster   func(ctx context.Context, cluster logicalcluster.Path, lc *corev1alpha1.LogicalCluster) (*corev1alpha1.LogicalCluster, error)
 	listAPIBindings        func() ([]*apisv1alpha2.APIBinding, error)
-	getAPIResourceSchema   func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
-	getBoundCRD            func(name string) (*apiextensionsv1.CustomResourceDefinition, error)
-	createBoundCRD         func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) error
-	deleteBoundCRD         func(ctx context.Context, name string, uid types.UID) error
-	listBindingsForExport  func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
-	applyShardProgress     func(ctx context.Context, cluster logicalcluster.Path, rotationName string, counts shardCounts) error
+	// listAPIBindingsInCluster lists the bindings of one logical cluster on
+	// this shard; the drain fence on a workspace is shared by all of them.
+	listAPIBindingsInCluster func(cluster logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
+	getAPIResourceSchema     func(cluster logicalcluster.Name, name string) (*apisv1alpha1.APIResourceSchema, error)
+	getBoundCRD              func(name string) (*apiextensionsv1.CustomResourceDefinition, error)
+	createBoundCRD           func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) error
+	deleteBoundCRD           func(ctx context.Context, name string, uid types.UID) error
+	listBindingsForExport    func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
+	applyShardProgress       func(ctx context.Context, cluster logicalcluster.Path, rotationName string, counts shardCounts) error
 }
 
 func (c *Controller) enqueue(obj interface{}) {
-	binding, ok := obj.(*apisv1alpha2.APIBinding)
-	if !ok {
-		return
-	}
-	if !needsDrain(binding) {
-		return
-	}
 	key, err := kcpcache.MetaClusterNamespaceKeyFunc(obj)
 	if err != nil {
 		utilruntime.HandleError(err)
@@ -483,13 +499,16 @@ func (c *Controller) process(ctx context.Context, key string) error {
 
 	binding, err := c.getAPIBinding(clusterName, name)
 	if apierrors.IsNotFound(err) {
-		return nil
+		// deleted mid-drain: make sure its workspace is not left fenced.
+		return c.releaseFence(ctx, clusterName)
 	}
 	if err != nil {
 		return err
 	}
 	if !needsDrain(binding) {
-		return nil
+		// nothing to drain for this binding; it may have been the last one
+		// holding the shared workspace fence.
+		return c.releaseFence(ctx, clusterName)
 	}
 
 	// 1. fence the workspace: cancel connections and reject requests so no
@@ -608,15 +627,38 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		}
 	}
 
-	// 5. everything drained: lift the fence.
+	// 5. this binding is drained: lift the fence unless a sibling binding in
+	// the same workspace is still draining behind it.
 	if needsDrain(binding) {
 		return fmt.Errorf("bound resources of %s|%s still need draining", clusterName, name)
 	}
-	if _, err := c.ensureFence(ctx, clusterName, false); err != nil {
+	logger.V(2).Info("identity drain completed", "logicalCluster", clusterName, "apibinding", name, "identity", target)
+	return c.releaseFence(ctx, clusterName)
+}
+
+// releaseFence lifts the drain fence of a workspace once no binding in it
+// needs a drain any more. The fence is a single annotation on the
+// LogicalCluster shared by every binding of the workspace, while drains run
+// per binding and concurrently: releasing it from the first binding to
+// finish would let writes land in a sibling's source prefix between its copy
+// and its delete. Each finishing (or deleted) binding re-evaluates the whole
+// workspace from the informer, so whichever finishes last lifts the fence.
+func (c *Controller) releaseFence(ctx context.Context, clusterName logicalcluster.Name) error {
+	bindings, err := c.listAPIBindingsInCluster(clusterName)
+	if err != nil {
 		return err
 	}
-	logger.V(2).Info("identity drain completed", "logicalCluster", clusterName, "apibinding", name, "identity", target)
-	return nil
+	for _, other := range bindings {
+		if needsDrain(other) {
+			klog.FromContext(ctx).V(3).Info("keeping the drain fence; a sibling APIBinding still needs draining", "logicalCluster", clusterName, "apibinding", other.Name)
+			return nil
+		}
+	}
+	_, err = c.ensureFence(ctx, clusterName, false)
+	if apierrors.IsNotFound(err) {
+		return nil // the workspace is gone, and so is its fence
+	}
+	return err
 }
 
 // ensureServingRebuilt makes sure the bound CRD of a flipped bound resource

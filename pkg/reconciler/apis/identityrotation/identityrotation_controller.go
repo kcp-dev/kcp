@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
 
@@ -98,19 +99,27 @@ func NewController(
 			// entries into status.shards, so plain updates conflict. Retry
 			// with a fresh read, carrying over the migrator-owned shard
 			// entries — this controller never writes them.
+			// The retry is bounded: a persistent conflict is returned to the
+			// workqueue, which re-runs the reconcile from a fresh object
+			// instead of pushing a stale status indefinitely.
 			client := kcpClusterClient.Cluster(cluster).MigrationV1alpha1().APIExportIdentityRotations()
-			updated, err := client.UpdateStatus(ctx, rotation, metav1.UpdateOptions{})
-			for apierrors.IsConflict(err) {
-				var fresh *migrationv1alpha1.APIExportIdentityRotation
-				fresh, err = client.Get(ctx, rotation.Name, metav1.GetOptions{})
-				if err != nil {
-					return nil, err
+			var updated *migrationv1alpha1.APIExportIdentityRotation
+			err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				var err error
+				updated, err = client.UpdateStatus(ctx, rotation, metav1.UpdateOptions{})
+				if !apierrors.IsConflict(err) {
+					return err
+				}
+				fresh, getErr := client.Get(ctx, rotation.Name, metav1.GetOptions{})
+				if getErr != nil {
+					return getErr
 				}
 				shards := fresh.Status.Shards
 				fresh.Status = rotation.Status
 				fresh.Status.Shards = shards
-				updated, err = client.UpdateStatus(ctx, fresh, metav1.UpdateOptions{})
-			}
+				rotation = fresh
+				return err
+			})
 			return updated, err
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
@@ -301,7 +310,8 @@ func (c *Controller) reconcilePending(ctx context.Context, clusterName logicalcl
 		return err
 	}
 	oldHash := export.Status.IdentityHash
-	if annOldHash, flipped := activeRotationOldHash(export.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey], clusterName, rotation.Name, newHash); flipped {
+	activeRotation := export.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey]
+	if annOldHash, flipped := activeRotationOldHash(activeRotation, clusterName, rotation.Name, newHash); flipped {
 		// A previous reconcile attempt already flipped this export for this
 		// rotation but failed before recording Migrating on the rotation
 		// object (the spec update also wakes the apiexport identity
@@ -312,6 +322,13 @@ func (c *Controller) reconcilePending(ctx context.Context, clusterName logicalcl
 		// error. Recover the pre-rotation hash from the annotation instead
 		// and redo the (idempotent) flip below.
 		oldHash = annOldHash
+	} else if activeRotation != "" {
+		// Admission enforces one active rotation per export, but it decides
+		// from an informer cache; two near-simultaneous creates can both get
+		// through. The export's annotation is the authoritative record of
+		// which rotation owns the current flip, so a second one fails here
+		// instead of flipping the export a second time underneath the first.
+		return c.fail(ctx, clusterName, rotation, "APIExport %s|%s already has an active identity rotation (%s); at most one rotation per export may be active", path, rotation.Spec.Export.Name, activeRotation)
 	} else if newHash == oldHash {
 		return c.fail(ctx, clusterName, rotation, "the new identity secret hashes to the export's current identity; rotation requires a fresh secret")
 	}
@@ -409,8 +426,21 @@ func (c *Controller) reconcileAliasActive(ctx context.Context, clusterName logic
 	case migrationv1alpha1.AliasRetirementManual:
 		return 0, nil // wait for the provider to tighten the policy
 	case migrationv1alpha1.AliasRetirementAfter:
-		if rotation.Spec.AliasRetirement.After == nil || rotation.Status.AliasActiveTimestamp == nil {
+		if rotation.Spec.AliasRetirement.After == nil {
+			// admission rejects this; guard pre-existing objects by saying
+			// why the alias is not being retired rather than idling forever.
+			if cond := conditions.Get(rotation, migrationv1alpha1.IdentityRotationAliasRetired); cond == nil || cond.Reason != "MissingAfterDuration" {
+				conditions.MarkFalse(rotation, migrationv1alpha1.IdentityRotationAliasRetired, "MissingAfterDuration", conditionsv1alpha1.ConditionSeverityWarning,
+					"spec.aliasRetirement.after is required for the After policy; the alias stays active until it is set or the policy is changed")
+				_, err := c.updateRotationStatus(ctx, clusterName.Path(), rotation)
+				return 0, err
+			}
 			return 0, nil
+		}
+		if rotation.Status.AliasActiveTimestamp == nil {
+			rotation.Status.AliasActiveTimestamp = &metav1.Time{Time: time.Now()}
+			_, err := c.updateRotationStatus(ctx, clusterName.Path(), rotation)
+			return 0, err
 		}
 		deadline := rotation.Status.AliasActiveTimestamp.Add(rotation.Spec.AliasRetirement.After.Duration)
 		if remaining := time.Until(deadline); remaining > 0 {

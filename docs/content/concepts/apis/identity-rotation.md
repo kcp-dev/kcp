@@ -58,6 +58,7 @@ selects when the old identity hash stops being honored as an alias:
 
 - `Manual` (default): the alias stays until the retirement policy is changed.
 - `After`: the alias retires `after` duration once all bindings migrated.
+  `after` must be a positive duration.
 - `Immediate`: the alias retires as soon as all bindings migrated.
 
 The policy may only be changed toward *earlier* retirement
@@ -85,7 +86,9 @@ The rotation controller drives `status.phase` through
       - the old prefix is deleted, every instance is rewritten in place once
         under the new prefix (so wildcard watchers, which see all identities
         of a resource as one keyspace, observe the move as an update rather
-        than an add followed by a delete), and the fence lifted.
+        than an add followed by a delete), and the fence lifted once no
+        other binding in the same workspace is still draining (the fence
+        is shared by all bindings of a workspace).
       Object UIDs, resourceVersions semantics, status, and ownerReferences
       survive unchanged; consumers observe a short unavailability window
       while their workspace is fenced.
@@ -119,9 +122,14 @@ verified, making the migrator crash-resumable).
 Admission enforces:
 
 - at most one active rotation per export,
-- a cooldown (1h) between completed rotations of the same export, bounding
-  how often consumers can be fenced,
-- spec immutability except the retirement policy, which only moves earlier.
+- a cooldown (1h, counted from when the previous rotation retired its alias)
+  between completed rotations of the same export, bounding how often
+  consumers can be fenced,
+- spec immutability except the retirement policy, which only moves earlier,
+- no deletion of a rotation while it is `Migrating` or `AliasActive`: the
+  alias and the export's active-rotation marker are retired through the
+  rotation object. To get rid of an in-flight rotation, move its policy to
+  `Immediate`, let it complete, then delete it.
 
 ## Alpha limitations
 
