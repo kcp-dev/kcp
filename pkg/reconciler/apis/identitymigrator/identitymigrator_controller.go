@@ -430,7 +430,7 @@ func (c *Controller) reportProgress(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	counts := shardCounts{identityHash: target, total: int32(min(len(bindings), math.MaxInt32))} //nolint:gosec // capped above
+	counts := shardCounts{identityHash: target, total: int32(min(len(bindings), math.MaxInt32))}
 	for _, binding := range bindings {
 		if bindingFullyOn(binding, target) {
 			counts.migrated++
