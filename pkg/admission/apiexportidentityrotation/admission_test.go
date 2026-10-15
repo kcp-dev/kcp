@@ -80,7 +80,27 @@ func newRegisteredPlugin(t *testing.T, listRotations func(logicalcluster.Name) (
 		t.Fatalf("unexpected plugin type %T", plugin)
 	}
 	o.listRotations = listRotations
+	o.featureEnabled = func() bool { return true }
 	return o
+}
+
+func TestValidateRejectsCreateWhenFeatureDisabled(t *testing.T) {
+	t.Parallel()
+	o := newRegisteredPlugin(t, func(logicalcluster.Name) ([]*migrationv1alpha1.APIExportIdentityRotation, error) {
+		return nil, nil
+	})
+	o.featureEnabled = func() bool { return false }
+	ctx := genericapirequest.WithCluster(context.Background(), genericapirequest.Cluster{Name: "root:provider"})
+
+	err := o.Validate(ctx, attrs(admission.Create, rotation("rotate", ""), nil), nil)
+	if err == nil || !strings.Contains(err.Error(), "feature gate is disabled") {
+		t.Fatalf("expected create to be rejected while the feature gate is disabled, got %v", err)
+	}
+
+	// updates and deletes stay possible so existing rotations can be cleaned up.
+	if err := o.Validate(ctx, attrs(admission.Delete, nil, rotation("rotate", migrationv1alpha1.APIExportIdentityRotationCompleted)), nil); err != nil {
+		t.Fatalf("expected delete to be allowed while the feature gate is disabled, got %v", err)
+	}
 }
 
 func TestRegisteredHandlerOperations(t *testing.T) {

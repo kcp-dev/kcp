@@ -1322,6 +1322,7 @@ func (s *Server) installIdentityMigratorController(_ context.Context, config *re
 			})
 		},
 		Runner: func(ctx context.Context) {
+			defer etcdClient.Close()
 			c.Start(ctx, 2)
 		},
 	})

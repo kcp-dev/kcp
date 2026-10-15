@@ -22,6 +22,18 @@ the secret, because the identity's **hash** is load-bearing in two places:
 The `APIExportIdentityRotation` API (group `migration.kcp.io`) performs a
 coordinated rotation that handles both.
 
+## Enabling the feature
+
+Identity rotation is behind the `APIExportIdentityRotation` feature gate,
+which is off by default. Enable it on every shard:
+
+```sh
+kcp start --feature-gates=APIExportIdentityRotation=true
+```
+
+With the gate disabled the rotation and migrator controllers do not run, and
+creating an `APIExportIdentityRotation` is rejected by admission.
+
 ## Requesting a rotation
 
 Create a rotation referencing the `APIExport` and a new identity secret that

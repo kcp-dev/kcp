@@ -49,6 +49,7 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 )
 
 const (
@@ -73,6 +74,9 @@ func Register(plugins *admission.Plugins) {
 		func(_ io.Reader) (admission.Interface, error) {
 			return &identityRotationAdmission{
 				Handler: admission.NewHandler(admission.Create, admission.Update, admission.Delete),
+				featureEnabled: func() bool {
+					return kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.APIExportIdentityRotation)
+				},
 			}, nil
 		})
 }
@@ -81,6 +85,9 @@ type identityRotationAdmission struct {
 	*admission.Handler
 
 	listRotations func(cluster logicalcluster.Name) ([]*migrationv1alpha1.APIExportIdentityRotation, error)
+	// featureEnabled reports whether the APIExportIdentityRotation feature
+	// gate is on; injectable so tests do not toggle the global gate.
+	featureEnabled func() bool
 }
 
 // Ensure that the required admission interfaces are implemented.
@@ -106,6 +113,12 @@ func (o *identityRotationAdmission) Validate(ctx context.Context, a admission.At
 	}
 	if a.GetSubresource() != "" {
 		return nil
+	}
+
+	if a.GetOperation() == admission.Create && !o.featureEnabled() {
+		// without the gate no controller acts on the object; refuse it
+		// instead of leaving a rotation that never progresses.
+		return admission.NewForbidden(a, fmt.Errorf("the %s feature gate is disabled", kcpfeatures.APIExportIdentityRotation))
 	}
 
 	if a.GetOperation() == admission.Delete {
