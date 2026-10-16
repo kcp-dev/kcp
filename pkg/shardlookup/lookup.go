@@ -55,7 +55,11 @@ func (l *Lookup[V]) Get(clusterName logicalcluster.Name, namespace, name string)
 		return l.local(clusterName, namespace, name)
 	}
 	key := kcpcache.ToClusterAwareKey(clusterName.String(), namespace, name)
-	return l.cache.Get(key, func() (V, error) {
-		return l.fetch(clusterName, namespace, name)
-	})
+	return l.cache.Get(
+		key,
+		func() (V, error) {
+			return l.fetch(clusterName, namespace, name)
+		},
+		nil,
+	)
 }
