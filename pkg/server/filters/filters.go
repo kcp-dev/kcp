@@ -184,11 +184,13 @@ func ClusterPathFromAndStrip(req *http.Request) (logicalcluster.Path, *url.URL, 
 // producing orphaned rows invisible to the normal read path but still
 // consuming etcd space and leaking via wildcard partial-metadata lists.
 //
-// This is a defense-in-depth check: upstream handlers (WithLocalProxy,
-// WithClusterScope) are expected to either resolve the path to a logical
-// cluster name via the index or reject the request. This filter refuses to
-// forward a request whose invariant was violated, so any future regression
-// fails loudly here instead of silently corrupting etcd.
+// This is a defense-in-depth check: upstream handlers
+// (lookup.WithClusterResolution, WithClusterScope) are expected to either
+// resolve the path to a logical cluster name via the index or reject the
+// request.
+// This filter refuses to forward a request whose invariant was
+// violated, so any future regression fails loudly here instead of
+// silently corrupting etcd.
 //
 // The "system:" prefix is allowed: "system:..." names are legal single-name
 // logical clusters in kcp (see logicalcluster.Path.Name).

@@ -18,6 +18,7 @@ package lookup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -25,7 +26,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
@@ -33,28 +33,20 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/index"
-	proxyindex "github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
 
-func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, index proxyindex.Index) http.Handler {
+func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, idx index.Index) http.Handler {
 	mux := http.NewServeMux()
 
-	// fallback for all unrecognized URLs
-	mux.Handle("/", delegate)
+	// Mappings are an additional source of cluster names in URLs: a {cluster}
+	// placeholder in the mapping path, or failing that a /clusters/<x> segment
+	// in the request path, resolves the cluster into the context. The actual
+	// muxing to the destinations happens later in proxy.HttpHandler.
+	mappingHandler := WithClusterResolutionPattern(delegate, idx, "cluster")
 
-	// Use the extra path mappings as an additional source of cluster names in URLs;
-	// it's okay for a virtual workspace URL to not match here or to not have a
-	// cluster placeholder in its URL pattern, since the default handler will simply
-	// forward the request unchanged (and most likely, unauthenticated).
-
-	// We can use the same handler for all mappings, since the actual muxing to
-	// the destinations happens later in proxy.HttpHandler; here we only care about
-	// detecting the cluster name.
-	mappingHandler := newMappingHandler(delegate, index)
-
+	hasRootMapping := false
 	for _, mapping := range mappings {
 		p := strings.TrimRight(mapping.Path, "/")
 
@@ -66,28 +58,65 @@ func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, in
 		// we only enable the built-in clusterResolveHandler if we actually find
 		// an appropriate mapping.
 		if p == "/clusters" {
-			// we know how to parse cluster URLs
-			resolveHandler := newClusterResolveHandler(delegate, index)
-			mux.HandleFunc("/clusters/{cluster}", resolveHandler)
-			mux.HandleFunc("/clusters/{cluster}/{trail...}", resolveHandler)
-		} else {
-			// mappings are configured with *prefixes*; in order to match both exact matches
-			// and prefix matches (i.e. if "/foo" is configured, both "/foo" and "/foo/bar"
-			// must match), each mapping is added twice to the mux.
-			mux.HandleFunc(p, mappingHandler)
-			mux.HandleFunc(p+"/{trail...}", mappingHandler)
+			mux.Handle("/clusters/", WithClusterResolution(newShardHandler(delegate, idx), idx))
+			continue
 		}
+
+		if p == "" {
+			hasRootMapping = true
+			mux.Handle("/", mappingHandler)
+			continue
+		}
+		// mappings are configured with *prefixes*; in order to match both exact matches
+		// and prefix matches (i.e. if "/foo" is configured, both "/foo" and "/foo/bar"
+		// must match), each mapping is added twice to the mux.
+		mux.Handle(p, mappingHandler)
+		mux.Handle(p+"/{trail...}", mappingHandler)
+	}
+
+	if !hasRootMapping {
+		// fallback for all unrecognized URLs
+		mux.Handle("/", delegate)
 	}
 
 	return mux
 }
 
-func newClusterResolveHandler(delegate http.Handler, index proxyindex.Index) http.HandlerFunc {
+// newShardHandler stores the shard URL of the resolved cluster in the
+// context and forwards to delegate.
+func newShardHandler(delegate http.Handler, idx index.Index) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		clusterName := req.PathValue("cluster")
+		ctx := req.Context()
+		logger := klog.FromContext(ctx)
 
-		req, result := resolveClusterName(w, req, index, clusterName)
-		if req == nil {
+		var segment string
+		var clusterName logicalcluster.Name
+		switch cluster, mount := request.ClusterFrom(ctx), MountFrom(ctx); {
+		case mount != nil:
+			// <parentID>:<name>
+			_, name := mount.Workspace.Split()
+			segment = mount.ParentCluster.Path().Join(name).String()
+		case cluster == nil:
+			responsewriters.InternalError(w, req, errors.New("no cluster in request context"))
+			return
+		case cluster.Wildcard:
+			// Wildcard requests have no owning shard.
+			ForbiddenHandler().ServeHTTP(w, req)
+			return
+		default:
+			clusterName = cluster.Name
+			segment = clusterName.String()
+		}
+
+		baseURL, found := idx.BaseURL(ShardNameFrom(ctx))
+		if !found {
+			logger.WithValues("shard", ShardNameFrom(ctx)).V(4).Info("unknown shard")
+			ForbiddenHandler().ServeHTTP(w, req)
+			return
+		}
+		shardURL, err := url.Parse(baseURL)
+		if err != nil {
+			responsewriters.InternalError(w, req, err)
 			return
 		}
 
@@ -97,41 +126,26 @@ func newClusterResolveHandler(delegate http.Handler, index proxyindex.Index) htt
 		// This is only required for watches.
 		// Lists with a lower RV will get appropriate objects from the shard.
 		// Lists with a higher RV will get a 504 from the shard.
-		if index.RecentlyMigrated(result.Cluster) && isInProgressWatch(req) {
-			err := apierrors.NewResourceExpired(fmt.Sprintf("logical cluster %q was recently migrated to another shard; watches with an explicit resourceVersion are temporarily denied to force a relist against the new shard", result.Cluster))
+		if !clusterName.Empty() && idx.RecentlyMigrated(clusterName) && isInProgressWatch(req) {
+			err := apierrors.NewResourceExpired(fmt.Sprintf("logical cluster %q was recently migrated to another shard; watches with an explicit resourceVersion are temporarily denied to force a relist against the new shard", clusterName))
 			responsewriters.ErrorNegotiated(err, kubernetesscheme.Codecs, schema.GroupVersion{}, w, req)
 			return
 		}
 
-		shardURL, err := url.Parse(result.URL)
-		if err != nil {
-			responsewriters.InternalError(w, req, err)
-			return
-		}
-
-		ctx := req.Context()
-
-		logger := klog.FromContext(ctx)
-		logger.WithValues("from", "/clusters/"+clusterName, "to", shardURL).V(4).Info("Redirecting")
-
+		shardURL.Path = strings.TrimSuffix(shardURL.Path, "/") + "/clusters/" + segment + strings.TrimSuffix(req.URL.Path, "/")
 		shardURL.RawQuery = req.URL.RawQuery
-		shardURL.Path = strings.TrimSuffix(shardURL.Path, "/")
-		if trail := req.PathValue("trail"); len(trail) != 0 {
-			shardURL.Path += "/" + trail
-		}
+		logger.WithValues("cluster", segment, "to", shardURL).V(4).Info("Redirecting")
 
 		ctx = WithShardURL(ctx, shardURL)
 
 		// Bound watch requests by the per-cluster context to cancel them when the cluster is migrated or deleted.
-		if isWatchRequest(req) {
+		if !clusterName.Empty() && isWatchRequest(req) {
 			var cancel context.CancelFunc
-			ctx, cancel = index.ClusterContext(ctx, result.Cluster)
+			ctx, cancel = idx.ClusterContext(ctx, clusterName)
 			defer cancel()
 		}
 
-		req = req.WithContext(ctx)
-
-		delegate.ServeHTTP(w, req)
+		delegate.ServeHTTP(w, req.WithContext(ctx))
 	}
 }
 
@@ -155,104 +169,25 @@ func isInProgressWatch(req *http.Request) bool {
 	return isWatchRequest(req)
 }
 
-func newMappingHandler(delegate http.Handler, index proxyindex.Index) http.HandlerFunc {
-	return func(w http.ResponseWriter, req *http.Request) {
-		// Not every virtual workspace and/or every mapping has a {cluster} in its URL;
-		// also wildcard requests have to be passed without lookup.
-		//
-		// For /clusters paths, the mux pattern is /clusters/{cluster}/{trail...}, so
-		// req.PathValue("cluster") returns the cluster name directly.
-		//
-		// For /services/... paths, the mux pattern is /services/<name>/{trail...} - there's
-		// no {cluster} placeholder. The entire "clusters/root:orgs:bob/apis/..." is captured
-		// as {trail...}, so req.PathValue("cluster") returns empty. In this case, we need to
-		// parse the cluster from the URL path using extractClusterFromPath.
-		clusterName := req.PathValue("cluster")
-
-		// If no cluster from path pattern, try to extract from URL path.
-		// Virtual workspace URLs often have the pattern: /services/<name>/clusters/<cluster>/...
-		if clusterName == "" {
-			clusterName = extractClusterFromPath(req.URL.Path)
-		}
-
-		if clusterName == "" || clusterName == "*" {
-			delegate.ServeHTTP(w, req)
-			return
-		}
-
-		req, _ = resolveClusterName(w, req, index, clusterName)
-		if req == nil {
-			return
-		}
-
-		delegate.ServeHTTP(w, req)
-	}
-}
-
-// extractClusterFromPath extracts the cluster name from URLs containing /clusters/<cluster>/
-// For example: /services/foo/clusters/root:orgs:bob/apis/... -> root:orgs:bob.
-func extractClusterFromPath(path string) string {
-	const clustersPrefix = "/clusters/"
-	idx := strings.Index(path, clustersPrefix)
-	if idx == -1 {
-		return ""
-	}
-
-	// Get everything after /clusters/
-	rest := path[idx+len(clustersPrefix):]
-
-	// Find the end of the cluster name (next / or end of string)
-	endIdx := strings.Index(rest, "/")
-	if endIdx == -1 {
-		return rest
-	}
-	return rest[:endIdx]
-}
-
-func resolveClusterName(w http.ResponseWriter, req *http.Request, index proxyindex.Index, clusterName string) (*http.Request, *index.Result) {
-	ctx := req.Context()
-	logger := klog.FromContext(ctx)
-	attributes, err := filters.GetAuthorizerAttributes(ctx)
-	if err != nil {
-		responsewriters.InternalError(w, req, err)
-		return nil, nil
-	}
-
-	clusterPath := logicalcluster.NewPath(clusterName)
-	if !clusterPath.IsValid() {
-		// this includes wildcards
-		logger.WithValues("requestPath", req.URL.Path).V(4).Info("Invalid cluster path")
-		responsewriters.Forbidden(attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
-		return nil, nil
-	}
-
-	result, found := index.LookupURL(clusterPath)
-	if result.ErrorCode != 0 {
-		http.Error(w, "Not available.", result.ErrorCode)
-		return nil, nil
-	}
-	if !found {
-		logger.WithValues("clusterPath", clusterPath).V(4).Info("Unknown cluster path")
-		responsewriters.Forbidden(attributes, w, req, kcpauthorization.WorkspaceAccessNotPermittedReason, kubernetesscheme.Codecs)
-		return nil, nil
-	}
-
-	ctx = WithClusterName(ctx, result.Cluster)
-	ctx = WithWorkspaceType(ctx, result.Type)
-	ctx = WithShardName(ctx, result.Shard)
-
-	return req.WithContext(ctx), &result
-}
-
 type lookupKey int
 
 const (
 	shardContextKey lookupKey = iota
 	shardNameContextKey
 	shardNameHolderContextKey
-	clusterContextKey
 	workspaceTypeContextKey
+	mountContextKey
 )
+
+// Mount describes the target of a request for a mounted workspace.
+type Mount struct {
+	// URL is the validated mount target (spec.URL of the mounted Workspace).
+	URL *url.URL
+	// Workspace is the full path of the mounted workspace as requested.
+	Workspace logicalcluster.Path
+	// ParentCluster holds the Workspace object describing the mount.
+	ParentCluster logicalcluster.Name
+}
 
 func WithShardURL(parent context.Context, shardURL *url.URL) context.Context {
 	return context.WithValue(parent, shardContextKey, shardURL)
@@ -298,18 +233,6 @@ func WithShardNameHolder(parent context.Context) (context.Context, *ShardNameHol
 	return context.WithValue(parent, shardNameHolderContextKey, holder), holder
 }
 
-func WithClusterName(parent context.Context, cluster logicalcluster.Name) context.Context {
-	return context.WithValue(parent, clusterContextKey, cluster)
-}
-
-func ClusterNameFrom(ctx context.Context) logicalcluster.Name {
-	cluster, ok := ctx.Value(clusterContextKey).(logicalcluster.Name)
-	if !ok {
-		return ""
-	}
-	return cluster
-}
-
 func WithWorkspaceType(parent context.Context, wsType logicalcluster.Path) context.Context {
 	return context.WithValue(parent, workspaceTypeContextKey, wsType)
 }
@@ -320,4 +243,15 @@ func WorkspaceTypeFrom(ctx context.Context) logicalcluster.Path {
 		return logicalcluster.None
 	}
 	return cluster
+}
+
+// WithMount stores the mount target of the request.
+func WithMount(parent context.Context, mount *Mount) context.Context {
+	return context.WithValue(parent, mountContextKey, mount)
+}
+
+// MountFrom returns the mount target, or nil if the request is not for a mounted workspace.
+func MountFrom(ctx context.Context) *Mount {
+	mount, _ := ctx.Value(mountContextKey).(*Mount)
+	return mount
 }

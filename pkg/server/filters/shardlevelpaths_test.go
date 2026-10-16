@@ -28,6 +28,8 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
+
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 func TestWithShardLevelPaths(t *testing.T) {
@@ -140,7 +142,7 @@ func TestWithShardLevelPaths_MountPassesThrough(t *testing.T) {
 
 	target, err := url.Parse("https://mount.example.com")
 	require.NoError(t, err)
-	ctx := WithMountTarget(t.Context(), &MountTarget{URL: target, Workspace: logicalcluster.NewPath("root:mnt"), ParentCluster: core.RootCluster})
+	ctx := lookup.WithMount(t.Context(), &lookup.Mount{URL: target, Workspace: logicalcluster.NewPath("root:mnt"), ParentCluster: core.RootCluster})
 	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/metrics", http.NoBody)
 	rr := httptest.NewRecorder()
 	WithShardLevelPaths(next).ServeHTTP(rr, req)
@@ -165,7 +167,7 @@ func TestWithMountBypass(t *testing.T) {
 	muxCalled, chainCalled = false, false
 	target, err := url.Parse("https://mount.example.com")
 	require.NoError(t, err)
-	ctx := WithMountTarget(t.Context(), &MountTarget{URL: target, Workspace: logicalcluster.NewPath("root:mnt"), ParentCluster: core.RootCluster})
+	ctx := lookup.WithMount(t.Context(), &lookup.Mount{URL: target, Workspace: logicalcluster.NewPath("root:mnt"), ParentCluster: core.RootCluster})
 	req = httptest.NewRequestWithContext(ctx, http.MethodGet, "/services/foo", http.NoBody)
 	h.ServeHTTP(httptest.NewRecorder(), req)
 	require.True(t, chainCalled, "mount requests bypass the mux, even when the remaining path matches a registered prefix")

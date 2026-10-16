@@ -25,14 +25,15 @@ import (
 	"github.com/kcp-dev/sdk/apis/core"
 
 	"github.com/kcp-dev/kcp/pkg/authorization/shardpaths"
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 // WithShardLevelPaths enforces that shard-level URLs (see
 // pkg/authorization/shardpaths) are only served at the top of the shard's HTTP
 // path tree.
 //
-// It must run AFTER WithLocalProxy so the cluster context reflects whether the
-// request was made through a /clusters/<ws>/ prefix.
+// It must run AFTER lookup.WithClusterResolution so the cluster context
+// reflects whether the request was made through a /clusters/<ws>/ prefix.
 //
 //   - any workspace-scoped form, including /clusters/root/<path>, is rejected
 //     with 501 Not Implemented. The data exposed is shard-wide and has no
@@ -54,7 +55,7 @@ func WithShardLevelPaths(handler http.Handler) http.HandlerFunc {
 		// A request for a mounted workspace has no cluster in the context, but
 		// it is workspace-scoped: the path belongs to the mount target, which
 		// decides whether it serves it.
-		if MountTargetFrom(req.Context()) != nil {
+		if lookup.MountFrom(req.Context()) != nil {
 			handler.ServeHTTP(w, req)
 			return
 		}

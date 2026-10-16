@@ -41,7 +41,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/mounts"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
-	"github.com/kcp-dev/kcp/pkg/server/filters"
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 const (
@@ -117,7 +117,7 @@ func WithMountProxy(apiHandler http.Handler, transport http.RoundTripper, authz 
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		target := filters.MountTargetFrom(req.Context())
+		target := lookup.MountFrom(req.Context())
 		if target == nil {
 			apiHandler.ServeHTTP(w, req)
 			return

@@ -1,0 +1,247 @@
+/*
+Copyright 2026 The kcp Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package lookup
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apiserver/pkg/endpoints/handlers/responsewriters"
+	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/logicalcluster/v3"
+	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+
+	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
+	"github.com/kcp-dev/kcp/pkg/index"
+	"github.com/kcp-dev/kcp/pkg/mounts"
+)
+
+const clustersPrefix = "/clusters/"
+
+var (
+	errorScheme = runtime.NewScheme()
+	errorCodecs = serializer.NewCodecFactory(errorScheme)
+
+	workspacesResource = schema.GroupResource{
+		Group:    tenancyv1alpha1.SchemeGroupVersion.Group,
+		Resource: "workspaces",
+	}
+)
+
+func init() {
+	errorScheme.AddUnversionedTypes(metav1.Unversioned,
+		&metav1.Status{},
+	)
+}
+
+// WithClusterResolution resolves the /clusters/<segment> prefix of the
+// request URL against idx, strips it from the URL and stores the result in
+// the request context.
+//
+// Requests without a /clusters/ prefix pass through unchanged.
+func WithClusterResolution(handler http.Handler, idx index.Index) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !strings.HasPrefix(req.URL.Path, clustersPrefix) {
+			handler.ServeHTTP(w, req)
+			return
+		}
+		segment, rest, _ := strings.Cut(strings.TrimPrefix(req.URL.Path, clustersPrefix), "/")
+
+		ctx, ok := resolveCluster(w, req, idx, segment)
+		if !ok {
+			return
+		}
+
+		req = req.WithContext(ctx)
+		u := *req.URL
+		u.Path = "/" + rest
+		u.RawPath = ""
+		req.URL = &u
+
+		handler.ServeHTTP(w, req)
+	})
+}
+
+// WithClusterResolutionPattern resolves the cluster segment matched by
+// the mux pattern wildcard named pathValue against idx and stores the
+// result in the request context.
+// Without a matched wildcard the first /clusters/<segment> in the URL
+// path is resolved.
+//
+// The URL is left unchanged. This differs from
+// WithClusterResolution since this is used e.g. for the mounted
+// front-proxy services, where the path needs to be retained.
+//
+// Requests without a cluster segment pass through unchanged.
+func WithClusterResolutionPattern(handler http.Handler, idx index.Index, pathValue string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		segment := req.PathValue(pathValue)
+		if segment == "" {
+			segment = clusterSegmentFromPath(req.URL.Path)
+		}
+		if segment == "" {
+			handler.ServeHTTP(w, req)
+			return
+		}
+
+		ctx, ok := resolveCluster(w, req, idx, segment)
+		if !ok {
+			return
+		}
+
+		handler.ServeHTTP(w, req.WithContext(ctx))
+	})
+}
+
+// clusterSegmentFromPath returns the segment following the first /clusters/
+// in path, or "" if there is none.
+func clusterSegmentFromPath(path string) string {
+	_, rest, found := strings.Cut(path, clustersPrefix)
+	if !found {
+		return ""
+	}
+	segment, _, _ := strings.Cut(rest, "/")
+	return segment
+}
+
+// resolveCluster resolves a cluster segment against idx.
+// Returns the request context extended with the result,
+// and false if a response was written.
+func resolveCluster(w http.ResponseWriter, req *http.Request, idx index.Index, segment string) (context.Context, bool) {
+	ctx := req.Context()
+
+	if segment == logicalcluster.Wildcard.String() {
+		return request.WithCluster(ctx, request.Cluster{Wildcard: true}), true
+	}
+
+	path := logicalcluster.NewPath(segment)
+	if path.Empty() || !path.IsValid() {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewBadRequest(fmt.Sprintf("invalid cluster: %q is not a recognize cluster notation", segment)),
+			errorCodecs, schema.GroupVersion{}, w, req,
+		)
+		return nil, false
+	}
+
+	ctx, err := Resolve(ctx, idx, path)
+	if err != nil {
+		var unavailable *UnavailableError
+		if errors.As(err, &unavailable) {
+			http.Error(w, "Not available.", unavailable.Code)
+			return nil, false
+		}
+		responsewriters.ErrorNegotiated(err, errorCodecs, schema.GroupVersion{}, w, req)
+		return nil, false
+	}
+	return ctx, true
+}
+
+// UnavailableError is returned by Resolve for a workspace the index marks
+// unavailable with an HTTP status code.
+type UnavailableError struct {
+	Code int
+}
+
+func (e *UnavailableError) Error() string {
+	return fmt.Sprintf("workspace not available: %d", e.Code)
+}
+
+// Resolve resolves a valid cluster path against idx and returns ctx
+// extended with request.Cluster, WorkspaceType and ShardName,
+// or Mount and ShardName for a mounted workspace.
+//
+// A workspace path unknown to idx yields a forbidden *apierrors.StatusError.
+// A logical cluster name unknown to idx yields request.Cluster only.
+func Resolve(ctx context.Context, idx index.Index, path logicalcluster.Path) (context.Context, error) {
+	logger := klog.FromContext(ctx)
+
+	result, found := idx.Lookup(path)
+	if !found {
+		name, isName := path.Name()
+		if isName {
+			// The path is a bare cluster name - e.g. a bare logical cluster id.
+			// When a new logical cluster is created this must pass to
+			// create the LogicalCluster singleton.
+			// A later middleware after authn/authz validates that this
+			// only passes for kcp components.
+			return request.WithCluster(ctx, request.Cluster{Name: name}), nil
+		}
+
+		logger.WithValues("path", path).V(4).Info("unknown workspace path")
+		return nil, forbidden(path)
+	}
+	if result.ErrorCode != 0 {
+		return nil, &UnavailableError{Code: result.ErrorCode}
+	}
+
+	switch {
+	case result.IsMount():
+		target, err := mounts.ValidateURL(result.URL)
+		if err != nil {
+			logger.WithValues("path", path, "url", result.URL).Error(err, "mount target URL is invalid")
+			return nil, apierrors.NewServiceUnavailable(fmt.Sprintf("the mount target of workspace %q is invalid", path))
+		}
+
+		parentPath, _ := path.Split()
+		parent, found := idx.Lookup(parentPath)
+		if !found || parent.Cluster.Empty() {
+			logger.WithValues("path", path, "parent", parentPath).V(4).Info("parent of mounted workspace not found")
+			return nil, forbidden(path)
+		}
+
+		ctx = WithMount(ctx, &Mount{
+			URL:           target,
+			Workspace:     path,
+			ParentCluster: parent.Cluster,
+		})
+		ctx = WithShardName(ctx, result.Shard)
+
+	default:
+		if result.Cluster.Path() != path {
+			logger.WithValues("from", path, "to", result.Cluster).V(4).Info("rewriting cluster")
+		}
+		ctx = request.WithCluster(ctx, request.Cluster{Name: result.Cluster})
+		ctx = WithWorkspaceType(ctx, result.Type)
+		ctx = WithShardName(ctx, result.Shard)
+	}
+
+	return ctx, nil
+}
+
+func forbidden(path logicalcluster.Path) *apierrors.StatusError {
+	return apierrors.NewForbidden(workspacesResource, path.String(), errors.New(kcpauthorization.WorkspaceAccessNotPermittedReason))
+}
+
+// ForbiddenHandler rejects every request with 403.
+func ForbiddenHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewForbidden(schema.GroupResource{}, "", errors.New(kcpauthorization.WorkspaceAccessNotPermittedReason)),
+			errorCodecs, schema.GroupVersion{}, w, req,
+		)
+	})
+}

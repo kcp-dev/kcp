@@ -354,6 +354,67 @@ func TestLookup(t *testing.T) {
 	}
 }
 
+func TestLookupSystemClusterName(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertLogicalCluster("root", newLogicalCluster("system:shard"))
+
+	r, found := target.Lookup(logicalcluster.NewPath("system:shard"))
+	validateLookupOutput(t, logicalcluster.NewPath("system:shard"), r.Shard, r.Cluster, r.URL, found, "root", "system:shard", "", true)
+
+	r, found = target.Lookup(logicalcluster.NewPath("system:unknown"))
+	validateLookupOutput(t, logicalcluster.NewPath("system:unknown"), r.Shard, r.Cluster, r.URL, found, "", "", "", false)
+}
+
+func TestLookupUnavailableByClusterName(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
+	target.UpsertWorkspace("root", withPhase(newWorkspace("down", "root", "34"), corev1alpha1.LogicalClusterPhaseUnavailable))
+	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
+
+	for _, path := range []string{"root:down", "34"} {
+		r, found := target.Lookup(logicalcluster.NewPath(path))
+		if !found {
+			t.Fatalf("%q: expected to be found", path)
+		}
+		if r.ErrorCode != 503 {
+			t.Fatalf("%q: expected error code 503, got %d", path, r.ErrorCode)
+		}
+	}
+
+	// recovery clears the error code for both forms
+	target.UpsertWorkspace("root", newWorkspace("down", "root", "34"))
+	for _, path := range []string{"root:down", "34"} {
+		r, found := target.Lookup(logicalcluster.NewPath(path))
+		if !found {
+			t.Fatalf("%q: expected to be found", path)
+		}
+		if r.ErrorCode != 0 {
+			t.Fatalf("%q: expected no error code, got %d", path, r.ErrorCode)
+		}
+	}
+}
+
+func TestLookupSegmentBelowMount(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
+	target.UpsertWorkspace("root", withURL(newWorkspaceWithMount("mnt", "root", "", tenancyv1alpha1.ObjectReference{Kind: "Thing", Name: "x"}), "https://mount.example.com"))
+
+	r, found := target.Lookup(logicalcluster.NewPath("root:mnt"))
+	if !found || !r.IsMount() {
+		t.Fatalf("root:mnt: expected a mount, got found=%v %+v", found, r)
+	}
+
+	if _, found := target.Lookup(logicalcluster.NewPath("root:mnt:sub")); found {
+		t.Fatal("root:mnt:sub: expected not to be found")
+	}
+}
+
 func TestDeleteShard(t *testing.T) {
 	t.Parallel()
 	target := New(nil)

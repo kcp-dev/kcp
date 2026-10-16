@@ -47,7 +47,16 @@ const defaultMigrationGracePeriod = 90 * time.Second
 type Index interface {
 	Lookup(path logicalcluster.Path) (Result, bool)
 	LookupURL(logicalCluster logicalcluster.Path) (Result, bool)
+	// BaseURL returns the base URL of the named shard.
+	BaseURL(shardName string) (string, bool)
+	// RecentlyMigrated returns true if the given cluster was recently migrated.
+	RecentlyMigrated(cluster logicalcluster.Name) bool
+	// ClusterContext returns a context derived from the parent that will be
+	// cancelled when the cluster is deleted or migrated.
+	ClusterContext(parent context.Context, cluster logicalcluster.Name) (context.Context, context.CancelFunc)
 }
+
+var _ Index = &State{}
 
 // Result is the result of a lookup.
 type Result struct {
@@ -465,6 +474,15 @@ func (c *State) UpsertShard(shardName, baseURL string) {
 	}
 }
 
+// BaseURL returns the base URL of the named shard.
+func (c *State) BaseURL(shardName string) (string, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	baseURL, found := c.shardBaseURLs[shardName]
+	return baseURL, found
+}
+
 func (c *State) DeleteShard(shardName string) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -486,6 +504,10 @@ func (c *State) DeleteShard(shardName string) {
 
 func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 	segments := strings.Split(path.String(), ":")
+	// system:<x> is a single logical cluster name, not a path.
+	if name, isName := path.Name(); isName {
+		segments = []string{name.String()}
+	}
 
 	for _, rewriter := range c.rewriters {
 		segments = rewriter(segments)
@@ -510,6 +532,13 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 				return Result{}, false
 			}
 			cluster = logicalcluster.Name(s)
+			// A logical cluster addressed by name carries the error code of
+			// its workspace, like it would when reached through the path.
+			parent := c.shardClusterParentCluster[shard][cluster]
+			name := c.shardClusterWorkspaceName[shard][cluster]
+			if ec, found := c.shardClusterWorkspaceNameErrorCode[shard][parent][name]; found {
+				errorCode = ec
+			}
 			continue
 		}
 
@@ -524,7 +553,8 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 			// Lets check if we have a mount for this workspace, and if we do, we can return the URL from the mount.
 			// Else we get back to default behavior.
 			wsSpec, foundMount := c.shardClusterWorkspaceMount[shard][originalCluster][s] // experimental feature
-			if foundMount {
+			// A mount has no children in the index.
+			if foundMount && i == len(segments)-1 {
 				if wsSpec.Mount != nil && wsSpec.URL != "" {
 					// Only route to mount targets that pass the same validation
 					// admission applies; objects written before that validation

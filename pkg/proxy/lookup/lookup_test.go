@@ -20,23 +20,36 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/index"
+	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
 
-// fakeIndex is a test double for proxyindex.Index.
+// fakeIndex is a test double for index.Index.
 type fakeIndex struct {
 	result           index.Result
 	found            bool
+	baseURL          string
 	recentlyMigrated bool
 
 	registered int
 	released   int
+}
+
+func (f *fakeIndex) BaseURL(shardName string) (string, bool) {
+	return f.baseURL, f.baseURL != ""
+}
+
+func (f *fakeIndex) Lookup(path logicalcluster.Path) (index.Result, bool) {
+	return f.result, f.found
 }
 
 func (f *fakeIndex) LookupURL(path logicalcluster.Path) (index.Result, bool) {
@@ -56,10 +69,10 @@ func (f *fakeIndex) ClusterContext(parent context.Context, cluster logicalcluste
 	}
 }
 
-func TestClusterResolveHandlerMigration(t *testing.T) {
+func TestShardHandlerMigration(t *testing.T) {
 	t.Parallel()
 
-	const cluster = "abcdef"
+	const clusterID = "abcdef"
 
 	tests := []struct {
 		name             string
@@ -135,13 +148,8 @@ func TestClusterResolveHandlerMigration(t *testing.T) {
 			t.Parallel()
 
 			fake := &fakeIndex{
-				found:            true,
+				baseURL:          "https://shard-1.example",
 				recentlyMigrated: tt.recentlyMigrated,
-				result: index.Result{
-					Cluster: logicalcluster.Name(cluster),
-					Shard:   "shard-1",
-					URL:     "https://shard-1.example/clusters/" + cluster,
-				},
 			}
 
 			delegateCalled := false
@@ -150,20 +158,22 @@ func TestClusterResolveHandlerMigration(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 			})
 
-			handler := newClusterResolveHandler(delegate, fake)
+			handler := newShardHandler(delegate, fake)
 
 			query := "?resourceVersion=" + tt.resourceVersion
 			if tt.watch {
 				query += "&watch=true"
 			}
-			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/clusters/"+cluster+"/api/v1/configmaps"+query, http.NoBody)
-			req.SetPathValue("cluster", cluster)
+			// URL as left by WithClusterResolution: /clusters/<segment> stripped.
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/configmaps"+query, http.NoBody)
 			ctx := request.WithRequestInfo(req.Context(), &request.RequestInfo{
 				IsResourceRequest: true,
 				Verb:              tt.verb,
 				APIVersion:        "v1",
 				Resource:          "configmaps",
 			})
+			ctx = request.WithCluster(ctx, request.Cluster{Name: clusterID})
+			ctx = WithShardName(ctx, "shard-1")
 			req = req.WithContext(ctx)
 
 			rec := httptest.NewRecorder()
@@ -186,62 +196,169 @@ func TestClusterResolveHandlerMigration(t *testing.T) {
 	}
 }
 
-func TestExtractClusterFromPath(t *testing.T) {
+func TestShardHandlerURL(t *testing.T) {
 	t.Parallel()
-	tests := []struct {
-		name     string
-		path     string
-		expected string
+
+	tests := map[string]struct {
+		url string
+
+		wantStatus   int
+		wantShardURL string
 	}{
-		{
-			name:     "virtual workspace URL with cluster",
-			path:     "/services/contentconfigurations/clusters/root:orgs:bob/apis/ui.platform-mesh.io/v1alpha1/contentconfigurations",
-			expected: "root:orgs:bob",
+		"cluster ID": {
+			url:          "/clusters/" + wsClusterID + "/api/v1/configmaps?watch=true",
+			wantShardURL: "https://beta.example.com/clusters/" + wsClusterID + "/api/v1/configmaps?watch=true",
 		},
-		{
-			name:     "virtual workspace URL with nested cluster path",
-			path:     "/services/marketplace/clusters/root:orgs:bob:quickstart/apis/v1/namespaces",
-			expected: "root:orgs:bob:quickstart",
+		"workspace path": {
+			url:          "/clusters/" + wsWorkspacePath + "/api/v1",
+			wantShardURL: "https://beta.example.com/clusters/" + wsClusterID + "/api/v1",
 		},
-		{
-			name:     "cluster path only",
-			path:     "/clusters/root:orgs:bob/api/v1/namespaces",
-			expected: "root:orgs:bob",
+		"workspace path without trailing path": {
+			url:          "/clusters/" + orgWorkspacePath,
+			wantShardURL: "https://root.example.com/clusters/" + orgClusterID,
 		},
-		{
-			name:     "cluster at end of path without trailing slash",
-			path:     "/services/foo/clusters/root:orgs:bob",
-			expected: "root:orgs:bob",
+		"mount to parent shard": {
+			url:          "/clusters/" + mntWorkspacePath + "/api/v1",
+			wantShardURL: "https://root.example.com/clusters/" + orgClusterID + ":mnt/api/v1",
 		},
-		{
-			name:     "no cluster in path",
-			path:     "/services/contentconfigurations/apis/v1/namespaces",
-			expected: "",
+		"wildcard has no shard": {
+			url:        "/clusters/*/api/v1",
+			wantStatus: http.StatusForbidden,
 		},
-		{
-			name:     "empty path",
-			path:     "",
-			expected: "",
-		},
-		{
-			name:     "wildcard cluster",
-			path:     "/services/foo/clusters/*/apis/v1",
-			expected: "*",
-		},
-		{
-			name:     "root cluster only",
-			path:     "/services/foo/clusters/root/apis/v1",
-			expected: "root",
+		"unknown workspace path": {
+			url:        "/clusters/root:nope/api/v1",
+			wantStatus: http.StatusForbidden,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	idx := newResolveIndex()
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			result := extractClusterFromPath(tt.path)
-			if result != tt.expected {
-				t.Errorf("extractClusterFromPath(%q) = %q, want %q", tt.path, result, tt.expected)
+
+			var shardURL *url.URL
+			delegate := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				shardURL = ShardURLFrom(req.Context())
+			})
+			handler := WithClusterResolution(newShardHandler(delegate, idx), idx)
+
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, tc.url, http.NoBody))
+
+			if tc.wantStatus != 0 {
+				require.Nil(t, shardURL)
+				require.Equal(t, tc.wantStatus, rec.Code)
+				return
 			}
+			require.NotNil(t, shardURL)
+			require.Equal(t, tc.wantShardURL, shardURL.String())
+		})
+	}
+}
+
+func TestWithClusterResolver(t *testing.T) {
+	t.Parallel()
+
+	mappings := []types.PathMapping{
+		{Path: "/clusters/"},
+		{Path: "/services/singleton/{cluster}"},
+		{Path: "/services/org/clusters/{cluster}"},
+		{Path: "/services/plain"},
+		{Path: "/"},
+	}
+
+	tests := map[string]struct {
+		url string
+
+		wantStatus   int
+		wantShardURL string
+		wantCluster  *request.Cluster
+		wantURL      string
+	}{
+		"workspace path to shard": {
+			url:          "/clusters/" + wsWorkspacePath + "/api/v1",
+			wantShardURL: "https://beta.example.com/clusters/" + wsClusterID + "/api/v1",
+			wantCluster:  &request.Cluster{Name: wsClusterID},
+			wantURL:      "/api/v1",
+		},
+		"clusterID to shard": {
+			url:          "/clusters/" + wsClusterID + "/api/v1",
+			wantShardURL: "https://beta.example.com/clusters/" + wsClusterID + "/api/v1",
+			wantCluster:  &request.Cluster{Name: wsClusterID},
+			wantURL:      "/api/v1",
+		},
+		"unknown cluster to shard": {
+			url:        "/clusters/root:nope/api/v1",
+			wantStatus: http.StatusForbidden,
+		},
+		"service with cluster placeholder": {
+			url:         "/services/singleton/" + wsWorkspacePath + "/api/v1",
+			wantCluster: &request.Cluster{Name: wsClusterID},
+			wantURL:     "/services/singleton/" + wsWorkspacePath + "/api/v1",
+		},
+		"service with default /clusters/x": {
+			url:         "/services/org/clusters/" + wsWorkspacePath + "/api/v1",
+			wantCluster: &request.Cluster{Name: wsClusterID},
+			wantURL:     "/services/org/clusters/" + wsWorkspacePath + "/api/v1",
+		},
+		"service with unknown cluster": {
+			url:        "/services/org/clusters/root:nope/api/v1",
+			wantStatus: http.StatusForbidden,
+		},
+		"service without cluster placeholder": {
+			url:     "/services/plain/api/v1",
+			wantURL: "/services/plain/api/v1",
+		},
+		"unmatched goes to delegate": {
+			url:     "/healthz",
+			wantURL: "/healthz",
+		},
+	}
+
+	idx := newResolveIndex()
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var (
+				called   bool
+				gotURL   string
+				cluster  *request.Cluster
+				shardURL *url.URL
+			)
+			delegate := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				called = true
+				gotURL = req.URL.String()
+				cluster = request.ClusterFrom(req.Context())
+				shardURL = ShardURLFrom(req.Context())
+			})
+
+			rec := httptest.NewRecorder()
+			WithClusterResolver(delegate, mappings, idx).
+				ServeHTTP(rec, httptest.NewRequestWithContext(
+					t.Context(),
+					http.MethodGet,
+					tc.url,
+					http.NoBody,
+				))
+
+			if tc.wantStatus != 0 {
+				require.False(t, called)
+				require.Equal(t, tc.wantStatus, rec.Code)
+				return
+			}
+
+			require.True(t, called)
+			require.Equal(t, tc.wantURL, gotURL)
+			require.Equal(t, tc.wantCluster, cluster)
+			if tc.wantShardURL == "" {
+				require.Nil(t, shardURL)
+				return
+			}
+			require.NotNil(t, shardURL)
+			require.Equal(t, tc.wantShardURL, shardURL.String())
 		})
 	}
 }

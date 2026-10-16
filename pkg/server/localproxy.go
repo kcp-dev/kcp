@@ -35,16 +35,15 @@ import (
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/tenancy/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/authentication"
+	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
-	"github.com/kcp-dev/kcp/pkg/mounts"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
@@ -101,92 +100,20 @@ func newLocalClusterIndex(
 	return indexState
 }
 
-// WithLocalProxy returns a handler with a local-only mini-front-proxy. It is
-// able to translate logical clusters with the data on the local shard. This is
-// mainly interesting for standalone mode, without a real front-proxy in-front.
-//
-// Requests for mounted workspaces are not forwarded here: this handler runs in
-// front of the shard's authentication filter. It only resolves the mount
-// target and stores it in the request context, and WithMountProxy forwards the
-// request once it has been authenticated, audited and flow-controlled.
+// WithLocalProxy returns a handler with a local-only mini-front-proxy.
+// It acts on the cluster resolved by lookup.WithClusterResolution.
+// Requests for mounted workspaces are checked and continue into the chain
+// for WithMountProxy to forward after authentication.
+// Requests for clusters not on the shard are rejected.
 func WithLocalProxy(
 	handler http.Handler,
 	shardName, additionalMappingsFile string,
-	clusterIndex *index.State,
 ) (http.Handler, error) {
 	defaultHandlerFunc := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		ctx := req.Context()
 		logger := klog.FromContext(ctx)
 
-		path, newURL, foundInIndex, err := filters.ClusterPathFromAndStrip(req)
-		if err != nil {
-			responsewriters.ErrorNegotiated(
-				apierrors.NewBadRequest(err.Error()),
-				errorCodecs, schema.GroupVersion{}, w, req,
-			)
-			return
-		}
-		if foundInIndex {
-			req.URL = newURL
-		}
-
-		cluster := request.Cluster{
-			PartialMetadataRequest: filters.IsPartialMetadataRequest(req.Context()),
-			Wildcard:               path == logicalcluster.Wildcard,
-		}
-
-		if path.Empty() || cluster.Wildcard {
-			ctx := request.WithCluster(req.Context(), cluster)
-			handler.ServeHTTP(w, req.WithContext(ctx))
-			return
-		}
-
-		if !path.IsValid() {
-			responsewriters.ErrorNegotiated(
-				apierrors.NewBadRequest(fmt.Sprintf("invalid cluster: %q does not match the regex", path)),
-				errorCodecs, schema.GroupVersion{},
-				w, req)
-			return
-		}
-
-		// here, we have a real path we have to translate to get a logical cluster name
-
-		// first pure names
-		if name, isName := path.Name(); isName {
-			cluster.Name = name
-			handler.ServeHTTP(w, req.WithContext(request.WithCluster(ctx, cluster)))
-			return
-		}
-
-		// lookup in our local, potentially partial index
-		r, found := clusterIndex.Lookup(path)
-		if found && r.ErrorCode != 0 {
-			// return code if set.
-			// TODO(mjudeikis): Would be nice to have a way to return a custom error message.
-			http.Error(w, "Not available.", r.ErrorCode)
-			return
-		}
-		if found && r.Shard != shardName && r.URL == "" {
-			logger.WithValues("cluster", cluster.Name, "requestedShard", r.Shard, "actualShard", shardName).Info("cluster is not on this shard, but on another")
-
-			w.Header().Set("Retry-After", fmt.Sprintf("%d", 1))
-			http.Error(w, "Not found on this shard", http.StatusTooManyRequests)
-			return
-		}
-
-		if r.URL != "" {
-			// The request is for a mounted workspace. Resolve the target here, but
-			// leave the forwarding to WithMountProxy behind authentication.
-			target, err := mounts.ValidateURL(r.URL)
-			if err != nil {
-				logger.WithValues("path", path, "url", r.URL).Error(err, "mount target URL is invalid")
-				responsewriters.ErrorNegotiated(
-					apierrors.NewServiceUnavailable(fmt.Sprintf("the mount target of workspace %q is invalid", path.String())),
-					errorCodecs, schema.GroupVersion{}, w, req,
-				)
-				return
-			}
-
+		if mount := lookup.MountFrom(ctx); mount != nil {
 			// Impersonation needs a logical cluster to authorize against, which a
 			// mount does not have. Reject it explicitly instead of letting the
 			// impersonation filters fail in less obvious ways.
@@ -198,69 +125,38 @@ func WithLocalProxy(
 				return
 			}
 
-			// The mount is described by a Workspace object in the parent workspace,
-			// which WithMountProxy authorizes access against.
-			parentPath, _ := path.Split()
-			parent, found := clusterIndex.Lookup(parentPath)
-			if !found || parent.Cluster.Empty() {
-				logger.WithValues("path", path, "parent", parentPath).V(4).Info("parent of mounted workspace not found on this shard")
-				responsewriters.ErrorNegotiated(
-					apierrors.NewNotFound(
-						schema.GroupResource{Group: tenancyv1alpha1.SchemeGroupVersion.Group, Resource: "workspaces"},
-						path.String(),
-					),
-					errorCodecs, schema.GroupVersion{}, w, req,
-				)
-				return
-			}
-
-			logger.WithValues("from", path, "to", target.Scheme+"://"+target.Host).V(4).Info("resolved mounted workspace")
-			ctx := filters.WithMountTarget(ctx, &filters.MountTarget{
-				URL:           target,
-				Workspace:     path,
-				ParentCluster: parent.Cluster,
-			})
-			handler.ServeHTTP(w, req.WithContext(ctx))
+			logger.WithValues("from", mount.Workspace, "to", mount.URL.Scheme+"://"+mount.URL.Host).V(4).Info("resolved mounted workspace")
+			handler.ServeHTTP(w, req)
 			return
 		}
 
-		// if this is a non-path request, there is nothing to lookup
-		clusterName, isName := path.Name()
+		cluster := request.ClusterFrom(ctx)
+		if cluster == nil {
+			// Not a /clusters/ request.
+			cluster = &request.Cluster{}
+		}
 
-		if !isName && !found {
-			// The request targets a workspace path (e.g. root:internal-cluster)
-			// that we cannot resolve to a logical cluster on this shard. Do NOT
-			// forward with the raw path stuffed into cluster.Name: the storage
-			// key builder (NoNamespaceKeyRootFunc) would serialize it into the
-			// etcd key as if it were a real logical cluster name, producing
-			// orphaned rows that are invisible to the normal read path but
-			// still consume space and can leak via wildcard partial-metadata
-			// lists. Reject the request here instead.
-			logger.WithValues("path", path).V(4).Info("cluster path not found on this shard")
+		// If cluster is known but its not on this shard respond with a 403.
+		// Responding with anything else would let an attacker with
+		// access to a shard enumerate workspaces on other shards that
+		// are replicated via the cache-server.
+		if shard := lookup.ShardNameFrom(ctx); shard != "" && shard != shardName {
+			logger.WithValues("cluster", cluster.Name, "requestedShard", shard, "actualShard", shardName).V(4).Info("cluster is not on this shard")
 			responsewriters.ErrorNegotiated(
-				apierrors.NewNotFound(
+				apierrors.NewForbidden(
 					schema.GroupResource{Group: tenancyv1alpha1.SchemeGroupVersion.Group, Resource: "workspaces"},
-					path.String(),
+					cluster.Name.String(),
+					errors.New(authorization.WorkspaceAccessNotPermittedReason),
 				),
 				errorCodecs, schema.GroupVersion{}, w, req,
 			)
 			return
 		}
 
-		if found {
-			if r.Cluster.Path() != path {
-				logger.WithValues("from", path, "to", r.Cluster).V(4).Info("rewriting cluster")
-			}
-			cluster.Name = r.Cluster
-		} else {
-			// we check "!isName && !foundInIndex" above. So, here it is a name.
-			cluster.Name = clusterName
-		}
-		ctx = request.WithCluster(ctx, cluster)
-		ctx = lookup.WithClusterName(ctx, cluster.Name)
-		ctx = lookup.WithWorkspaceType(ctx, r.Type)
-
-		handler.ServeHTTP(w, req.WithContext(ctx))
+		// The storage layer needs to know if a request is for partial metadata
+		// to extract the cluster name from storage keys of wildcard requests.
+		cluster.PartialMetadataRequest = filters.IsPartialMetadataRequest(ctx)
+		handler.ServeHTTP(w, req.WithContext(request.WithCluster(ctx, *cluster)))
 	})
 
 	// if no additional mappings are provided, do not start local-only mini-front-proxy.

@@ -30,25 +30,38 @@ import (
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
-func NewStandaloneWorkspaceAuthenticator(clusterIndex *index.State, authIndex AuthenticatorIndex) authenticator.Request {
+func NewStandaloneWorkspaceAuthenticator(clusterIndex index.Index, authIndex AuthenticatorIndex) authenticator.Request {
 	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
-		clusterName, err := request.ClusterNameFrom(req.Context())
-		if err != nil {
-			klog.FromContext(req.Context()).V(4).Info("standalone workspace authenticator skipped: request has no cluster context", "path", req.URL.Path, "err", err)
-			return nil, false, nil
+		ctx := req.Context()
+		wsType := lookup.WorkspaceTypeFrom(ctx)
+		if wsType.Empty() {
+			// TODO(ntnn): Requests that are passed directly into the
+			// authn/authz chain are missing the workspace resolution
+			// from the http handler chain.
+			// This impacts e.g. the crafted TokenReviews that are build
+			// in the kcp kube fork, which only contain the clusterID.
+			//
+			// To still handle these correctly the same workspace
+			// resolution as in the http handler chain is done here to
+			// get the correct WorkspaceType.
+			clusterName, err := request.ClusterNameFrom(ctx)
+			if err != nil {
+				klog.FromContext(ctx).V(4).Info("standalone workspace authenticator skipped: request has no cluster context", "path", req.URL.Path, "err", err)
+				return nil, false, nil
+			}
+			resolved, err := lookup.Resolve(ctx, clusterIndex, clusterName.Path())
+			if err != nil {
+				klog.FromContext(ctx).V(4).Info("standalone workspace authenticator skipped: cluster not resolved", "cluster", clusterName, "err", err)
+				return nil, false, nil
+			}
+			wsType = lookup.WorkspaceTypeFrom(resolved)
 		}
-
-		result, found := clusterIndex.Lookup(clusterName.Path())
-		if !found {
-			return nil, false, nil
-		}
-
 		// workspacemounts have no type
-		if result.Type.Empty() {
+		if wsType.Empty() {
 			return nil, false, nil
 		}
 
-		reqAuthenticator, ok := authIndex.Lookup(result.Type)
+		reqAuthenticator, ok := authIndex.Lookup(wsType)
 		if !ok {
 			return nil, false, nil
 		}
@@ -80,25 +93,10 @@ func withClusterScope(delegate authenticator.Request) authenticator.Request {
 			return response, authenticated, ok
 		}
 
-		// withClusterScope is used both in the front-proxy and shards.
-		// Both set the cluster name on different context keys due to
-		// differing handler chains and middlewares.
-		//
-		// On top of that, synthetic requests like a TokenReview may
-		// pass through the authentication chain with the cluster only on
-		// the context key from the request package, not the lookup
-		// package.
-		//
-		// To handle both front-proxy and shards both .ClusterNameFrom
-		// functions are checked.
-		cluster := lookup.ClusterNameFrom(req.Context())
-		if cluster.Empty() {
-			var err error
-			cluster, err = request.ClusterNameFrom(req.Context())
-			if err != nil {
-				klog.FromContext(req.Context()).Error(err, "withClusterScope: no cluster name found in lookup or request context; skipping scope extras")
-				return response, authenticated, ok
-			}
+		cluster, err := request.ClusterNameFrom(req.Context())
+		if err != nil {
+			klog.FromContext(req.Context()).Error(err, "withClusterScope: no cluster name found in request context; skipping scope extras")
+			return response, authenticated, ok
 		}
 
 		extra := response.User.GetExtra()
