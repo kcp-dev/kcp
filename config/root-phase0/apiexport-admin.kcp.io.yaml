@@ -1,0 +1,12 @@
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIExport
+metadata:
+  name: admin.kcp.io
+spec:
+  resources:
+  - group: admin.kcp.io
+    name: apiexporthistories
+    schema: v260928-d024dfc05.apiexporthistories.admin.kcp.io
+    storage:
+      crd: {}
+status: {}
