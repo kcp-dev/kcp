@@ -21,20 +21,29 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	apisv1alpha1apply "github.com/kcp-dev/sdk/client/applyconfiguration/apis/v1alpha1"
+
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 func TestReconcile(t *testing.T) {
@@ -338,6 +347,161 @@ func TestReconcile(t *testing.T) {
 			for _, expectedCondition := range tc.expectedConditions {
 				requireConditionMatches(t, input, expectedCondition)
 			}
+		})
+	}
+}
+
+func TestEnqueueAPIExportEndpointSliceByAPIBinding(t *testing.T) {
+	t.Parallel()
+
+	const (
+		exportCluster   = "exportcluster"
+		consumerCluster = "consumercluster"
+		exportPath      = "root:org:ws"
+		exportName      = "my-export"
+	)
+
+	export := &apisv1alpha2.APIExport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: exportName,
+			Annotations: map[string]string{
+				logicalcluster.AnnotationKey:         exportCluster,
+				core.LogicalClusterPathAnnotationKey: exportPath,
+			},
+		},
+	}
+	slice := func(cluster, name, refPath, refName string) *apisv1alpha1.APIExportEndpointSlice {
+		return &apisv1alpha1.APIExportEndpointSlice{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Annotations: map[string]string{logicalcluster.AnnotationKey: cluster},
+			},
+			Spec: apisv1alpha1.APIExportEndpointSliceSpec{
+				APIExport: apisv1alpha1.ExportBindingReference{Path: refPath, Name: refName},
+			},
+		}
+	}
+	binding := func(cluster, refPath string) *apisv1alpha2.APIBinding {
+		return &apisv1alpha2.APIBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "my-binding",
+				Annotations: map[string]string{logicalcluster.AnnotationKey: cluster},
+			},
+			Spec: apisv1alpha2.APIBindingSpec{
+				Reference: apisv1alpha2.BindingReference{
+					Export: &apisv1alpha2.ExportBindingReference{Path: refPath, Name: exportName},
+				},
+			},
+		}
+	}
+	exportFound := func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+		if name == exportName && (path.String() == exportPath || path.String() == exportCluster) {
+			return export, nil
+		}
+		return nil, apierrors.NewNotFound(apisv1alpha2.Resource("apiexports"), path.Join(name).String())
+	}
+	exportNotFound := func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+		return nil, apierrors.NewNotFound(apisv1alpha2.Resource("apiexports"), path.Join(name).String())
+	}
+
+	// Slices that live next to the export, on another shard, so this shard only
+	// sees them through the cache.
+	pathless := slice(exportCluster, "pathless", "", exportName)
+	explicitPath := slice(exportCluster, "explicit-path", exportPath, exportName)
+	clusterPath := slice(exportCluster, "cluster-path", exportCluster, exportName)
+	unrelated := slice(exportCluster, "unrelated", "", "other-export")
+	// A slice in a third workspace that references the export by canonical path.
+	// Unlike explicitPath, it is not also indexed under the export's cluster
+	// name, so only resolving the export can connect it to a binding that
+	// references the export by cluster name.
+	remoteExplicitPath := slice("slicecluster", "remote-explicit-path", exportPath, exportName)
+
+	tests := map[string]struct {
+		localSlices  []*apisv1alpha1.APIExportEndpointSlice
+		globalSlices []*apisv1alpha1.APIExportEndpointSlice
+		binding      *apisv1alpha2.APIBinding
+		getAPIExport func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+		expected     []*apisv1alpha1.APIExportEndpointSlice
+	}{
+		"binding by canonical path finds a path-less slice in the export's workspace": {
+			globalSlices: []*apisv1alpha1.APIExportEndpointSlice{pathless, unrelated},
+			binding:      binding(consumerCluster, exportPath),
+			getAPIExport: exportFound,
+			expected:     []*apisv1alpha1.APIExportEndpointSlice{pathless},
+		},
+		"binding by canonical path finds every spelling of the reference": {
+			globalSlices: []*apisv1alpha1.APIExportEndpointSlice{pathless, explicitPath, clusterPath, unrelated},
+			binding:      binding(consumerCluster, exportPath),
+			getAPIExport: exportFound,
+			expected:     []*apisv1alpha1.APIExportEndpointSlice{pathless, explicitPath, clusterPath},
+		},
+		"binding by logical cluster name finds a remote slice that spells out the canonical path": {
+			globalSlices: []*apisv1alpha1.APIExportEndpointSlice{remoteExplicitPath, unrelated},
+			binding:      binding(consumerCluster, exportCluster),
+			getAPIExport: exportFound,
+			expected:     []*apisv1alpha1.APIExportEndpointSlice{remoteExplicitPath},
+		},
+		"local binding finds the path-less slice next to it": {
+			localSlices:  []*apisv1alpha1.APIExportEndpointSlice{pathless, unrelated},
+			binding:      binding(exportCluster, ""),
+			getAPIExport: exportFound,
+			expected:     []*apisv1alpha1.APIExportEndpointSlice{pathless},
+		},
+		"slices are found in the local and the global indexer": {
+			localSlices:  []*apisv1alpha1.APIExportEndpointSlice{explicitPath},
+			globalSlices: []*apisv1alpha1.APIExportEndpointSlice{pathless},
+			binding:      binding(consumerCluster, exportPath),
+			getAPIExport: exportFound,
+			expected:     []*apisv1alpha1.APIExportEndpointSlice{explicitPath, pathless},
+		},
+		"export not in the cache yet falls back to the reference as written": {
+			globalSlices: []*apisv1alpha1.APIExportEndpointSlice{pathless, explicitPath},
+			binding:      binding(consumerCluster, exportPath),
+			getAPIExport: exportNotFound,
+			expected:     []*apisv1alpha1.APIExportEndpointSlice{explicitPath},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			newIndexer := func(slices []*apisv1alpha1.APIExportEndpointSlice) cache.Indexer {
+				indexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
+				indexers.AddIfNotPresentOrDie(indexer, cache.Indexers{
+					indexers.APIExportEndpointSliceByAPIExport: indexers.IndexAPIExportEndpointSliceByAPIExport,
+				})
+				for _, s := range slices {
+					require.NoError(t, indexer.Add(s))
+				}
+				return indexer
+			}
+
+			c := &controller{
+				queue: workqueue.NewTypedRateLimitingQueue(
+					workqueue.DefaultTypedControllerRateLimiter[string](),
+				),
+				getAPIExport:                        tc.getAPIExport,
+				apiExportEndpointSliceIndexer:       newIndexer(tc.localSlices),
+				globalAPIExportEndpointSliceIndexer: newIndexer(tc.globalSlices),
+			}
+			t.Cleanup(c.queue.ShutDown)
+
+			c.enqueueAPIExportEndpointSliceByAPIBinding(tc.binding, logr.Discard())
+
+			expected := sets.New[string]()
+			for _, s := range tc.expected {
+				key, err := kcpcache.MetaClusterNamespaceKeyFunc(s)
+				require.NoError(t, err)
+				expected.Insert(key)
+			}
+			got := sets.New[string]()
+			for c.queue.Len() > 0 {
+				key, _ := c.queue.Get()
+				got.Insert(key)
+				c.queue.Done(key)
+			}
+			require.Equal(t, sets.List(expected), sets.List(got))
 		})
 	}
 }
