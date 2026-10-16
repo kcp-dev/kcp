@@ -1,0 +1,135 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: v260923-d0ecac6bb.permissionclaimpolicies.admin.kcp.io
+spec:
+  group: admin.kcp.io
+  names:
+    categories:
+    - kcp
+    kind: PermissionClaimPolicy
+    listKind: PermissionClaimPolicyList
+    plural: permissionclaimpolicies
+    singular: permissionclaimpolicy
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      description: |-
+        PermissionClaimPolicy is an installation-wide policy, stored in the Admin
+        workspace (`/services/admin`), that lets a family of APIExports claim each
+        other's resources without knowing their identity hashes.
+
+        It does two things at once:
+
+          - It reserves every API group it mentions (claimers and claimed groups
+            alike): only the subjects listed under spec.providers may create an
+            APIExport that exports resources in a reserved group. This is what makes
+            "an APIExport that exports group X" a trustworthy identity for X, and
+            what makes a binding of a reserved group in any workspace a genuine one.
+          - It grants, per claimer group, an explicit list of groups that an
+            APIExport exporting that claimer group may claim with an empty
+            identityHash. No wildcards: every group is named.
+
+        At runtime such a claim resolves, in every consumer workspace, to whatever
+        APIExport that workspace's APIBinding for the claimed resource points at.
+        Nobody has to know or enumerate identity hashes, and rotation or multiple
+        genuine producers of the same group are handled per workspace.
+      properties:
+        apiVersion:
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          type: string
+        kind:
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: spec holds the desired state.
+          properties:
+            claims:
+              description: |-
+                claims lists, per claimer API group, the API groups an APIExport
+                exporting that claimer group may claim without an identityHash.
+              items:
+                description: PermissionClaimRule grants one claimer group an explicit
+                  list of claimable groups.
+                properties:
+                  claimer:
+                    description: |-
+                      claimer is the API group an APIExport must export, in at least one of its
+                      resources, to be granted the claims listed in groups. No wildcards.
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  groups:
+                    description: |-
+                      groups are the API groups the claimer may claim without an identityHash.
+                      Every entry is a full group name. No wildcards.
+                    items:
+                      type: string
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
+                required:
+                - claimer
+                - groups
+                type: object
+              minItems: 1
+              type: array
+              x-kubernetes-list-map-keys:
+              - claimer
+              x-kubernetes-list-type: map
+            providers:
+              description: |-
+                providers are the subjects allowed to create or extend an APIExport that
+                exports resources in any API group reserved by this policy. A group is
+                reserved as soon as it appears anywhere in spec.claims, as a claimer or
+                as a claimed group.
+
+                If providers is empty, no APIExport can be created for the reserved groups
+                at all, which effectively freezes the set of existing exports.
+              items:
+                description: |-
+                  PermissionClaimPolicySubject identifies a user or a group. Service accounts
+                  are matched through their user name (system:serviceaccount:<namespace>:<name>)
+                  or their groups (system:serviceaccounts, system:serviceaccounts:<namespace>).
+                properties:
+                  kind:
+                    description: 'kind is the kind of subject: User or Group.'
+                    enum:
+                    - User
+                    - Group
+                    type: string
+                  name:
+                    description: name is the user name or group name.
+                    minLength: 1
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+          required:
+          - claims
+          type: object
+      required:
+      - spec
+      type: object
+    served: true
+    storage: true
+    subresources: {}
