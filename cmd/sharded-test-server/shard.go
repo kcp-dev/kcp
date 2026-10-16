@@ -129,6 +129,7 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		fmt.Sprintf("--mount-proxy-client-cert-file=%s", filepath.Join(kcpDir, "mounts-proxy.crt")),
 		fmt.Sprintf("--mount-proxy-client-key-file=%s", filepath.Join(kcpDir, "mounts-proxy.key")),
 		fmt.Sprintf("--mount-proxy-server-ca-file=%s", filepath.Join(kcpDir, "serving-ca.crt")),
+		fmt.Sprintf("--core-identities-key-file=%s", filepath.Join(kcpDir, "core-identities.key")),
 	)
 	if len(cacheServerConfigPath) > 0 {
 		args = append(args, fmt.Sprintf("--cache-kubeconfig=%s", cacheServerConfigPath))

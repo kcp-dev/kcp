@@ -22,25 +22,17 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
-	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/sdk/apis/core"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
-
-	configshard "github.com/kcp-dev/kcp/config/shard"
-	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 
 	_ "net/http/pprof"
 )
@@ -60,14 +52,109 @@ var (
 	}
 )
 
-type identities struct {
+// ResolvedIdentity is the identity of one core APIExport together with where
+// it came from.
+type ResolvedIdentity struct {
+	// Hash is the identity hash as it appears in request URLs.
+	Hash string
+	// Source says where the identity came from.
+	Source adminv1alpha1.CoreIdentitySource
+	// KeyID and Derivation record which key and derivation produced the
+	// identity. Empty unless Source is Key.
+	KeyID      string
+	Derivation string
+}
+
+// Classifier can refine the source of a resolved identity, e.g. recognize a
+// legacy-looking hash as one that was in fact derived from the key.
+type Classifier func(exportName string, id ResolvedIdentity) ResolvedIdentity
+
+// Identities holds the identities of the core APIExports, filled in by
+// Resolve and injected into wildcard request URLs by the round tripper. An
+// identity, once resolved, never changes for the lifetime of the process.
+type Identities struct {
 	lock sync.RWMutex
+
+	groupExportNames         map[string]string
+	groupResourceExportNames map[schema.GroupResource]string
 
 	groupIdentities         map[string]string
 	groupResourceIdentities map[schema.GroupResource]string
+	byExport                map[string]ResolvedIdentity
+
+	classifier Classifier
 }
 
-func (ids *identities) grIdentity(gr schema.GroupResource) (string, bool) {
+// NewIdentities creates an empty Identities for the given exports. Each
+// group or group resource is served by one APIExport in the root workspace,
+// whose name is the map value.
+func NewIdentities(groupExportNames map[string]string, groupResourceExportNames map[schema.GroupResource]string) *Identities {
+	ids := &Identities{
+		groupExportNames:         groupExportNames,
+		groupResourceExportNames: groupResourceExportNames,
+		groupIdentities:          map[string]string{},
+		groupResourceIdentities:  map[schema.GroupResource]string{},
+		byExport:                 map[string]ResolvedIdentity{},
+	}
+	for group := range groupExportNames {
+		ids.groupIdentities[group] = ""
+	}
+	for gr := range groupResourceExportNames {
+		ids.groupResourceIdentities[gr] = ""
+	}
+	return ids
+}
+
+// SetClassifier installs a Classifier applied to every identity on
+// resolution.
+func (ids *Identities) SetClassifier(c Classifier) {
+	ids.lock.Lock()
+	defer ids.lock.Unlock()
+	ids.classifier = c
+}
+
+// ExportNames returns the sorted, de-duplicated names of the APIExports
+// these identities are for.
+func (ids *Identities) ExportNames() []string {
+	names := map[string]struct{}{}
+	for _, name := range ids.groupExportNames {
+		names[name] = struct{}{}
+	}
+	for _, name := range ids.groupResourceExportNames {
+		names[name] = struct{}{}
+	}
+	result := make([]string, 0, len(names))
+	for name := range names {
+		result = append(result, name)
+	}
+	sort.Strings(result)
+	return result
+}
+
+// Snapshot returns the identities resolved so far, by APIExport name.
+func (ids *Identities) Snapshot() map[string]ResolvedIdentity {
+	ids.lock.RLock()
+	defer ids.lock.RUnlock()
+	result := make(map[string]ResolvedIdentity, len(ids.byExport))
+	for name, id := range ids.byExport {
+		result[name] = id
+	}
+	return result
+}
+
+// Resolved reports whether every export has an identity.
+func (ids *Identities) Resolved() bool {
+	ids.lock.RLock()
+	defer ids.lock.RUnlock()
+	for _, name := range ids.ExportNames() {
+		if _, ok := ids.byExport[name]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func (ids *Identities) grIdentity(gr schema.GroupResource) (string, bool) {
 	ids.lock.RLock()
 	defer ids.lock.RUnlock()
 
@@ -80,22 +167,86 @@ func (ids *identities) grIdentity(gr schema.GroupResource) (string, bool) {
 	return "", false
 }
 
+// Resolve fills in every identity that is still missing using the provider.
+// It returns an aggregate error when at least one identity is still
+// unknown afterwards; identities that were found are kept, so calling it
+// again only asks for the rest.
+func (ids *Identities) Resolve(ctx context.Context, provider Provider) error {
+	logger := klog.FromContext(ctx)
+	var errs []error
+
+	resolve := func(exportName string) (ResolvedIdentity, bool) {
+		ids.lock.RLock()
+		id, found := ids.byExport[exportName]
+		classifier := ids.classifier
+		ids.lock.RUnlock()
+		if found {
+			return id, true
+		}
+
+		id, err := provider(ctx, exportName)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("APIExport %s: %w", exportName, err))
+			return ResolvedIdentity{}, false
+		}
+		if id.Hash == "" {
+			errs = append(errs, fmt.Errorf("APIExport %s is not ready", exportName))
+			return ResolvedIdentity{}, false
+		}
+		if classifier != nil {
+			id = classifier(exportName, id)
+		}
+
+		ids.lock.Lock()
+		defer ids.lock.Unlock()
+		if existing, found := ids.byExport[exportName]; found {
+			return existing, true
+		}
+		ids.byExport[exportName] = id
+		logger.V(4).Info("APIExport has identity", "export", exportName, "identity", id.Hash, "source", id.Source)
+		return id, true
+	}
+
+	for group, name := range ids.groupExportNames {
+		if id, ok := resolve(name); ok {
+			ids.lock.Lock()
+			ids.groupIdentities[group] = id.Hash
+			ids.lock.Unlock()
+		}
+	}
+	for gr, name := range ids.groupResourceExportNames {
+		if id, ok := resolve(name); ok {
+			ids.lock.Lock()
+			ids.groupResourceIdentities[gr] = id.Hash
+			ids.lock.Unlock()
+		}
+	}
+	return utilerrors.NewAggregate(errs)
+}
+
+// WrapRoundTripper returns a wrapper that injects the resolved identities
+// into wildcard request URLs.
+func (ids *Identities) WrapRoundTripper() func(rt http.RoundTripper) http.RoundTripper {
+	return injectKcpIdentities(ids)
+}
+
 // NewConfigWithWildcardIdentities creates a rest.Config with injected resource identities for
 // individual group or group resources. Each group or resource is coming from one APIExport whose
 // names are passed in as a map.
 //
-// The returned resolve function will get the APIExports and extract the identities.
-// The resolve func might return an error if the APIExport is not found or for other reason. Only
-// after it succeeds a client using the returned rest.Config can use the group and group resources
-// with identities.
+// The returned resolve function asks the provider for the identities. It
+// might return an error if an identity is not (yet) known. Only after it
+// succeeds a client using the returned rest.Config can use the group and
+// group resources with identities. The returned Identities give access to
+// what was resolved and where it came from.
 func NewConfigWithWildcardIdentities(config *rest.Config,
 	groupExportNames map[string]string,
 	groupResourceExportNames map[schema.GroupResource]string,
-	localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) (identityConfig *rest.Config, resolve func(ctx context.Context) error) {
-	identityRoundTripper, identityResolver := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, groupResourceExportNames, config, localShardKubeClusterClient)
+	provider Provider) (identityConfig *rest.Config, resolve func(ctx context.Context) error, ids *Identities) {
+	identityRoundTripper, identityResolver, ids := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, groupResourceExportNames, provider)
 	identityConfig = rest.CopyConfig(config)
 	identityConfig.Wrap(identityRoundTripper)
-	return identityConfig, identityResolver
+	return identityConfig, identityResolver, ids
 }
 
 // NewWildcardIdentitiesWrappingRoundTripper creates an HTTP RoundTripper
@@ -103,130 +254,19 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 // Each group or resource is coming from one APIExport whose names are passed in as a map.
 // The RoundTripper is exposed as a function that allows wrapping the RoundTripper
 //
-// The method also returns the resolve function that gets the APIExports and extract the identities.
-// The resolve func might return an error if the APIExport is not found or for other reason. Only
-// after it succeeds a client using the returned RoundTripper can use the group and group resources
-// with identities.
+// The method also returns the resolve function that asks the provider for
+// the identities. It might return an error if an identity is not (yet)
+// known. Only after it succeeds a client using the returned RoundTripper can
+// use the group and group resources with identities.
 func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]string,
 	groupResourceExportNames map[schema.GroupResource]string,
-	config *rest.Config,
-	localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) (func(rt http.RoundTripper) http.RoundTripper, func(ctx context.Context) error) {
-	ids := &identities{
-		groupIdentities:         map[string]string{},
-		groupResourceIdentities: map[schema.GroupResource]string{},
+	provider Provider) (func(rt http.RoundTripper) http.RoundTripper, func(ctx context.Context) error, *Identities) {
+	ids := NewIdentities(groupExportNames, groupResourceExportNames)
+	wrap := ids.WrapRoundTripper()
+	resolve := func(ctx context.Context) error {
+		return ids.Resolve(ctx, provider)
 	}
-
-	for group := range groupExportNames {
-		ids.groupIdentities[group] = ""
-	}
-	for gr := range groupResourceExportNames {
-		ids.groupResourceIdentities[gr] = ""
-	}
-
-	return injectKcpIdentities(ids), wildcardIdentitiesResolver(ids, groupExportNames, groupResourceExportNames, apiExportIdentityProvider(config, localShardKubeClusterClient))
-}
-
-func wildcardIdentitiesResolver(ids *identities,
-	groupExportNames map[string]string,
-	groupResourceExportNames map[schema.GroupResource]string,
-	apiExportIdentityProviderFn func(ctx context.Context, apiExportName string) (string, error)) func(ctx context.Context) error {
-	return func(ctx context.Context) error {
-		logger := klog.FromContext(ctx)
-		var errs []error
-		for group, name := range groupExportNames {
-			logger := logging.WithObject(logger, &apisv1alpha2.APIExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        name,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
-				},
-			}).WithValues("group", group)
-			ids.lock.RLock()
-			id := ids.groupIdentities[group]
-			ids.lock.RUnlock()
-
-			if id != "" {
-				continue
-			}
-
-			apiExportIdentity, err := apiExportIdentityProviderFn(ctx, name)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			if apiExportIdentity == "" {
-				errs = append(errs, fmt.Errorf("APIExport %s is not ready", name))
-				continue
-			}
-			logger = logger.WithValues("identity", apiExportIdentity)
-
-			ids.lock.Lock()
-			ids.groupIdentities[group] = apiExportIdentity
-			ids.lock.Unlock()
-
-			logger.V(4).Info("APIExport has identity")
-		}
-		for gr, name := range groupResourceExportNames {
-			logger := logging.WithObject(logger, &apisv1alpha2.APIExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        name,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
-				},
-			}).WithValues("gr", gr.String())
-			ids.lock.RLock()
-			id := ids.groupResourceIdentities[gr]
-			ids.lock.RUnlock()
-
-			if id != "" {
-				continue
-			}
-
-			apiExportIdentity, err := apiExportIdentityProviderFn(ctx, name)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			if apiExportIdentity == "" {
-				errs = append(errs, fmt.Errorf("APIExport %s is not ready", name))
-				continue
-			}
-			logger = logger.WithValues("identity", apiExportIdentity)
-
-			ids.lock.Lock()
-			ids.groupResourceIdentities[gr] = apiExportIdentity
-			ids.lock.Unlock()
-
-			logger.V(4).Info("APIExport has identity")
-		}
-		return utilerrors.NewAggregate(errs)
-	}
-}
-
-func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) func(ctx context.Context, apiExportName string) (string, error) {
-	return func(ctx context.Context, apiExportName string) (string, error) {
-		rootShardKcpClient, err := kcpclientset.NewForConfig(config)
-		if err != nil {
-			return "", err
-		}
-
-		if localShardKubeClusterClient != nil {
-			apiExportIdentitiesConfigMap, err := localShardKubeClusterClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1().ConfigMaps("default").Get(ctx, identitycache.ConfigMapName, metav1.GetOptions{})
-			if err == nil {
-				apiExportIdentity, found := apiExportIdentitiesConfigMap.Data[apiExportName]
-				if found {
-					return apiExportIdentity, nil
-				}
-			}
-			// fall back when:
-			// - this is not the root shard (localShardKubeClusterClient == nil)
-			// - the cm wasn't found
-			// - an entry in the cm wasn't found
-		}
-		apiExport, err := rootShardKcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha2().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
-		if err != nil {
-			return "", err
-		}
-		return apiExport.Status.IdentityHash, nil
-	}
+	return wrap, resolve, ids
 }
 
 type roundTripperFunc struct {
@@ -245,7 +285,7 @@ func (rt roundTripperFunc) WrappedRoundTripper() http.RoundTripper {
 }
 
 // injectKcpIdentities injects the kcp identities into the request URLs.
-func injectKcpIdentities(ids *identities) func(rt http.RoundTripper) http.RoundTripper {
+func injectKcpIdentities(ids *Identities) func(rt http.RoundTripper) http.RoundTripper {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc{
 			delegate: rt,
@@ -276,7 +316,7 @@ func injectKcpIdentities(ids *identities) func(rt http.RoundTripper) http.RoundT
 // becomes
 //
 //	/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:<identity>/root
-func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities) (string, error) {
+func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *Identities) (string, error) {
 	// Check for: /clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces/root
 	if !strings.HasPrefix(urlPath, "/clusters/*/apis/") {
 		return urlPath, nil

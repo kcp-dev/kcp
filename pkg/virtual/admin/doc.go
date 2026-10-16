@@ -19,19 +19,21 @@ limitations under the License.
 // views. Admins reach it via the reserved pseudo-workspace path :admin
 // (kubectl ws use :admin).
 //
-// The first (and currently only) resource is the aggregated, read-only view
-// of every shard's Shard object. The view is backed by the cache server
-// (where every shard's Shard object is already replicated), read with
-// shard-wildcard scope. Because all shards proxy the same cache server,
-// every shard serves an identical view in a single resourceVersion space;
-// consumers can fail over between shards and resume watches with the same
-// resourceVersion.
+// The resources are aggregated views of shard-owned objects: every shard's
+// Shard object (read-only but for a few operational fields) and every
+// shard's CoreIdentitySet (read-only), which reports the identities the
+// shard uses for the core APIs. The views are backed by the cache server
+// (where the objects are already replicated), read with shard-wildcard
+// scope. Because all shards proxy the same cache server, every shard serves
+// an identical view in a single resourceVersion space; consumers can fail
+// over between shards and resume watches with the same resourceVersion.
 //
-// This decouples shard discovery and shard administration from the root
-// shard: the front-proxy and admin tooling consume this view instead of the
-// Shard objects in the root workspace. Over time the Admin workspace is the
-// home for further installation-wide admin surfaces (e.g. runtime knobs or
-// debug views) without inventing new endpoints per resource.
+// This decouples shard discovery, identity resolution and shard
+// administration from the root shard: the front-proxy and admin tooling
+// consume these views instead of objects in the root workspace. Over time
+// the Admin workspace is the home for further installation-wide admin
+// surfaces (e.g. runtime knobs or debug views) without inventing new
+// endpoints per resource.
 package admin
 
 // VirtualWorkspaceName is the name of the Admin workspace virtual workspace.
