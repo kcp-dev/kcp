@@ -53,7 +53,8 @@ func TestDeleteHandlers(t *testing.T) {
 			schemaEvents := &recordingInformer{ScopeableSharedIndexInformer: schemas.Informer()}
 			c, err := NewAPIReconciler(nil,
 				&recordingSchemaInformer{APIResourceSchemaClusterInformer: schemas, informer: schemaEvents},
-				&recordingExportInformer{APIExportClusterInformer: exports, informer: exportEvents}, nil, nil)
+				&recordingExportInformer{APIExportClusterInformer: exports, informer: exportEvents},
+				factory.Apis().V1alpha2().APIBindings(), nil, nil)
 			require.NoError(t, err)
 			t.Cleanup(c.queue.ShutDown)
 

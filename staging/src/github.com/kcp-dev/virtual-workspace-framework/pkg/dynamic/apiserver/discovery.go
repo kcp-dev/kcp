@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/endpoints/discovery"
 	"k8s.io/apiserver/pkg/endpoints/handlers/negotiation"
@@ -112,18 +113,37 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 			StorageVersionHash: storageVersionHash,
 		})
 
-		for i := range apiResourceSchema.Spec.Versions {
-			if v := apiResourceSchema.Spec.Versions[i]; v.Subresources.Status != nil {
-				apiResourcesForDiscovery = append(apiResourcesForDiscovery, metav1.APIResource{
-					Name:       apiResourceSchema.Spec.Names.Plural + "/status",
-					Namespaced: apiResourceSchema.Spec.Scope == apiextensionsv1.NamespaceScoped,
-					Kind:       apiResourceSchema.Spec.Names.Kind,
-					Verbs:      supportedVerbs(apiDef.GetSubResourceStorage("status")),
-				})
+		// Advertise every sub-resource that was actually built, rather than only the
+		// ones the APIResourceSchema can name. status and scale come from the schema;
+		// custom sub-resources come from the APIExport and reach us only as entries in
+		// the storage map, so the map is the authoritative list.
+		//
+		// The kind is taken from the storage's own object when it has one, because a
+		// sub-resource may produce a different kind from its parent (scale produces
+		// autoscaling/v1 Scale, and a custom sub-resource may produce anything).
+		for _, subresource := range apiDef.GetSubResourceNames() {
+			storage := apiDef.GetSubResourceStorage(subresource)
+			if storage == nil {
+				continue
 			}
-		}
 
-		// TODO(david): Add scale sub-resource ???
+			apiResource := metav1.APIResource{
+				Name:       apiResourceSchema.Spec.Names.Plural + "/" + subresource,
+				Namespaced: apiResourceSchema.Spec.Scope == apiextensionsv1.NamespaceScoped,
+				Kind:       apiResourceSchema.Spec.Names.Kind,
+				Verbs:      supportedVerbs(storage),
+			}
+
+			if obj := storage.New(); obj != nil {
+				if gvk := obj.GetObjectKind().GroupVersionKind(); !gvk.Empty() && gvk.Kind != apiResourceSchema.Spec.Names.Kind {
+					apiResource.Group = gvk.Group
+					apiResource.Version = gvk.Version
+					apiResource.Kind = gvk.Kind
+				}
+			}
+
+			apiResourcesForDiscovery = append(apiResourcesForDiscovery, apiResource)
+		}
 	}
 
 	resourceListerFunc := discovery.APIResourceListerFunc(func() []metav1.APIResource {
@@ -138,7 +158,37 @@ func (r *versionDiscoveryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 	discovery.NewAPIVersionHandler(codecs, schema.GroupVersion{Group: requestedGroup, Version: requestedVersion}, resourceListerFunc).ServeHTTP(w, req)
 }
 
+// connectVerbs reports the verbs a Connecter is reachable by. A connect subresource
+// is authorized under the verb derived from the HTTP method, not under a literal
+// "connect": kubectl exec POSTs to pods/exec and therefore needs "create" on it. The
+// methods come from the storage so that discovery cannot disagree with what the
+// handler will actually accept.
+func connectVerbs(connecter rest.Connecter) metav1.Verbs {
+	byMethod := map[string]string{
+		"GET":    "get",
+		"POST":   "create",
+		"PUT":    "update",
+		"PATCH":  "patch",
+		"DELETE": "delete",
+	}
+
+	seen := sets.New[string]()
+	for _, method := range connecter.ConnectMethods() {
+		if verb, ok := byMethod[strings.ToUpper(method)]; ok {
+			seen.Insert(verb)
+		}
+	}
+
+	return metav1.Verbs(sets.List(seen)) // sets.List sorts, keeping discovery stable
+}
+
 func supportedVerbs(storage rest.Storage) metav1.Verbs {
+	// A Connecter is not a Getter or a Creater, so the type assertions below would
+	// report no verbs at all for it. Its methods are the authoritative answer.
+	if connecter, isAble := storage.(rest.Connecter); isAble {
+		return connectVerbs(connecter)
+	}
+
 	var verbs metav1.Verbs // given the below order, these will always be in lexicographical order
 	if _, canCreate := storage.(rest.Creater); canCreate {
 		verbs = append(verbs, "create")
