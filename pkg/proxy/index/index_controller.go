@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -76,8 +78,9 @@ func NewController(
 
 		clientGetter: clientGetter,
 
-		shardIndexer: shardInformer.Informer().GetIndexer(),
-		shardLister:  shardInformer.Lister(),
+		shardIndexer:     shardInformer.Informer().GetIndexer(),
+		shardLister:      shardInformer.Lister(),
+		shardsHaveSynced: shardInformer.Informer().HasSynced,
 
 		shardWorkspaceInformers:      map[string]cache.SharedIndexInformer{},
 		shardLogicalClusterInformers: map[string]cache.SharedIndexInformer{},
@@ -135,8 +138,9 @@ type Controller struct {
 
 	clientGetter ClusterClientGetter
 
-	shardIndexer cache.Indexer
-	shardLister  corev1alpha1listers.ShardLister
+	shardIndexer     cache.Indexer
+	shardLister      corev1alpha1listers.ShardLister
+	shardsHaveSynced cache.InformerSynced
 
 	lock                         sync.RWMutex
 	shardWorkspaceInformers      map[string]cache.SharedIndexInformer
@@ -144,6 +148,9 @@ type Controller struct {
 	shardWorkspaceStopCh         map[string]chan struct{}
 
 	state index.State
+
+	// synced is set once HasSynced has returned true.
+	synced atomic.Bool
 }
 
 // Start the controller. It does not really do anything, but to keep the shape of a normal
@@ -305,6 +312,39 @@ func (c *Controller) stopShard(shardName string) {
 	delete(c.shardWorkspaceStopCh, shardName)
 	delete(c.shardWorkspaceInformers, shardName)
 	delete(c.shardLogicalClusterInformers, shardName)
+}
+
+// HasSynced returns true once the Workspace and LogicalCluster informers of
+// every known Shard have done their initial list. Until then the index can miss
+// existing workspaces, and requests for them fail. Once true it stays true, so
+// a Shard added later does not make a running front-proxy unready.
+func (c *Controller) HasSynced() bool {
+	if c.synced.Load() {
+		return true
+	}
+	if !c.shardsHaveSynced() {
+		return false
+	}
+	shards, err := c.shardLister.List(labels.Everything())
+	if err != nil {
+		return false
+	}
+
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	for _, shard := range shards {
+		wsInformer, found := c.shardWorkspaceInformers[shard.Name]
+		if !found || !wsInformer.HasSynced() {
+			return false
+		}
+		lcInformer, found := c.shardLogicalClusterInformers[shard.Name]
+		if !found || !lcInformer.HasSynced() {
+			return false
+		}
+	}
+
+	c.synced.Store(true)
+	return true
 }
 
 func (c *Controller) LookupURL(path logicalcluster.Path) (index.Result, bool) {

@@ -18,6 +18,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -194,7 +195,16 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	handler = genericfilters.WithCORS(handler, c.Options.CorsAllowedOriginList, nil, nil, nil, "true")
 
 	mux := http.NewServeMux()
-	healthz.InstallReadyzHandler(mux, healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory))
+	healthz.InstallReadyzHandler(mux,
+		healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory),
+		// Without a synced index, requests for existing workspaces fail.
+		healthz.NamedCheck("workspace-index", func(_ *http.Request) error {
+			if !s.IndexController.HasSynced() {
+				return errors.New("the workspace index is not synced yet")
+			}
+			return nil
+		}),
+	)
 	healthz.InstallLivezHandler(mux, healthz.PingHealthz)
 
 	// /metrics is served locally by the front proxy (it is not proxied to a
