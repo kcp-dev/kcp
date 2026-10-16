@@ -1,0 +1,191 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.3
+  name: coreidentitysets.admin.kcp.io
+spec:
+  group: admin.kcp.io
+  names:
+    categories:
+    - kcp
+    kind: CoreIdentitySet
+    listKind: CoreIdentitySetList
+    plural: coreidentitysets
+    singular: coreidentityset
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - description: The active core identities key
+      jsonPath: .status.keyID
+      name: KeyID
+      type: string
+    - description: The core identities key currently mounted on the shard
+      jsonPath: .status.observedKeyID
+      name: Observed
+      type: string
+    - description: Whether the shard agrees with the other shards on the core identities
+      jsonPath: .status.conditions[?(@.type=="Consistent")].status
+      name: Consistent
+      type: string
+    - description: Whether the mounted key differs from the active key
+      jsonPath: .status.conditions[?(@.type=="KeyChanged")].status
+      name: KeyChanged
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          CoreIdentitySet records which identities a shard uses for the core
+          APIExports (tenancy.kcp.io, topology.kcp.io, shards.core.kcp.io,
+          migration.kcp.io, cache.kcp.io) and where each of them came from.
+
+          Every shard owns exactly one CoreIdentitySet, named after the shard, in its
+          shard-local system:shard logical cluster. Only the owning shard writes it.
+          It has no spec: it is a report, not a request. The object is replicated to
+          the cache server and every shard's object is visible in the Admin
+          workspace (kubectl ws use :admin), so an administrator sees the identities
+          of the whole installation in one list.
+
+          The identity hashes recorded here are the same plain SHA-256 hex strings
+          that appear in request URLs (workspaces:<hash>) and storage keys. The key
+          ID and derivation that produced an identity are recorded next to it, not
+          inside it.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          status:
+            description: CoreIdentitySetStatus is what the owning shard reports.
+            properties:
+              conditions:
+                description: conditions is a list of conditions that apply to the
+                  CoreIdentitySet.
+                items:
+                  description: Condition defines an observation of a object operational
+                    state.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        Last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed. If that is not known, then using the time when
+                        the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        A human readable message indicating details about the transition.
+                        This field may be empty.
+                      type: string
+                    reason:
+                      description: |-
+                        The reason for the condition's last transition in CamelCase.
+                        The specific API may choose whether or not this field is considered a guaranteed API.
+                        This field may not be empty.
+                      type: string
+                    severity:
+                      description: |-
+                        Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                        understand the current situation and act accordingly.
+                        The Severity field MUST be set only when Status=False.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: |-
+                        Type of condition in CamelCase or in foo.example.com/CamelCase.
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                        can be useful (see .node.status.conditions), the ability to deconflict is important.
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - status
+                  - type
+                  type: object
+                type: array
+              exports:
+                description: |-
+                  exports lists the core APIExports and the identity this shard uses
+                  for each of them, sorted by name.
+                items:
+                  description: CoreIdentity is the identity a shard uses for one core
+                    APIExport.
+                  properties:
+                    derivation:
+                      description: |-
+                        derivation names the algorithm and version that derived the identity
+                        from the key, e.g. hkdf-sha256/v1. Empty unless source is Key.
+                      type: string
+                    identityHash:
+                      description: |-
+                        identityHash is the identity hash the shard uses for this export: the
+                        SHA-256 hex digest of the identity key, as it appears in request URLs
+                        and storage keys.
+                      minLength: 1
+                      type: string
+                    keyID:
+                      description: |-
+                        keyID identifies the key the identity was derived from. Empty unless
+                        source is Key.
+                      type: string
+                    name:
+                      description: |-
+                        name is the name of the APIExport in the root workspace, e.g.
+                        tenancy.kcp.io.
+                      minLength: 1
+                      type: string
+                    source:
+                      description: source says where the identity came from.
+                      enum:
+                      - Legacy
+                      - Key
+                      - DevFile
+                      type: string
+                  required:
+                  - identityHash
+                  - name
+                  - source
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              keyID:
+                description: |-
+                  keyID identifies the active core identities key: the first key the
+                  shard observed. It is a SHA-256 hex digest of the key's public key
+                  (SubjectPublicKeyInfo). Empty when the shard has never had a key.
+                type: string
+              observedKeyID:
+                description: |-
+                  observedKeyID identifies the key currently mounted on the shard via
+                  --core-identities-key-file. Empty when no key is mounted. It differs
+                  from keyID when the key was changed after it was first recorded.
+                type: string
+              shard:
+                description: shard is the name of the shard this object belongs to.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}

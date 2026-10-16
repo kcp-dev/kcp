@@ -33,9 +33,10 @@ type Options struct {
 	// RootKubeconfig points at the root shard.
 	//
 	// Deprecated: shard discovery uses ShardsPeerKubeconfigs (the Admin
-	// workspace of the peer shards) instead. The root kubeconfig is still
-	// required for APIExport identity resolution and will be removed once
-	// identities are resolvable without the root shard.
+	// workspace of the peer shards) instead, and so does the resolution of
+	// the core API identities (from the CoreIdentitySets served there). The
+	// root kubeconfig is only a fallback for peers that predate
+	// CoreIdentitySets and will be removed in a future release.
 	RootKubeconfig        string
 	ShardsKubeconfig      string
 	ShardsPeerKubeconfigs []string
@@ -66,7 +67,7 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.StringVar(&o.MappingFile, "mapping-file", o.MappingFile, "Config file mapping paths to backends")
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
 	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", o.RootKubeconfig, "The path to the kubeconfig of the root shard.")
-	if err := fs.MarkDeprecated("root-kubeconfig", "use --shard-peer-kubeconfig for shard discovery; --root-kubeconfig is still required for APIExport identity resolution and will be removed once identities are resolvable without the root shard."); err != nil {
+	if err := fs.MarkDeprecated("root-kubeconfig", "use --shard-peer-kubeconfig for shard discovery; the identities of the core APIs are read from the Admin workspace of the peers, --root-kubeconfig is only a fallback for peers that predate CoreIdentitySets and will be removed in a future release."); err != nil {
 		panic(err)
 	}
 	fs.StringVar(&o.ShardsKubeconfig, "shards-kubeconfig", o.ShardsKubeconfig, "The path to the kubeconfig used for communication with all shards. The server name if provided is replaced with a shard's hostname.")

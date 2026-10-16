@@ -59,11 +59,13 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
+	configshard "github.com/kcp-dev/kcp/config/shard"
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
@@ -71,6 +73,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/objectcount"
 	permissionclaimlabler "github.com/kcp-dev/kcp/pkg/permissionclaim"
+	"github.com/kcp-dev/kcp/pkg/reconciler/admin/coreidentityset"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
@@ -1813,6 +1816,68 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() && s.KubeSharedInformerFactory.Core().V1().ConfigMaps().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 1)
+		},
+	})
+}
+
+// installCoreIdentitySetController keeps the shard's CoreIdentitySet up to
+// date (leader-elected, it writes), and on every replica follows the local
+// object to keep the core-identities readiness check current.
+func (s *Server) installCoreIdentitySetController(_ context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, coreidentityset.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	localSets := s.KcpSharedInformerFactory.Admin().V1alpha1().CoreIdentitySets()
+	globalSets := s.CacheKcpSharedInformerFactory.Admin().V1alpha1().CoreIdentitySets()
+	globalExports := s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports()
+
+	c, err := coreidentityset.NewController(
+		coreidentityset.Config{
+			ShardName:  s.Options.Extra.ShardName,
+			Key:        s.CoreIdentities.Key,
+			Identities: s.CoreIdentities.Identities,
+			Health:     s.CoreIdentities.Health,
+			Conflict:   s.CoreIdentities.Conflict,
+		},
+		kcpClusterClient,
+		localSets,
+		globalSets,
+		globalExports,
+	)
+	if err != nil {
+		return err
+	}
+
+	// readiness follows the published object on every replica, not only on
+	// the leader that writes it.
+	follow := func(obj interface{}) {
+		if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+			obj = tombstone.Obj
+		}
+		set, ok := obj.(*adminv1alpha1.CoreIdentitySet)
+		if !ok || set.Name != s.Options.Extra.ShardName || logicalcluster.From(set) != configshard.SystemShardCluster {
+			return
+		}
+		s.CoreIdentities.Health.Update(set)
+	}
+	_, _ = localSets.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    follow,
+		UpdateFunc: func(_, obj interface{}) { follow(obj) },
+	})
+
+	return s.registerController(&controllerWrapper{
+		Name: coreidentityset.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return localSets.Informer().HasSynced() && globalSets.Informer().HasSynced() && globalExports.Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {

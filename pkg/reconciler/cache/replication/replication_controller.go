@@ -36,6 +36,7 @@ import (
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
@@ -314,6 +315,15 @@ func InstallIndexers(
 			},
 			Local:  localKcpInformers.Core().V1alpha1().Shards().Informer(),
 			Global: globalKcpInformers.Core().V1alpha1().Shards().Informer(),
+		},
+		adminv1alpha1.SchemeGroupVersion.WithResource("coreidentitysets"): {
+			Kind: "CoreIdentitySet",
+			// shard-owned, written only by the owning shard in its
+			// system:shard logical cluster; replicated so that every shard
+			// (and the Admin workspace) sees every shard's core identities.
+			EventFilter: isNoSystemClusterNameExceptSystemShard,
+			Local:       localKcpInformers.Admin().V1alpha1().CoreIdentitySets().Informer(),
+			Global:      globalKcpInformers.Admin().V1alpha1().CoreIdentitySets().Informer(),
 		},
 		corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
 			Kind: "LogicalCluster",

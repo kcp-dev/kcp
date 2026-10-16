@@ -54,6 +54,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apiexportendpointslice"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/clustercachedresource"
+	"github.com/kcp-dev/kcp/pkg/admission/coreidentityset"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
@@ -84,6 +85,7 @@ var AllOrderedPlugins = beforeWebhooks(
 	workspace.PluginName,
 	logicalclusterfinalizer.PluginName,
 	shard.PluginName,
+	coreidentityset.PluginName,
 	workspacetype.PluginName,
 	workspacetypeexists.PluginName,
 	logicalcluster.PluginName,
@@ -125,6 +127,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	workspace.Register(plugins)
 	logicalclusterfinalizer.Register(plugins)
 	shard.Register(plugins)
+	coreidentityset.Register(plugins)
 	workspacetype.Register(plugins)
 	workspacetypeexists.Register(plugins)
 	logicalcluster.Register(plugins)
@@ -160,6 +163,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	workspace.PluginName,
 	logicalclusterfinalizer.PluginName,
 	shard.PluginName,
+	coreidentityset.PluginName,
 	workspacetype.PluginName,
 	workspacetypeexists.PluginName,
 	logicalcluster.PluginName,

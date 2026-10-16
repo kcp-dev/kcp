@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
@@ -234,4 +235,96 @@ func TestAdminWorkspaceShards(t *testing.T) {
 		require.NotNil(c, cond, "expected the ResourceLimitsApplied condition")
 		require.Equal(c, "no limits configured", cond.Message, "a stale message would claim limits are still in force")
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+}
+
+// TestAdminWorkspaceCoreIdentitySets checks that every shard publishes its
+// CoreIdentitySet, that the Admin workspace lists all of them, that the
+// identities they report are the ones of the core APIExports in the root
+// workspace, and that the view is read-only.
+func TestAdminWorkspaceCoreIdentitySets(t *testing.T) {
+	t.Parallel()
+	framework.Suite(t, "control-plane")
+
+	server := kcptesting.SharedKcpServer(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	cfg := server.BaseConfig(t)
+	kcpClusterClient, err := kcpclusterclientset.NewForConfig(cfg)
+	require.NoError(t, err)
+	rootClient := kcpClusterClient.Cluster(core.RootCluster.Path())
+
+	vwCfg := rest.CopyConfig(cfg)
+	vwURL, err := url.Parse(cfg.Host)
+	require.NoError(t, err)
+	vwURL.Path = "/services/admin"
+	vwCfg.Host = vwURL.String()
+	adminClient, err := kcpclientset.NewForConfig(vwCfg)
+	require.NoError(t, err)
+
+	t.Logf("Collect the identities of the core APIExports in the root workspace")
+	coreExports := map[string]string{}
+	for _, name := range []string{"tenancy.kcp.io", "topology.kcp.io", "shards.core.kcp.io", "migration.kcp.io"} {
+		export, err := rootClient.ApisV1alpha2().APIExports().Get(ctx, name, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.NotEmpty(t, export.Status.IdentityHash, "APIExport %s has no identity", name)
+		coreExports[name] = export.Status.IdentityHash
+	}
+
+	t.Logf("List CoreIdentitySets through the Admin workspace at %s", vwCfg.Host)
+	var sets *adminv1alpha1.CoreIdentitySetList
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		sets, err = adminClient.AdminV1alpha1().CoreIdentitySets().List(ctx, metav1.ListOptions{})
+		require.NoError(c, err)
+		byName := map[string]adminv1alpha1.CoreIdentitySet{}
+		for _, set := range sets.Items {
+			byName[set.Name] = set
+		}
+		for _, shard := range server.ShardNames() {
+			set, ok := byName[shard]
+			require.True(c, ok, "no CoreIdentitySet for shard %q, got %v", shard, sets.Items)
+			require.Equal(c, shard, set.Status.Shard)
+			require.NotContains(c, set.Annotations, "kcp.io/shard", "cache bookkeeping annotations must be stripped")
+			require.True(c, conditions.IsTrue(&set, adminv1alpha1.CoreIdentitySetConsistent), "shard %q is not consistent: %v", shard, set.Status.Conditions)
+			require.False(c, conditions.IsTrue(&set, adminv1alpha1.CoreIdentitySetKeyChanged), "shard %q reports a changed key: %v", shard, set.Status.Conditions)
+
+			reported := map[string]adminv1alpha1.CoreIdentity{}
+			for _, export := range set.Status.Exports {
+				reported[export.Name] = export
+			}
+			for name, hash := range coreExports {
+				export, ok := reported[name]
+				require.True(c, ok, "shard %q reports no identity for %s", shard, name)
+				require.Equal(c, hash, export.IdentityHash, "shard %q uses a different identity for %s", shard, name)
+				require.NotEmpty(c, export.Source, "shard %q reports no source for %s", shard, name)
+				if export.Source == adminv1alpha1.CoreIdentitySourceKey {
+					require.NotEmpty(c, export.KeyID)
+					require.NotEmpty(c, export.Derivation)
+				}
+			}
+		}
+	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Logf("Get every listed CoreIdentitySet by name through the Admin workspace")
+	for _, listed := range sets.Items {
+		set, err := adminClient.AdminV1alpha1().CoreIdentitySets().Get(ctx, listed.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Equal(t, listed.Name, set.Name)
+	}
+	_, err = adminClient.AdminV1alpha1().CoreIdentitySets().Get(ctx, "does-not-exist", metav1.GetOptions{})
+	require.True(t, apierrors.IsNotFound(err), "expected NotFound for an unknown shard, got %v", err)
+
+	t.Logf("The view is read-only")
+	tampered := sets.Items[0].DeepCopy()
+	tampered.Status.KeyID = "tampered"
+	_, err = adminClient.AdminV1alpha1().CoreIdentitySets().Update(ctx, tampered, metav1.UpdateOptions{})
+	require.Error(t, err, "expected the update to be rejected")
+	require.True(t, apierrors.IsMethodNotSupported(err) || apierrors.IsForbidden(err), "expected method-not-supported or forbidden, got %v", err)
+
+	t.Logf("Direct writes of CoreIdentitySets are denied by admission")
+	_, err = rootClient.AdminV1alpha1().CoreIdentitySets().Create(ctx, &adminv1alpha1.CoreIdentitySet{
+		ObjectMeta: metav1.ObjectMeta{Name: "fake"},
+	}, metav1.CreateOptions{})
+	require.True(t, apierrors.IsForbidden(err), "expected forbidden, got: %v", err)
 }
