@@ -59,10 +59,9 @@ import (
 //     behaviourally: a system:masters injection must not grant access).
 //
 // NOTE: this test is intentionally NOT parallel. It binds an echo backend on the
-// fixed front-proxy mapping port (localhost:2443), which is shared with
-// TestMappingWithClusterContext; running serially avoids a port clash.
+// fixed front-proxy mapping port (localhost:2443).
 //
-//nolint:paralleltest // binds the fixed front-proxy mapping port localhost:2443, shared with TestMappingWithClusterContext; must run serially.
+//nolint:paralleltest // binds the fixed front-proxy mapping port localhost:2443; must run serially.
 func TestIdentityHeaderInjectionDoesNotEscalate(t *testing.T) {
 	framework.Suite(t, "control-plane")
 

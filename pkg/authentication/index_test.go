@@ -40,7 +40,6 @@ func TestCrossShardWorkspaceType(t *testing.T) {
 	)
 
 	clusterIndex := index.New(nil)
-	authIndex := NewIndex(t.Context(), nil)
 
 	// setup
 	clusterIndex.UpsertShard("root", "https://root.io")
@@ -48,9 +47,6 @@ func TestCrossShardWorkspaceType(t *testing.T) {
 
 	// setup the root logicalcluster (has no workspace)
 	clusterIndex.UpsertLogicalCluster("root", newLogicalCluster("root", "root:root"))
-
-	// place the custom workspace type
-	authIndex.UpsertWorkspaceType("root", newWorkspaceType("custom-type", "root"))
 
 	// setup the team workspace (ws is on root shard in root workspace, cluster is on the 2nd shard)
 	ws := newWorkspace("team1", "root", teamCluster)
@@ -66,13 +62,6 @@ func TestCrossShardWorkspaceType(t *testing.T) {
 	require.Equal(t, shardName, r.Shard)
 	require.Equal(t, teamCluster, r.Cluster.String())
 	require.Equal(t, "root:custom-type", r.Type.String())
-}
-
-func newWorkspaceType(name, cluster string) *tenancyv1alpha1.WorkspaceType {
-	return &tenancyv1alpha1.WorkspaceType{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: map[string]string{"kcp.io/cluster": cluster}},
-		Spec:       tenancyv1alpha1.WorkspaceTypeSpec{},
-	}
 }
 
 func newWorkspace(name, cluster, scheduledCluster string) *tenancyv1alpha1.Workspace {

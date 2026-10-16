@@ -70,7 +70,7 @@ func startFrontProxy(
 
 	mappings := []types.PathMapping{
 		{
-			Path:            "/e2e/clusters/{cluster}/",
+			Path:            "/e2e/",
 			Backend:         "https://localhost:2443",
 			BackendServerCA: filepath.Join(workDirPath, ".kcp", "serving-ca.crt"),
 			// in the existing testcases, these two do not matter, but have to be non-empty

@@ -214,11 +214,8 @@ func TestWithProxyAuthHeaders_CustomHeaderNames(t *testing.T) {
 
 // TestWithProxyAuthHeaders_NoAuthenticatedUser ensures that when no user is in
 // the request context (the proxy did not authenticate the request), the handler
-// passes through without stamping. The inbound forged headers are left as-is
-// here because WithProxyAuthHeaders only stamps for authenticated requests; in
-// the real chain such a request is rejected by WithOptionalAuthentication's
-// failed handler and never reaches a shard mapping. This documents that
-// contract.
+// strips inbound identity headers instead of stamping, so a forwarded
+// unauthenticated request cannot assert an identity to the backend.
 func TestWithProxyAuthHeaders_NoAuthenticatedUser(t *testing.T) {
 	t.Parallel()
 	var served bool

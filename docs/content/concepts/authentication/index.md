@@ -26,6 +26,10 @@ Four authentication strategies are enabled in union.
 
 You can configure them with the settings from Kubernetes control plane [strategies](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#authentication-strategies).
 
+Requests the front-proxy cannot authenticate are forwarded to the shard without identity headers,
+with the original `Authorization` header.
+The shard then authenticates the request itself, e.g. via [per-workspace authentication](./workspace.md) or its own authentication flags.
+
 ### Authentication Flow With Client Certificate
 
 ```mermaid

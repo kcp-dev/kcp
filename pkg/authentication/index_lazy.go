@@ -34,7 +34,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/shardlookup"
 )
 
-// lazyIndex, like eagerIndex, keeps track of authenticators for
+// lazyIndex keeps track of authenticators for
 // workspace types - but only builds them on demand and caches them for
 // a fixed duration.
 //
@@ -93,25 +93,69 @@ func NewLazyIndex(
 	return idx
 }
 
+// Lookup retrieves or builds the request WAC for the WorkspaceType.
+//
+// If the authenticator is built and cached it is checked against the
+// currently known RVs of the WorkspaceType and
+// WorkspaceAuthenticatorConfigurations.
+// If the WST or the WAC resource version does not match the cached
+// authenticators it is rebuild.
 func (idx *lazyIndex) Lookup(wsType logicalcluster.Path) (authenticator.Request, bool) {
 	clusterPath, wstName := wsType.Split()
 	if clusterPath.Empty() {
 		return nil, false
 	}
 
+	state, ok := idx.lookup(wsType, clusterPath, wstName)
+	if !ok {
+		return nil, false
+	}
+
+	// check if the WAC has been updated in the meantime
+	if idx.isCurrent(clusterPath, wstName, state) {
+		return state.authenticator, true
+	}
+
+	// delete and fetch again, the authenticator will be rebuilt
+	idx.authenticators.Delete(wsType.String())
+	state, ok = idx.lookup(wsType, clusterPath, wstName)
+	return state.authenticator, ok
+}
+
+func (idx *lazyIndex) lookup(wsType, clusterPath logicalcluster.Path, wstName string) (authenticatorState, bool) {
 	state, err := idx.authenticators.Get(wsType.String(), func() (authenticatorState, error) {
 		return idx.buildUnionAuthenticator(clusterPath, wstName)
 	})
 	if err != nil {
 		if errors.Is(err, errCauseEmpty) {
-			return nil, false
+			return authenticatorState{}, false
 		}
 		logger := klog.Background().WithValues("controller", controllerName, "workspaceType", wsType)
 		logger.Error(err, "Failed to start workspace authenticator.")
-		return nil, false
+		return authenticatorState{}, false
+	}
+	return state, true
+}
+
+// isCurrent reports whether the WorkspaceType and WACs state was built from are unchanged.
+func (idx *lazyIndex) isCurrent(clusterPath logicalcluster.Path, wstName string, state authenticatorState) bool {
+	wst, err := indexers.ByPathAndNameWithFallback[*tenancyv1alpha1.WorkspaceType](
+		tenancyv1alpha1.Resource("workspacetypes"),
+		idx.localWSTIndexer, idx.cacheWSTIndexer,
+		clusterPath, wstName,
+	)
+	if err != nil || wst.ResourceVersion != state.wstResourceVersion {
+		return false
 	}
 
-	return state.authenticator, true
+	clusterName := logicalcluster.From(wst)
+	for name, resourceVersion := range state.wacResourceVersions {
+		wac, err := idx.getWAC(clusterName, name)
+		if err != nil || wac.ResourceVersion != resourceVersion {
+			return false
+		}
+	}
+	return true
 }
 
 // buildUnionAuthenticator builds new authenticators for each referenced
@@ -141,14 +185,14 @@ func (idx *lazyIndex) Lookup(wsType logicalcluster.Path) (authenticator.Request,
 //  2. Redirecting per-workspace auth entirely to front-proxy just loads
 //     more things off to the front-proxy, leading to more single point
 //     of failure
-//  3. Caching WACs in the cache server: Also leads to more single point
-//     of failure and pushes even more resources into the cache server.
 //
-// The only option I could somewhat see is an informer that can watch
-// and update only requested resources. Then a shard could simply setup
-// the pull-first informer per shard and build authenticators on demand.
-// Then the watches for the WACs are set up and when these change the
-// authenticator could be invalidated and rebuild.
+// TODO(ntnn): Since WACs are now pushed to the cache-server and we are
+// already tracking the RVs in the cached authenticators this could be
+// optimized.
+// Handlers on the WAC could rebuild WAC authenticators and the union
+// authenticators using them.
+// For instances using a lot per-workspace authentication with the same
+// WAC reused across them that would reduce resource consumption.
 func (idx *lazyIndex) buildUnionAuthenticator(clusterPath logicalcluster.Path, wstName string) (authenticatorState, error) {
 	wst, err := indexers.ByPathAndNameWithFallback[*tenancyv1alpha1.WorkspaceType](
 		tenancyv1alpha1.Resource("workspacetypes"),
@@ -166,6 +210,7 @@ func (idx *lazyIndex) buildUnionAuthenticator(clusterPath logicalcluster.Path, w
 
 	clusterName := logicalcluster.From(wst)
 	var authenticators []authenticator.Request
+	wacResourceVersions := make(map[string]string, len(wst.Spec.AuthenticationConfigurations))
 
 	for _, ref := range wst.Spec.AuthenticationConfigurations {
 		wac, err := idx.getWAC(clusterName, ref.Name)
@@ -187,10 +232,13 @@ func (idx *lazyIndex) buildUnionAuthenticator(clusterPath logicalcluster.Path, w
 			return authenticatorState{}, err
 		}
 		authenticators = append(authenticators, state.authenticator)
+		wacResourceVersions[wac.Name] = wac.ResourceVersion
 	}
 
 	return authenticatorState{
-		cancel:        parentCancel,
-		authenticator: wrapWithSecurityFilters(authenticatorunion.New(authenticators...)),
+		cancel:              parentCancel,
+		authenticator:       wrapWithSecurityFilters(authenticatorunion.New(authenticators...)),
+		wstResourceVersion:  wst.ResourceVersion,
+		wacResourceVersions: wacResourceVersions,
 	}, nil
 }

@@ -13,9 +13,11 @@ This document describes how to enable and use this feature. Please refer to [OID
 
 ## Feature Gate
 
-The feature is guarded by a feature gate called `WorkspaceAuthentication`, which is disabled by default. It can be independently enabled on any front-proxy and/or any kcp shard servers, though it is recommended and intended to enable it on front-proxies only. The shard support is mainly for testing and developing.
+The feature is guarded by a feature gate called `WorkspaceAuthentication`, which is disabled by default. Per-workspace authentication is authenticated by the shards, so the feature gate must be enabled on every shard.
 
-Add `--feature-gates=WorkspaceAuthentication=true` to the CLI flags on the front-proxy to enable the feature.
+Add `--feature-gates=WorkspaceAuthentication=true` to the CLI flags of every kcp shard to enable the feature.
+
+The feature gate has no effect on the front-proxy. The front-proxy forwards bearer tokens it cannot authenticate itself to the shard, which then authenticates them.
 
 ## Overview
 
@@ -25,8 +27,9 @@ Workspace types then reference a set of auth configs, and their configuration wi
 
 For every incoming HTTPS request, kcp will then resolve the logicalcluster, determine the used workspace type, assemble the list of auth configs and create an authenticator suitable for exactly the one logicalcluster targeted by the request. This workspace authenticator is an *alternative* to kcp's regular authentication (i.e. it forms a union with it).
 
-This authentication can happen in the front-proxy or on each shard individually. However only the front-proxy has a global view across all shards and will be able to reliably resolve everything necessary. The shard-local per-workspace authentication really only works on a single
-shard and requires that all of `Workspace`, `WorkspaceType`, auth configs and `LogicalClusters` are on the same local shard. Because of this, it's recommended to use the front-proxy to handle per-workspace authentication.
+This authentication happens on the shard hosting the logicalcluster. `WorkspaceTypes` and auth configs are replicated to the cache server, so the shard can resolve them even when they live on a different shard than the workspace.
+
+Authenticators are built on the first request for a workspace type and cached. A change to the `WorkspaceType` or to any of its auth configs is detected on the next request and the authenticator is rebuilt.
 
 ## OIDC
 
@@ -38,42 +41,7 @@ For example, suppose kcp is started with `--api-audiences=https://kcp.example.co
 
 ## Virtual Workspaces
 
-The OIDC support is limited to standard cluster access (i.e. requests to `/clusters/...` in kcp) because virtual workspaces (usually anything under `/services/`) will have custom, unknown URL formats and by default the kcp front-proxy is only configured via URL prefixes, so for example admins could configure `/services/myservice/` to be sent to one special Service/Pod, but the front-proxy would have no knowledge about anything beyond that, including any possible cluster context.
-
-To enable the front-proxy to perform per-workspace authentication, even for virtual workspaces, a more advanced URL pattern needs to be configured in the front-proxy's `mapping.yaml`: Each mapping still has one `path` field that is treated as a prefix, but this path can contain placeholders (like `/services/{servicename}/` would match `/services/foo` and `/services/bar`) as described in the [Go documentation](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux). These placeholders can be used to give the front-proxy a hint about the cluster context, which enables it to then lookup and handle authentication for that cluster.
-
-!!! note
-    Since in kcp you configure a _prefix_, but Go's URL matching matches the entire URL, technically a path like `/foo` in the mapping config would only ever match the literal `GET /foo` request. Because of this, kcp will actually take every path mapping and add it twice to the mux: once the original mapping (`/foo`) and once as `/foo/{trail...}` to enable matching requests like `GET /foo/bar`.
-
-There is currently only 1 placeholder that has meaning: `{cluster}`. If a URL matches a path mapping that contains a `{cluster}` placeholder, and that value is not empty, then the front-proxy will be enable per-workspace authentication (if the feature is enabled, of course) for this request.
-
-Here is an example for a path mapping that configures such a special virtual workspace:
-
-```yaml
-# fallback route to send all non-matched requests to this shard
-- path: /
-  backend: https://kcp:6443
-  backend_server_ca: /etc/kcp/tls/ca/tls.crt
-  proxy_client_cert: /etc/kcp-front-proxy/requestheader-client/tls.crt
-  proxy_client_key: /etc/kcp-front-proxy/requestheader-client/tls.key
-
-# configure an explicit rule for a custom virtual workspace
-- path: /services/organization/clusters/{cluster}
-  backend: https://my-virtual-workspaces:6444
-  backend_server_ca: /etc/kcp/tls/ca/tls.crt
-  proxy_client_cert: /etc/kcp-front-proxy/requestheader-client/tls.crt
-  proxy_client_key: /etc/kcp-front-proxy/requestheader-client/tls.key
-
-# If your custom virtual workspace also offers non-cluster-scoped endpoints,
-# make sure to include this as a fallback; the longer match will win.
-- path: /services/organization
-  backend: https://my-virtual-workspaces:6444
-  backend_server_ca: /etc/kcp/tls/ca/tls.crt
-  proxy_client_cert: /etc/kcp-front-proxy/requestheader-client/tls.crt
-  proxy_client_key: /etc/kcp-front-proxy/requestheader-client/tls.key
-```
-
-You can make use of placeholders other than `{cluster}`, but their values will now have any meaning and will not be made available to the front-proxy's backends. Do note that in future kcp versions, more placeholders with special meaning might be introduced.
+Virtual workspaces are expected to handle authentication and authorization themselves.
 
 ## Limitations
 
@@ -81,9 +49,9 @@ This feature has some small limitations that users should keep in mind:
 
 * As mentioned above, the JWT validation for a workspace is not 100% independent from the global kcp authentication: tokens will need to contain kcp's global API audience (configured with `--api-audiences`) and any audience configured in the auth configs. You cannot have a token not contain kcp's global audience.
 * `WorkspaceAuthenticationConfiguration` objects must reside in the same logicalcluster as the `WorkspaceType`.
-* Workspace authenticators are started asynchronously and it will take a couple of seconds for them to be ready.
-* The workspace authentication in the localproxy, as part of a single shard server, only knows about the data on the local shard and cannot handle cross-shard authentication. Users are advised to use the front-proxy instead.
-* Even when the feature is disabled on all shards and all front-proxies, the API (CRDs) are always available in kcp. Admins might uses RBAC or webhooks to prevent creating `WorkspaceAuthenticationConfiguration` objects if needed.
+* Workspace authenticators are built on the first request for a workspace type. This request waits until the OIDC discovery for the issuers has finished, which can take a couple of seconds.
+* If an authenticator cannot be built, for example because an auth config does not exist yet, the failure is cached for 10 seconds.
+* Even when the feature is disabled on all shards, the API (CRDs) are always available in kcp. Admins might uses RBAC or webhooks to prevent creating `WorkspaceAuthenticationConfiguration` objects if needed.
 * It is not possible to authenticate users with a username starting with with `system:` through per-workspace authentication.
 * It is not possible to assign groups starting with `system:` to users authenticated via per-workspace authentication, e.g. via claim mappings.
 * It is not possible to set keys containing `kcp.io` through the extra mappings in the authentication configuration.
@@ -94,7 +62,7 @@ In this example we want to create a workspace where users with tokens from our l
 
 ### Step 0: Enabling the Feature
 
-Add `--feature-gates=WorkspaceAuthentication=true` to the CLI flags on the front-proxy to enable the feature. When developing or just testing, you can also add the feature gate to the kcp process like
+Add `--feature-gates=WorkspaceAuthentication=true` to the CLI flags of every kcp shard to enable the feature, for example
 
 ```bash
 kcp start --feature-gates=WorkspaceAuthentication=true
