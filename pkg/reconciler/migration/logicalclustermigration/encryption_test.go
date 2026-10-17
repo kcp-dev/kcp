@@ -61,7 +61,7 @@ func TestWriteDumpEntriesEncryption(t *testing.T) {
 	for _, mode := range []string{"aesgcm", "aescbc", "identity"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
-			ctx := context.Background()
+			ctx := t.Context()
 			makeTransformer := func(key string) value.Transformer {
 				block, err := aes.NewCipher([]byte(key))
 				require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestWriteDumpEntriesEncryptionFailure(t *testing.T) {
 	t.Parallel()
 	kv := &recordingPutKV{values: map[string][]byte{}}
 	transformers := encryptionconfig.StaticTransformers{schema.GroupResource{Resource: "secrets"}: failedWriteTransformer{}}
-	err := writeDumpEntries(context.Background(), kv, "/shard/dest", transformers, []migrationv1alpha1.EtcdEntry{{Key: "core/secrets/cluster/default/s1", Value: []byte("secret")}})
+	err := writeDumpEntries(t.Context(), kv, "/shard/dest", transformers, []migrationv1alpha1.EtcdEntry{{Key: "core/secrets/cluster/default/s1", Value: []byte("secret")}})
 	require.ErrorContains(t, err, "encryption unavailable")
 	require.Empty(t, kv.values)
 }
