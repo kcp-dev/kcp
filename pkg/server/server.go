@@ -662,6 +662,10 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		s.publishCoreIdentitySet(hookCtx)
 		logger.Info("finished getting kcp APIExport identities")
+		// a rotated identity is published right away, so the front-proxy and
+		// the other shards, which read the CoreIdentitySets, follow quickly.
+		s.CoreIdentities.Identities.AddChangeListener(func() { s.publishCoreIdentitySet(hookCtx) })
+		go s.refreshIdentities(hookCtx)
 
 		s.KcpSharedInformerFactory.Start(hookCtx.Done())
 		s.CacheKcpSharedInformerFactory.Start(hookCtx.Done())

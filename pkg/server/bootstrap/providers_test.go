@@ -234,12 +234,12 @@ func TestIdentitiesResolve(t *testing.T) {
 	}
 	require.NoError(t, ids.Resolve(ctx, rest))
 	require.True(t, ids.Resolved())
-	require.Equal(t, "t", ids.Snapshot()["tenancy.kcp.io"].Hash, "an identity, once resolved, never changes")
+	require.Equal(t, "t", ids.Snapshot()["tenancy.kcp.io"].Hash, "Resolve never replaces a resolved identity")
 
-	got, err := decorateWildcardPathsWithResourceIdentities("/clusters/*/apis/migration.kcp.io/v1alpha1/apiexportidentityrotations", ids)
+	got, _, err := decorateWildcardPathsWithResourceIdentities("/clusters/*/apis/migration.kcp.io/v1alpha1/apiexportidentityrotations", ids)
 	require.NoError(t, err)
 	require.Equal(t, "/clusters/*/apis/migration.kcp.io/v1alpha1/apiexportidentityrotations:migration.kcp.io", got)
-	got, err = decorateWildcardPathsWithResourceIdentities("/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces/root", ids)
+	got, _, err = decorateWildcardPathsWithResourceIdentities("/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces/root", ids)
 	require.NoError(t, err)
 	require.Equal(t, "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:t/root", got)
 }

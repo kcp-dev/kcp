@@ -159,7 +159,14 @@ func Run(ctx context.Context, o *options.Options) error {
 		bootstrap.CacheProvider(cacheKcpClusterClient),
 		bootstrap.RootAPIExportProvider(nonIdentityConfig),
 	)
-	identityConfig, resolveIdentities, _ := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, identityProvider)
+	identityConfig, resolveIdentities, identities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, identityProvider)
+	// after the initial resolution, follow rotated identities. The shard's
+	// own CoreIdentitySet is skipped: it reports what the shard used so far.
+	refreshProvider := bootstrap.Chain(
+		bootstrap.LegacyConfigMapProvider(localShardKubeClusterClient),
+		bootstrap.CacheProvider(cacheKcpClusterClient),
+		bootstrap.RootAPIExportProvider(nonIdentityConfig),
+	)
 	var identityErr error
 	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 		if err := resolveIdentities(ctx); err != nil {
@@ -175,6 +182,7 @@ func Run(ctx context.Context, o *options.Options) error {
 		}
 		return err
 	}
+	go identities.RunRefresher(ctx, refreshProvider)
 
 	// create clients and informers
 	kubeClusterClient, err := kcpkubernetesclient.NewForConfig(identityConfig)

@@ -306,6 +306,7 @@ func (s preparedServer) Run(ctx context.Context) error {
 		return err
 	}
 	s.identitiesReady.set(nil)
+	go s.CompletedConfig.RefreshIdentities(ctx)
 
 	// start indexes
 	go s.IndexController.Start(ctx, 2)

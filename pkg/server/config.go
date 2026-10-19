@@ -116,6 +116,10 @@ type ExtraConfig struct {
 	// resource identities into the rest.Config used by the client. Only after it succeeds,
 	// the clients can wildcard-list/watch most kcp resources.
 	resolveIdentities func(ctx context.Context) error
+	// refreshIdentities keeps the identities resolved by resolveIdentities
+	// up to date until its context is done, e.g. across an APIExport
+	// identity rotation. It is started after resolveIdentities succeeded.
+	refreshIdentities func(ctx context.Context)
 	IdentityConfig    *rest.Config
 	// CoreIdentities is the shard's state around the core APIExport
 	// identities: the key, what was resolved, and the readiness check.
@@ -319,11 +323,18 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for the root shard, err: %w", c.Options.Extra.RootShardKubeconfigFile, err)
 		}
 	}
+	// refreshProvider reports the current identities of the core APIExports
+	// after the initial resolution, so rotated identities are picked up. It
+	// never asks this shard's own CoreIdentitySet or the core identities
+	// key: those report what the shard already uses, and a rotated identity
+	// is not derived from the key.
+	var refreshProvider bootstrap.Provider
 	if c.Options.Extra.ShardName == corev1alpha1.RootShard {
 		// the root shard hosts the root workspace: its APIExports are the
 		// source of truth. Their identity secrets are seeded from
 		// --root-identities-file and the core identities key before.
 		provider = bootstrap.RootAPIExportProvider(c.GenericConfig.LoopbackClientConfig)
+		refreshProvider = provider
 	} else {
 		// in order of preference: what this shard already uses, what the
 		// cache server knows, the key, and (legacy) the root shard.
@@ -333,10 +344,16 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			bootstrap.CacheProvider(c.KcpCacheClusterClient),
 			bootstrap.KeyProvider(c.CoreIdentities.Key, bootstrap.KeyGate(c.CoreIdentities.Key, c.CoreIdentities.Local)),
 		}
+		refreshProviders := []bootstrap.Provider{
+			bootstrap.LegacyConfigMapProvider(c.KubeClusterClient),
+			bootstrap.CacheProvider(c.KcpCacheClusterClient),
+		}
 		if nonIdentityRootKcpShardBaseConfig != nil {
 			providers = append(providers, bootstrap.RootAPIExportProvider(nonIdentityRootKcpShardBaseConfig))
+			refreshProviders = append(refreshProviders, bootstrap.RootAPIExportProvider(nonIdentityRootKcpShardBaseConfig))
 		}
 		provider = bootstrap.Chain(providers...)
+		refreshProvider = bootstrap.Chain(refreshProviders...)
 	}
 
 	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
@@ -346,6 +363,8 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		devFileHashes = c.CoreIdentities.DevFile.Hashes()
 	}
 	c.CoreIdentities.Identities.SetClassifier(bootstrap.WithRecorded(c.CoreIdentities.Local, bootstrap.NewClassifier(c.CoreIdentities.Key, devFileHashes)))
+	identities := c.CoreIdentities.Identities
+	c.refreshIdentities = func(ctx context.Context) { identities.RunRefresher(ctx, refreshProvider) }
 
 	c.IdentityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
 	c.IdentityConfig.Wrap(kcpShardIdentityRoundTripper)

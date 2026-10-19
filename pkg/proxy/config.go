@@ -49,6 +49,10 @@ type ExtraConfig struct {
 	// resource identities into the rest.Config used by the client. Only after it succeeds,
 	// the clients can wildcard-list/watch most kcp resources.
 	ResolveIdentities func(ctx context.Context) error
+	// RefreshIdentities keeps the identities resolved by ResolveIdentities
+	// up to date until its context is done, e.g. across an APIExport
+	// identity rotation. Start it after ResolveIdentities succeeded.
+	RefreshIdentities func(ctx context.Context)
 	RootShardConfig   *rest.Config
 	ShardsConfig      *rest.Config
 	// PeersConfig points at the Admin workspace (/services/admin) of the
@@ -116,7 +120,12 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 		bootstrap.RootAPIExportProvider(nonIdentityRootConfig),
 	)
 	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-	kcpShardIdentityRoundTripper, c.ResolveIdentities, _ = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, identityProvider)
+	var identities *bootstrap.Identities
+	kcpShardIdentityRoundTripper, c.ResolveIdentities, identities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, identityProvider)
+	// the CoreIdentitySets in the Admin workspace follow a rotation once the
+	// shards picked it up; the root shard's set wins, so they never mix a
+	// rotated and a stale identity.
+	c.RefreshIdentities = func(ctx context.Context) { identities.RunRefresher(ctx, identityProvider) }
 	c.RootShardConfig = rest.CopyConfig(nonIdentityRootConfig)
 	c.RootShardConfig.Wrap(kcpShardIdentityRoundTripper)
 
