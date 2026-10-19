@@ -195,6 +195,74 @@ func entryKeys(entries []migrationv1alpha1.EtcdEntry) []string {
 	return keys
 }
 
+func TestScanEtcdEntriesTargetedRanges(t *testing.T) {
+	t.Parallel()
+	for _, limit := range []int64{1, 2, 1000} {
+		t.Run(fmt.Sprint(limit), func(t *testing.T) {
+			t.Parallel()
+			data := map[string]string{
+				"/registry/core/configmaps/team-a/default/a":                    "first",
+				"/registry/core/configmaps/team-a/default/b":                    "second",
+				"/registry/core/namespaces/team-a/default":                      "third",
+				"/registry/example.io/widgets/customresources/team-a/default/w": "fourth",
+				"/registry/example.io/widgets/identity-a/team-a/default/w":      "fifth",
+				"/registry/example.io/widgets/identity-b/team-a/w":              "sixth",
+			}
+			want := make([]string, 0, len(data))
+			for key := range data {
+				want = append(want, key[len("/registry/"):])
+			}
+			sort.Strings(want)
+			for _, cluster := range []string{"team-0", "team-a-extra", "team-z"} {
+				for _, family := range []string{"core/configmaps", "example.io/widgets/customresources", "example.io/widgets/identity-a", "example.io/widgets/identity-b"} {
+					data["/registry/"+family+"/"+cluster+"/default/other"] = "do not fetch"
+				}
+			}
+			data["/registry/invalid"] = "ignored"
+			data["/registry/example.io/widgets/customresources"] = "ignored"
+			kv := newFakeKV(data)
+			var got []string
+			token := ""
+			for page := 0; ; page++ {
+				require.Less(t, page, 20)
+				entries, next, err := scanEtcdEntries(t.Context(), kv, "/registry", "team-a", token, limit, 12, nil)
+				require.NoError(t, err)
+				got = append(got, entryKeys(entries)...)
+				if next == "" {
+					break
+				}
+				require.Greater(t, next, token)
+				token = next
+			}
+			require.Equal(t, want, got)
+			for _, key := range kv.valueKeys {
+				require.Contains(t, want, key[len("/registry/"):], "unrelated values must never be read")
+			}
+		})
+	}
+}
+
+func TestScanEtcdEntriesSkipsUnrelatedObjects(t *testing.T) {
+	t.Parallel()
+	for _, count := range []int{10, 10000} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			t.Parallel()
+			data := map[string]string{"/registry/core/configmaps/target/default/keep": "keep"}
+			for i := range count {
+				data[fmt.Sprintf("/registry/core/configmaps/other/default/object-%05d", i)] = "unrelated"
+			}
+			kv := newFakeKV(data)
+			entries, token, err := scanEtcdEntries(t.Context(), kv, "/registry/", "target", "", 1000, 0, nil)
+			require.NoError(t, err)
+			require.Empty(t, token)
+			require.Len(t, entries, 1)
+			require.Equal(t, []string{"/registry/core/configmaps/target/default/keep"}, kv.valueKeys)
+			require.LessOrEqual(t, kv.returnedKeys, 3, "discovery must skip entire unrelated ranges")
+			require.LessOrEqual(t, len(kv.requests), 4)
+		})
+	}
+}
+
 // fakeKV is a minimal in-memory fake of clientv3.KV for unit-testing range
 // scans, mirroring the one used in
 // pkg/reconciler/migration/logicalclustermigration/datacleanup_test.go. It
@@ -202,13 +270,17 @@ func entryKeys(entries []migrationv1alpha1.EtcdEntry) []string {
 // and an optional limit. Other methods are not implemented and panic if
 // called.
 type fakeKV struct {
-	kvs map[string]string
+	kvs          map[string]string
+	requests     []clientv3.Op
+	valueKeys    []string
+	returnedKeys int
 }
 
 func newFakeKV(kvs map[string]string) *fakeKV { return &fakeKV{kvs: kvs} }
 
 func (f *fakeKV) Get(_ context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	op := clientv3.OpGet(key, opts...)
+	f.requests = append(f.requests, op)
 	rangeEnd := string(op.RangeBytes())
 	limit := op.Limit()
 
@@ -228,7 +300,13 @@ func (f *fakeKV) Get(_ context.Context, key string, opts ...clientv3.OpOption) (
 
 	resp := &clientv3.GetResponse{More: more}
 	for _, k := range keys {
-		resp.Kvs = append(resp.Kvs, &mvccpb.KeyValue{Key: []byte(k), Value: []byte(f.kvs[k])})
+		entry := &mvccpb.KeyValue{Key: []byte(k)}
+		if !op.IsKeysOnly() {
+			entry.Value = []byte(f.kvs[k])
+			f.valueKeys = append(f.valueKeys, k)
+		}
+		f.returnedKeys++
+		resp.Kvs = append(resp.Kvs, entry)
 	}
 	return resp, nil
 }

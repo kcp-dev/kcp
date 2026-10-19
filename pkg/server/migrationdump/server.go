@@ -169,7 +169,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // scanEtcdEntries returns a single page of etcd key/value pairs belonging
-// to the given logical cluster, resuming right after continueToken if set.
+// to the given logical cluster, resuming at continueToken if set.
 //
 // The page stops growing once it holds limit entries or once adding another
 // entry would push the accumulated value size past maxBytes, whichever
@@ -209,50 +209,96 @@ func scanEtcdEntries(ctx context.Context, kv clientv3.KV, storagePrefix string, 
 	var entries []migrationv1alpha1.EtcdEntry
 	var totalBytes int64
 	for {
-		resp, err := kv.Get(ctx, key,
-			clientv3.WithRange(clientv3.GetPrefixRangeEnd(prefix)),
-			clientv3.WithLimit(etcdScanLimit),
-		)
+		clusterPrefix, start, err := nextClusterRange(ctx, kv, prefix, key, target)
 		if err != nil {
-			return nil, "", fmt.Errorf("failed to list etcd keys: %w", err)
+			return nil, "", err
 		}
-
-		for _, entry := range resp.Kvs {
-			if err := ctx.Err(); err != nil {
-				return nil, "", err
-			}
-			if !kcpetcd.BelongsToCluster(prefix, string(entry.Key), target) {
-				continue
-			}
-
-			if int64(len(entries)) >= limit {
-				return entries, strings.TrimPrefix(string(entry.Key), prefix), nil
-			}
-
-			relativeKey := strings.TrimPrefix(string(entry.Key), prefix)
-			transformer, err := kcpetcd.TransformerForKey(transformers, relativeKey)
-			if err != nil {
-				return nil, "", err
-			}
-			data, _, err := transformer.TransformFromStorage(ctx, entry.Value, value.DefaultContext(entry.Key))
-			if err != nil {
-				return nil, "", fmt.Errorf("failed to transform source key %q: %w", entry.Key, err)
-			}
-			if len(entries) > 0 && totalBytes+int64(len(data)) > maxBytes {
-				return entries, relativeKey, nil
-			}
-			entries = append(entries, migrationv1alpha1.EtcdEntry{
-				Key:   relativeKey,
-				Value: data,
-			})
-			totalBytes += int64(len(data))
-		}
-
-		if !resp.More {
+		if clusterPrefix == "" {
 			return entries, "", nil
 		}
-		key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
+		key = start
+		for {
+			resp, err := kv.Get(ctx, key,
+				clientv3.WithRange(clientv3.GetPrefixRangeEnd(clusterPrefix)),
+				clientv3.WithLimit(etcdScanLimit),
+			)
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to list etcd keys: %w", err)
+			}
+
+			for _, entry := range resp.Kvs {
+				if err := ctx.Err(); err != nil {
+					return nil, "", err
+				}
+				if !kcpetcd.BelongsToCluster(prefix, string(entry.Key), target) {
+					continue
+				}
+				if int64(len(entries)) >= limit {
+					return entries, strings.TrimPrefix(string(entry.Key), prefix), nil
+				}
+
+				relativeKey := strings.TrimPrefix(string(entry.Key), prefix)
+				transformer, err := kcpetcd.TransformerForKey(transformers, relativeKey)
+				if err != nil {
+					return nil, "", err
+				}
+				data, _, err := transformer.TransformFromStorage(ctx, entry.Value, value.DefaultContext(entry.Key))
+				if err != nil {
+					return nil, "", fmt.Errorf("failed to transform source key %q: %w", entry.Key, err)
+				}
+				if len(entries) > 0 && totalBytes+int64(len(data)) > maxBytes {
+					return entries, relativeKey, nil
+				}
+				entries = append(entries, migrationv1alpha1.EtcdEntry{
+					Key:   relativeKey,
+					Value: data,
+				})
+				totalBytes += int64(len(data))
+			}
+
+			if !resp.More {
+				key = clientv3.GetPrefixRangeEnd(clusterPrefix)
+				break
+			}
+			key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
+		}
 	}
+}
+
+// nextClusterRange seeks over unrelated cluster prefixes without reading their
+// values. A trailing slash keeps similarly named clusters outside each range.
+// Discovery still uses a shard-wide range, so etcd's range-counting cost remains.
+func nextClusterRange(ctx context.Context, kv clientv3.KV, prefix, key string, target logicalcluster.Name) (string, string, error) {
+	end := clientv3.GetPrefixRangeEnd(prefix)
+	for key < end {
+		if err := ctx.Err(); err != nil {
+			return "", "", err
+		}
+		resp, err := kv.Get(ctx, key, clientv3.WithRange(end), clientv3.WithKeysOnly(), clientv3.WithLimit(1))
+		if err != nil {
+			return "", "", fmt.Errorf("failed to discover cluster storage range: %w", err)
+		}
+		if len(resp.Kvs) == 0 {
+			return "", "", nil
+		}
+		found := string(resp.Kvs[0].Key)
+		// SplitKey expects a complete object key (at least four segments).
+		if len(strings.Split(strings.TrimPrefix(found, prefix), "/")) < 4 {
+			key = found + "\x00"
+			continue
+		}
+		parts, ok := kcpetcd.SplitKey(prefix, found, target)
+		if !ok || parts.Rest == "" {
+			key = found + "\x00"
+			continue
+		}
+		clusterPrefix := parts.ClusterPrefix(prefix) + "/"
+		if parts.Cluster == target {
+			return clusterPrefix, found, nil
+		}
+		key = clientv3.GetPrefixRangeEnd(clusterPrefix)
+	}
+	return "", "", nil
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
