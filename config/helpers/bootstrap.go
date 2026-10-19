@@ -183,6 +183,10 @@ func createResource(ctx context.Context, client dynamic.Interface, mapper meta.R
 				return nil
 			}
 
+			u, err = preserveAPIExportIdentity(existing, u)
+			if err != nil {
+				return fmt.Errorf("could not update %s %s: %w", gvk.Kind, tenancyhelper.QualifiedObjectName(existing), err)
+			}
 			u.SetResourceVersion(existing.GetResourceVersion())
 			if _, err = client.Resource(m.Resource).Namespace(u.GetNamespace()).Update(ctx, u, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("could not update %s %s: %w", gvk.Kind, tenancyhelper.QualifiedObjectName(existing), err)
@@ -196,4 +200,26 @@ func createResource(ctx context.Context, client dynamic.Interface, mapper meta.R
 	logging.WithObject(logger, upserted).Info("upserted object")
 
 	return nil
+}
+
+// preserveAPIExportIdentity carries spec.identity of an existing APIExport
+// over to the desired object (existing -> re-bootstrap desired).
+// This is needed so we preserve the identity of an APIExport when re-bootstrapping it.
+func preserveAPIExportIdentity(existing, desired *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	gvk := desired.GroupVersionKind()
+	if gvk.Group != "apis.kcp.io" || gvk.Kind != "APIExport" {
+		return desired, nil
+	}
+	if _, found, err := unstructured.NestedFieldNoCopy(desired.Object, "spec", "identity"); err != nil || found {
+		return desired, err
+	}
+	identity, found, err := unstructured.NestedFieldCopy(existing.Object, "spec", "identity")
+	if err != nil || !found {
+		return desired, err
+	}
+	desired = desired.DeepCopy()
+	if err := unstructured.SetNestedField(desired.Object, identity, "spec", "identity"); err != nil {
+		return nil, err
+	}
+	return desired, nil
 }

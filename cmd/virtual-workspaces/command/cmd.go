@@ -145,7 +145,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	// resolve identities for system APIBindings
-	identityConfig, resolveIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, localShardKubeClusterClient)
+	identityConfig, resolveIdentities, refreshIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, localShardKubeClusterClient)
 	var identityErr error
 	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 		if err := resolveIdentities(ctx); err != nil {
@@ -161,6 +161,7 @@ func Run(ctx context.Context, o *options.Options) error {
 		}
 		return err
 	}
+	go refreshIdentities(ctx)
 
 	// create clients and informers
 	kubeClusterClient, err := kcpkubernetesclient.NewForConfig(identityConfig)

@@ -47,6 +47,10 @@ type ExtraConfig struct {
 	// resource identities into the rest.Config used by the client. Only after it succeeds,
 	// the clients can wildcard-list/watch most kcp resources.
 	ResolveIdentities func(ctx context.Context) error
+	// RefreshIdentities keeps the identities resolved by ResolveIdentities
+	// up to date until its context is done. Start it after
+	// ResolveIdentities succeeded.
+	RefreshIdentities func(ctx context.Context)
 	RootShardConfig   *rest.Config
 	ShardsConfig      *rest.Config
 	// PeersConfig points at the Admin workspace (/services/admin) of the
@@ -91,7 +95,7 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 	}
 
 	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-	kcpShardIdentityRoundTripper, c.ResolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootConfig, nil)
+	kcpShardIdentityRoundTripper, c.ResolveIdentities, c.RefreshIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootConfig, nil)
 	c.RootShardConfig = rest.CopyConfig(nonIdentityRootConfig)
 	c.RootShardConfig.Wrap(kcpShardIdentityRoundTripper)
 

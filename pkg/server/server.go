@@ -614,6 +614,7 @@ func (s *Server) Run(ctx context.Context) error {
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 			logger.Info("finished getting kcp APIExport identities")
+			go s.refreshIdentities(hookCtx)
 		} else if len(s.Options.Extra.RootShardKubeconfigFile) > 0 {
 			logger.Info("getting kcp APIExport identities for the root shard")
 			if err := wait.PollUntilContextCancel(hookContext, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
@@ -627,6 +628,7 @@ func (s *Server) Run(ctx context.Context) error {
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 			logger.Info("finished getting kcp APIExport identities for the root shard")
+			go s.refreshIdentities(hookCtx)
 		}
 
 		s.KcpSharedInformerFactory.Start(hookCtx.Done())
