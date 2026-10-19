@@ -122,8 +122,17 @@ func NewController(
 			})
 			return updated, err
 		},
-		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
-			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+		getAPIExport: func(ctx context.Context, path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			// the informers (the local one, then the cache server's replica)
+			// resolve the workspace path to the cluster the export lives in.
+			// The replica is not updatable: its resourceVersion is the cache
+			// server's, so the export is read live from its shard, through
+			// the path-capable external client, before it is updated.
+			cached, err := indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+			if err != nil {
+				return nil, err
+			}
+			return externalKcpClusterClient.Cluster(logicalcluster.From(cached).Path()).ApisV1alpha2().APIExports().Get(ctx, name, metav1.GetOptions{})
 		},
 		updateAPIExport: func(ctx context.Context, path logicalcluster.Path, export *apisv1alpha2.APIExport) (*apisv1alpha2.APIExport, error) {
 			return externalKcpClusterClient.Cluster(path).ApisV1alpha2().APIExports().Update(ctx, export, metav1.UpdateOptions{})
@@ -167,7 +176,7 @@ type Controller struct {
 	getRotation           func(cluster logicalcluster.Name, name string) (*migrationv1alpha1.APIExportIdentityRotation, error)
 	listShardNames        func() ([]string, error)
 	updateRotationStatus  func(ctx context.Context, cluster logicalcluster.Path, rotation *migrationv1alpha1.APIExportIdentityRotation) (*migrationv1alpha1.APIExportIdentityRotation, error)
-	getAPIExport          func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getAPIExport          func(ctx context.Context, path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
 	updateAPIExport       func(ctx context.Context, path logicalcluster.Path, export *apisv1alpha2.APIExport) (*apisv1alpha2.APIExport, error)
 	updateAPIExportStatus func(ctx context.Context, path logicalcluster.Path, export *apisv1alpha2.APIExport) (*apisv1alpha2.APIExport, error)
 	getSecretHash         func(ctx context.Context, path logicalcluster.Path, namespace, name string) (string, error)
@@ -283,7 +292,7 @@ func (c *Controller) reconcilePending(ctx context.Context, clusterName logicalcl
 	logger := klog.FromContext(ctx)
 
 	path := exportPath(clusterName, rotation)
-	export, err := c.getAPIExport(path, rotation.Spec.Export.Name)
+	export, err := c.getAPIExport(ctx, path, rotation.Spec.Export.Name)
 	if apierrors.IsNotFound(err) {
 		return c.fail(ctx, clusterName, rotation, "APIExport %s|%s not found", path, rotation.Spec.Export.Name)
 	}
@@ -450,7 +459,7 @@ func (c *Controller) reconcileAliasActive(ctx context.Context, clusterName logic
 	}
 
 	// retire: the old hash stops resolving.
-	export, err := c.getAPIExport(exportPath(clusterName, rotation), rotation.Spec.Export.Name)
+	export, err := c.getAPIExport(ctx, exportPath(clusterName, rotation), rotation.Spec.Export.Name)
 	if err != nil {
 		return 0, err
 	}

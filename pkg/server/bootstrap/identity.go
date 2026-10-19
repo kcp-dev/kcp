@@ -26,13 +26,13 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -64,14 +64,13 @@ var (
 	}
 )
 
-// IdentityRefreshInterval is how often the resolved identities are compared
-// with the APIExports in the root workspace after the initial resolution.
-// TODO(mjudeikis): I'm not sure if 10s is the right interval for refreshing identities.
-// We need to evaluate the performance and correctness implications.
-var IdentityRefreshInterval = 10 * time.Second
-
 type identities struct {
 	lock sync.RWMutex
+
+	// groupExportNames and groupResourceExportNames name the APIExport in
+	// the root workspace that serves each group or group resource.
+	groupExportNames         map[string]string
+	groupResourceExportNames map[schema.GroupResource]string
 
 	groupIdentities         map[string]string
 	groupResourceIdentities map[schema.GroupResource]string
@@ -86,9 +85,11 @@ type identities struct {
 
 func newIdentities(groupExportNames map[string]string, groupResourceExportNames map[schema.GroupResource]string) *identities {
 	ids := &identities{
-		groupIdentities:         map[string]string{},
-		groupResourceIdentities: map[schema.GroupResource]string{},
-		watches:                 map[string]map[*expirableWatchBody]struct{}{},
+		groupExportNames:         groupExportNames,
+		groupResourceExportNames: groupResourceExportNames,
+		groupIdentities:          map[string]string{},
+		groupResourceIdentities:  map[schema.GroupResource]string{},
+		watches:                  map[string]map[*expirableWatchBody]struct{}{},
 	}
 	for group := range groupExportNames {
 		ids.groupIdentities[group] = ""
@@ -97,6 +98,50 @@ func newIdentities(groupExportNames map[string]string, groupResourceExportNames 
 		ids.groupResourceIdentities[gr] = ""
 	}
 	return ids
+}
+
+// set makes hash the identity of every group and group resource served by
+// the named APIExport. When that replaces an identity that was in use, the
+// open watches sent with the old identity are expired, so their informers
+// relist with the new one.
+func (ids *identities) set(exportName, hash string) {
+	replaced := sets.New[string]()
+	changed := false
+
+	ids.lock.Lock()
+	for group, name := range ids.groupExportNames {
+		if name != exportName || ids.groupIdentities[group] == hash {
+			continue
+		}
+		if old := ids.groupIdentities[group]; old != "" {
+			replaced.Insert(old)
+		}
+		ids.groupIdentities[group] = hash
+		changed = true
+	}
+	for gr, name := range ids.groupResourceExportNames {
+		if name != exportName || ids.groupResourceIdentities[gr] == hash {
+			continue
+		}
+		if old := ids.groupResourceIdentities[gr]; old != "" {
+			replaced.Insert(old)
+		}
+		ids.groupResourceIdentities[gr] = hash
+		changed = true
+	}
+	ids.lock.Unlock()
+
+	if !changed {
+		return
+	}
+	logger := klog.Background().WithValues("apiExport", exportName, "identity", hash)
+	if replaced.Len() == 0 {
+		logger.V(2).Info("APIExport has identity")
+		return
+	}
+	logger.Info("APIExport identity changed, replacing it", "oldIdentities", sets.List(replaced))
+	n := ids.expireWatches(sets.List(replaced)...)
+	logger.Info("expired watches using the replaced APIExport identity", "count", n)
 }
 
 // trackWatch registers an open watch response sent with the given identity.
@@ -158,16 +203,16 @@ func (ids *identities) grIdentity(gr schema.GroupResource) (string, bool) {
 // after it succeeds a client using the returned rest.Config can use the group and group resources
 // with identities.
 //
-// The returned refresh function keeps the identities up to date until its context is done, e.g.
-// across an APIExport identity rotation. Start it after resolve succeeded.
+// The returned event handler keeps the identities up to date after that. Register it on an
+// informer of the APIExports in the root workspace; see APIExportHandler.
 func NewConfigWithWildcardIdentities(config *rest.Config,
 	groupExportNames map[string]string,
 	groupResourceExportNames map[schema.GroupResource]string,
-	localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) (identityConfig *rest.Config, resolve func(ctx context.Context) error, refresh func(ctx context.Context)) {
-	identityRoundTripper, identityResolver, identityRefresher := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, groupResourceExportNames, config, localShardKubeClusterClient)
+	localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) (identityConfig *rest.Config, resolve func(ctx context.Context) error, handler cache.ResourceEventHandler) {
+	identityRoundTripper, identityResolver, handler := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, groupResourceExportNames, config, localShardKubeClusterClient)
 	identityConfig = rest.CopyConfig(config)
 	identityConfig.Wrap(identityRoundTripper)
-	return identityConfig, identityResolver, identityRefresher
+	return identityConfig, identityResolver, handler
 }
 
 // NewWildcardIdentitiesWrappingRoundTripper creates an HTTP RoundTripper
@@ -180,93 +225,56 @@ func NewConfigWithWildcardIdentities(config *rest.Config,
 // after it succeeds a client using the returned RoundTripper can use the group and group resources
 // with identities.
 //
-// The returned refresh function keeps the identities up to date until its context is done, e.g.
-// across an APIExport identity rotation. Start it after resolve succeeded.
+// The returned event handler keeps the identities up to date after that. Register it on an
+// informer of the APIExports in the root workspace; see APIExportHandler.
 func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]string,
 	groupResourceExportNames map[schema.GroupResource]string,
 	config *rest.Config,
-	localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) (wrap func(rt http.RoundTripper) http.RoundTripper, resolve func(ctx context.Context) error, refresh func(ctx context.Context)) {
+	localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) (wrap func(rt http.RoundTripper) http.RoundTripper, resolve func(ctx context.Context) error, handler cache.ResourceEventHandler) {
 	ids := newIdentities(groupExportNames, groupResourceExportNames)
 	provider := apiExportIdentityProvider(config, localShardKubeClusterClient)
 	return injectKcpIdentities(ids),
 		wildcardIdentitiesResolver(ids, groupExportNames, groupResourceExportNames, provider),
-		wildcardIdentitiesRefresher(ids, groupExportNames, groupResourceExportNames, provider)
+		apiExportHandler(ids)
 }
 
-// wildcardIdentitiesRefresher returns a function that, until the context is
-// done, periodically compares the resolved identities with the APIExports
-// and swaps those that changed, e.g. because the export's identity was
-// rotated. Open watches sent with a replaced identity are expired so their
-// informers relist with the new one. It is meant to be started after the
-// resolve function succeeded.
-func wildcardIdentitiesRefresher(ids *identities,
-	groupExportNames map[string]string,
-	groupResourceExportNames map[schema.GroupResource]string,
-	apiExportIdentityProviderFn func(ctx context.Context, apiExportName string) (string, error)) func(ctx context.Context) {
-	return func(ctx context.Context) {
-		wait.UntilWithContext(ctx, func(ctx context.Context) {
-			refreshIdentities(ctx, ids, groupExportNames, groupResourceExportNames, apiExportIdentityProviderFn)
-		}, IdentityRefreshInterval)
+// apiExportHandler returns an informer event handler that keeps the
+// identities in sync with status.identityHash of the APIExports in the root
+// workspace. An identity rotation flips that hash; the handler swaps the
+// injected identity the moment the change arrives and expires the open
+// watches sent with the old identity, so their informers relist with the
+// new one instead of watching a storage prefix that is being drained.
+// Exports of other workspaces, exports without an identity yet and deleted
+// exports are ignored: an identity in use is only ever replaced by a new one.
+//
+// The handler works with any informer that sees the root workspace's
+// APIExports: the shard's local one, one against the cache server, or a
+// scoped one on the root workspace.
+func apiExportHandler(ids *identities) cache.ResourceEventHandler {
+	exportNames := sets.New[string]()
+	for _, name := range ids.groupExportNames {
+		exportNames.Insert(name)
 	}
-}
-
-// refreshIdentities re-resolves every identity and replaces those that
-// changed. Exports that cannot be resolved keep their current identity.
-func refreshIdentities(ctx context.Context, ids *identities,
-	groupExportNames map[string]string,
-	groupResourceExportNames map[schema.GroupResource]string,
-	apiExportIdentityProviderFn func(ctx context.Context, apiExportName string) (string, error)) {
-	logger := klog.FromContext(ctx)
-
-	// resolve each export once, even if it serves several groups or resources.
-	current := map[string]string{}
-	resolve := func(name string) (string, bool) {
-		if id, ok := current[name]; ok {
-			return id, id != ""
-		}
-		id, err := apiExportIdentityProviderFn(ctx, name)
-		if err != nil {
-			logger.V(4).Info("failed to refresh APIExport identity, keeping the current one", "apiExport", name, "err", err)
-			id = ""
-		}
-		current[name] = id
-		return id, id != ""
+	for _, name := range ids.groupResourceExportNames {
+		exportNames.Insert(name)
 	}
 
-	var replaced []string
-	swap := func(old *string, name, id string) {
-		if *old == id {
+	update := func(obj interface{}) {
+		export, ok := obj.(*apisv1alpha2.APIExport)
+		if !ok {
 			return
 		}
-		logger.Info("APIExport identity changed, replacing it", "apiExport", name, "oldIdentity", *old, "identity", id)
-		if *old != "" {
-			replaced = append(replaced, *old)
+		if cluster := logicalcluster.From(export); !cluster.Empty() && cluster != core.RootCluster {
+			return
 		}
-		*old = id
-	}
-
-	for group, name := range groupExportNames {
-		if id, ok := resolve(name); ok {
-			ids.lock.Lock()
-			old := ids.groupIdentities[group]
-			swap(&old, name, id)
-			ids.groupIdentities[group] = old
-			ids.lock.Unlock()
+		if !exportNames.Has(export.Name) || export.Status.IdentityHash == "" {
+			return
 		}
+		ids.set(export.Name, export.Status.IdentityHash)
 	}
-	for gr, name := range groupResourceExportNames {
-		if id, ok := resolve(name); ok {
-			ids.lock.Lock()
-			old := ids.groupResourceIdentities[gr]
-			swap(&old, name, id)
-			ids.groupResourceIdentities[gr] = old
-			ids.lock.Unlock()
-		}
-	}
-
-	if len(replaced) > 0 {
-		n := ids.expireWatches(replaced...)
-		logger.Info("expired watches using replaced APIExport identities", "count", n)
+	return cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { update(obj) },
+		UpdateFunc: func(_, obj interface{}) { update(obj) },
 	}
 }
 

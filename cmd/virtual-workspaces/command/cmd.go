@@ -145,7 +145,7 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 
 	// resolve identities for system APIBindings
-	identityConfig, resolveIdentities, refreshIdentities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, localShardKubeClusterClient)
+	identityConfig, resolveIdentities, coreIdentityHandler := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, localShardKubeClusterClient)
 	var identityErr error
 	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 		if err := resolveIdentities(ctx); err != nil {
@@ -161,8 +161,6 @@ func Run(ctx context.Context, o *options.Options) error {
 		}
 		return err
 	}
-	go refreshIdentities(ctx)
-
 	// create clients and informers
 	kubeClusterClient, err := kcpkubernetesclient.NewForConfig(identityConfig)
 	if err != nil {
@@ -177,6 +175,9 @@ func Run(ctx context.Context, o *options.Options) error {
 	}
 	wildcardKcpInformers := kcpinformers.NewSharedInformerFactory(kcpClusterClient, 10*time.Minute)
 	cacheKcpInformers := kcpinformers.NewSharedInformerFactory(cacheKcpClusterClient, 10*time.Minute)
+	// the identities follow the root workspace's APIExports, replicated to
+	// the cache server, e.g. across an identity rotation.
+	_, _ = cacheKcpInformers.Apis().V1alpha2().APIExports().Informer().AddEventHandler(coreIdentityHandler)
 
 	if o.ProfilerAddress != "" {
 		//nolint:errcheck,gosec

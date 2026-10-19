@@ -19,13 +19,11 @@ package bootstrap
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -35,6 +33,10 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
+
+	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 )
 
 const (
@@ -48,24 +50,19 @@ var (
 )
 
 type fakeProvider struct {
-	lock   sync.Mutex
 	hashes map[string]string
-	err    error
-}
-
-func (p *fakeProvider) set(name, hash string) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	p.hashes[name] = hash
 }
 
 func (p *fakeProvider) get(_ context.Context, name string) (string, error) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-	if p.err != nil {
-		return "", p.err
-	}
 	return p.hashes[name], nil
+}
+
+// export is an APIExport of the given workspace with the given identity.
+func export(cluster, name, hash string) *apisv1alpha2.APIExport {
+	return &apisv1alpha2.APIExport{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: map[string]string{logicalcluster.AnnotationKey: cluster}},
+		Status:     apisv1alpha2.APIExportStatus{IdentityHash: hash},
+	}
 }
 
 func resolvedIdentities(t *testing.T, provider *fakeProvider) *identities {
@@ -86,41 +83,79 @@ func decorate(t *testing.T, ids *identities, urlPath string) string {
 	return got
 }
 
-func TestRefreshIdentities(t *testing.T) {
+func TestAPIExportHandler(t *testing.T) {
 	t.Parallel()
 
-	provider := &fakeProvider{hashes: map[string]string{"tenancy.kcp.io": oldHash, "shards.core.kcp.io": oldHash}}
-	ids := resolvedIdentities(t, provider)
-	refresh := func() {
-		refreshIdentities(context.Background(), ids, testGroupExportNames, testGroupResourceExportNames, provider.get)
+	tenancyPath := "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces"
+	shardsPath := "/clusters/*/apis/core.kcp.io/v1alpha1/shards"
+
+	ignored := []struct {
+		name string
+		obj  interface{}
+	}{
+		{name: "the same identity", obj: export("root", "tenancy.kcp.io", oldHash)},
+		{name: "an export that serves no core API", obj: export("root", "cowboys", newHash)},
+		{name: "a same-named export of another workspace", obj: export("root:org", "tenancy.kcp.io", newHash)},
+		{name: "an export without identity", obj: export("root", "tenancy.kcp.io", "")},
+		{name: "a tombstone", obj: cache.DeletedFinalStateUnknown{Key: "root|tenancy.kcp.io", Obj: export("root", "tenancy.kcp.io", newHash)}},
+	}
+	for _, scenario := range ignored {
+		t.Run("ignores "+scenario.name, func(t *testing.T) {
+			t.Parallel()
+			ids := resolvedIdentities(t, &fakeProvider{hashes: map[string]string{"tenancy.kcp.io": oldHash, "shards.core.kcp.io": oldHash}})
+			watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
+			ids.trackWatch(oldHash, watch)
+
+			handler := apiExportHandler(ids)
+			handler.OnAdd(scenario.obj, false)
+			handler.OnUpdate(scenario.obj, scenario.obj)
+
+			if got, want := decorate(t, ids, tenancyPath), tenancyPath+":"+oldHash; got != want {
+				t.Errorf("expected %q, got %q", want, got)
+			}
+			if watch.expired {
+				t.Error("watches must not be expired when no identity changed")
+			}
+		})
 	}
 
-	unchanged := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
-	ids.trackWatch(oldHash, unchanged)
+	t.Run("replaces the identity of the changed export only", func(t *testing.T) {
+		t.Parallel()
+		ids := resolvedIdentities(t, &fakeProvider{hashes: map[string]string{"tenancy.kcp.io": oldHash, "shards.core.kcp.io": oldHash}})
+		watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
+		ids.trackWatch(oldHash, watch)
 
-	refresh()
-	if unchanged.expired {
-		t.Fatal("a refresh without identity changes must not expire watches")
-	}
+		apiExportHandler(ids).OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
 
-	provider.set("tenancy.kcp.io", newHash)
-	refresh()
-	if got, want := decorate(t, ids, "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces"), "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:"+newHash; got != want {
-		t.Errorf("expected %q, got %q", want, got)
-	}
-	if got, want := decorate(t, ids, "/clusters/*/apis/core.kcp.io/v1alpha1/shards"), "/clusters/*/apis/core.kcp.io/v1alpha1/shards:"+oldHash; got != want {
-		t.Errorf("an unchanged export must keep its identity: expected %q, got %q", want, got)
-	}
-	if !unchanged.expired {
-		t.Error("watches using the replaced identity must be expired")
-	}
+		if got, want := decorate(t, ids, tenancyPath), tenancyPath+":"+newHash; got != want {
+			t.Errorf("expected %q, got %q", want, got)
+		}
+		if got, want := decorate(t, ids, shardsPath), shardsPath+":"+oldHash; got != want {
+			t.Errorf("an unchanged export must keep its identity: expected %q, got %q", want, got)
+		}
+		if !watch.expired {
+			t.Error("watches using the replaced identity must be expired")
+		}
+	})
 
-	// an export that cannot be resolved keeps its identity.
-	provider.err = errors.New("root shard unavailable")
-	refresh()
-	if got, want := decorate(t, ids, "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces"), "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:"+newHash; got != want {
-		t.Errorf("expected %q, got %q", want, got)
-	}
+	t.Run("sets an identity that is not resolved yet without expiring anything", func(t *testing.T) {
+		t.Parallel()
+		ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
+		watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
+		ids.trackWatch(oldHash, watch)
+
+		apiExportHandler(ids).OnAdd(export("root", "shards.core.kcp.io", newHash), true)
+
+		if got, want := decorate(t, ids, shardsPath), shardsPath+":"+newHash; got != want {
+			t.Errorf("expected %q, got %q", want, got)
+		}
+		if _, _, err := decorateWildcardPathsWithResourceIdentities(tenancyPath, ids); err == nil {
+			t.Error("expected the unresolved tenancy identity to still be unknown")
+		}
+		if watch.expired {
+			t.Error("learning an identity must not expire watches")
+		}
+	})
 }
 
 // TestWatchExpiresOnIdentityChange runs a real watch through the round
@@ -165,8 +200,7 @@ func TestWatchExpiresOnIdentityChange(t *testing.T) {
 		t.Fatalf("expected an ADDED event, got %s", event.Type)
 	}
 
-	provider.set("tenancy.kcp.io", newHash)
-	refreshIdentities(ctx, ids, testGroupExportNames, testGroupResourceExportNames, provider.get)
+	apiExportHandler(ids).OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
 
 	event := next(ctx, t, w)
 	if event.Type != watch.Error {

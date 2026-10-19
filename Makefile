@@ -389,6 +389,21 @@ test-e2e-sharded-minimal: build-e2e
 		$(SUITES_ARG) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
+# Runs the "serial" suite: tests that cannot share a server with other tests
+# (e.g. rotating the identities of kcp's core APIs fences every workspace on
+# every shard). Each of them starts a sharded server of its own, which listens
+# on fixed ports, so they run one at a time and no other server may be running
+# (pull-kcp-test-e2e-serial runs this target in a job of its own).
+.PHONY: test-e2e-serial
+ifdef USE_GOTESTSUM
+test-e2e-serial: $(GOTESTSUM)
+endif
+test-e2e-serial: TEST_ARGS ?=
+test-e2e-serial: WHAT ?= ./test/e2e...
+test-e2e-serial: build-e2e
+	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) -p 1 -parallel 1 $(WHAT) $(TEST_ARGS) \
+		-args --suites serial
+
 # Runs the controller-runtime test module (test/controller-runtime, a separate Go
 # module so sigs.k8s.io/controller-runtime stays out of the root go.mod) against a
 # freshly brought-up 2-shard server. Mirrors test-e2e-sharded-minimal; only the

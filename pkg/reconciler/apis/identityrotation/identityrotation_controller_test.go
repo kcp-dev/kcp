@@ -214,7 +214,7 @@ func TestReconcilePendingRetryAfterFlip(t *testing.T) {
 
 			var updated *migrationv1alpha1.APIExportIdentityRotation
 			c := &Controller{
-				getAPIExport: func(_ logicalcluster.Path, _ string) (*apisv1alpha2.APIExport, error) {
+				getAPIExport: func(_ context.Context, _ logicalcluster.Path, _ string) (*apisv1alpha2.APIExport, error) {
 					return export, nil
 				},
 				getSecretHash: func(_ context.Context, _ logicalcluster.Path, _, _ string) (string, error) {

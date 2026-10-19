@@ -36,7 +36,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"sync"
 	"time"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -128,7 +127,6 @@ func NewController(
 			},
 		),
 		shardName:            shardName,
-		lastReported:         map[string]shardCounts{},
 		etcdClient:           etcdClient,
 		etcdStoragePrefix:    strings.TrimSuffix(etcdStoragePrefix, "/"),
 		resourceTransformers: resourceTransformers,
@@ -199,6 +197,40 @@ func NewController(
 				bindings = append(bindings, obj.(*apisv1alpha2.APIBinding))
 			}
 			return bindings, nil
+		},
+		getReportedProgress: func(ctx context.Context, cluster logicalcluster.Path, rotationName string) (*migrationv1alpha1.ShardMigrationProgress, error) {
+			rotation, err := externalKcpClusterClient.Cluster(cluster).MigrationV1alpha1().APIExportIdentityRotations().Get(ctx, rotationName, metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
+			for i := range rotation.Status.Shards {
+				if rotation.Status.Shards[i].Shard == shardName {
+					return &rotation.Status.Shards[i], nil
+				}
+			}
+			return nil, nil
+		},
+		listRotatingExports: func() ([]*apisv1alpha2.APIExport, error) {
+			seen := sets.New[string]()
+			var result []*apisv1alpha2.APIExport
+			for _, informer := range []apisv1alpha2informers.APIExportClusterInformer{apiExportInformer, globalAPIExportInformer} {
+				exports, err := informer.Lister().List(labels.Everything())
+				if err != nil {
+					return nil, err
+				}
+				for _, export := range exports {
+					if export.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey] == "" {
+						continue
+					}
+					key := logicalcluster.From(export).String() + "|" + export.Name
+					if seen.Has(key) {
+						continue
+					}
+					seen.Insert(key)
+					result = append(result, export)
+				}
+			}
+			return result, nil
 		},
 		applyShardProgress: func(ctx context.Context, cluster logicalcluster.Path, rotationName string, counts shardCounts) error {
 			entry := migrationv1alpha1apply.ShardMigrationProgress().
@@ -272,11 +304,6 @@ type Controller struct {
 
 	shardName string
 
-	// lastReported caches the last applied counts per rotation
-	// ("<cluster>|<name>") so unchanged progress does not produce writes.
-	mu           sync.Mutex
-	lastReported map[string]shardCounts
-
 	etcdClient        clientv3.KV
 	etcdStoragePrefix string
 	// resourceTransformers are the shard's storage transformers (encryption
@@ -298,7 +325,13 @@ type Controller struct {
 	createBoundCRD           func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) error
 	deleteBoundCRD           func(ctx context.Context, name string, uid types.UID) error
 	listBindingsForExport    func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
-	applyShardProgress       func(ctx context.Context, cluster logicalcluster.Path, rotationName string, counts shardCounts) error
+	// getReportedProgress returns this shard's entry in the rotation's
+	// status.shards, nil if it has none. It reads the rotation object live.
+	getReportedProgress func(ctx context.Context, cluster logicalcluster.Path, rotationName string) (*migrationv1alpha1.ShardMigrationProgress, error)
+	// listRotatingExports lists the APIExports with an active identity
+	// rotation, from the local and the cache server's informers.
+	listRotatingExports func() ([]*apisv1alpha2.APIExport, error)
+	applyShardProgress  func(ctx context.Context, cluster logicalcluster.Path, rotationName string, counts shardCounts) error
 }
 
 func (c *Controller) enqueue(obj interface{}) {
@@ -370,6 +403,7 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
 	go wait.UntilWithContext(ctx, c.startReportWorker, time.Second)
+	go wait.UntilWithContext(ctx, c.resyncReports, reportResyncInterval)
 
 	<-ctx.Done()
 }
@@ -443,25 +477,51 @@ func (c *Controller) reportProgress(ctx context.Context, key string) error {
 		}
 	}
 
-	cacheKey := rotationCluster + "|" + rotationName
-	c.mu.Lock()
-	last, ok := c.lastReported[cacheKey]
-	c.mu.Unlock()
-	if ok && last == counts {
+	// The counts are compared with the rotation object itself, not with a
+	// cache of what this shard applied last: an applied entry can get lost.
+	// While migration.kcp.io itself rotates, the rotation objects move to a
+	// new storage prefix, and a report written to the old prefix after the
+	// copy goes with it. Reading the truth keeps the periodic resync
+	// (reportResyncInterval) self-healing and still saves the write when
+	// nothing changed.
+	rotationPath := logicalcluster.NewPath(rotationCluster)
+	current, err := c.getReportedProgress(ctx, rotationPath, rotationName)
+	if apierrors.IsNotFound(err) {
+		return nil // rotation is gone; nothing to report to
+	}
+	if err != nil {
+		return err
+	}
+	if current != nil && current.IdentityHash == counts.identityHash && current.TotalBindings == counts.total && current.MigratedBindings == counts.migrated {
 		return nil
 	}
 
-	if err := c.applyShardProgress(ctx, logicalcluster.NewPath(rotationCluster), rotationName, counts); err != nil {
+	if err := c.applyShardProgress(ctx, rotationPath, rotationName, counts); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil // rotation is gone; nothing to report to
 		}
 		return err
 	}
-	c.mu.Lock()
-	c.lastReported[cacheKey] = counts
-	c.mu.Unlock()
-	klog.FromContext(ctx).V(3).Info("reported drain progress", "rotation", cacheKey, "total", counts.total, "migrated", counts.migrated)
+	klog.FromContext(ctx).V(3).Info("reported drain progress", "rotation", rotationCluster+"|"+rotationName, "total", counts.total, "migrated", counts.migrated)
 	return nil
+}
+
+// reportResyncInterval is how often the drain-progress reports of every
+// rotating export are re-evaluated, on top of the event-driven reports. It
+// recovers reports that got lost, see reportProgress.
+const reportResyncInterval = 10 * time.Second
+
+// resyncReports enqueues a drain-progress report for every export with an
+// active identity rotation.
+func (c *Controller) resyncReports(ctx context.Context) {
+	exports, err := c.listRotatingExports()
+	if err != nil {
+		utilruntime.HandleError(fmt.Errorf("%q controller failed to list rotating APIExports: %w", ControllerName, err))
+		return
+	}
+	for _, export := range exports {
+		c.reportQueue.Add(logicalcluster.From(export).String() + "|" + export.Name)
+	}
 }
 
 // bindingFullyOn reports whether every bound resource of the binding serves

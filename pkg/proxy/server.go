@@ -64,6 +64,10 @@ type Server struct {
 	IndexController          *index.Controller
 	AuthController           *authentication.Controller
 	KcpSharedInformerFactory kcpinformers.SharedScopedInformerFactory
+	// RootAPIExportInformerFactory watches the APIExports of the root workspace
+	// on the root shard. Their identities are injected into wildcard
+	// requests and follow an identity rotation through this informer.
+	RootAPIExportInformerFactory kcpinformers.SharedScopedInformerFactory
 }
 
 func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
@@ -95,6 +99,17 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}
 	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
+
+	// The identities of the core APIs are those of the root workspace's
+	// APIExports, which only the root shard serves. An identity rotation
+	// flips an export's status.identityHash; the handler swaps the injected
+	// identity as the change arrives.
+	rootShardKcpClient, err := kcpclientset.NewForConfig(s.CompletedConfig.RootShardConfig)
+	if err != nil {
+		return s, fmt.Errorf("failed to create root shard client: %w", err)
+	}
+	s.RootAPIExportInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardKcpClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
+	_, _ = s.RootAPIExportInformerFactory.Apis().V1alpha2().APIExports().Informer().AddEventHandler(s.CompletedConfig.CoreIdentityHandler)
 
 	// Feed every discovered shard into the peer failover set: the configured
 	// peers are seeds for bootstrapping and last-resort fallback only, and
@@ -268,8 +283,6 @@ func (s preparedServer) Run(ctx context.Context) error {
 		}
 		return err
 	}
-	go s.CompletedConfig.RefreshIdentities(ctx)
-
 	// start indexes
 	go s.IndexController.Start(ctx, 2)
 
@@ -279,6 +292,9 @@ func (s preparedServer) Run(ctx context.Context) error {
 
 	s.KcpSharedInformerFactory.Start(ctx.Done())
 	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+	// not waited for: the identities are resolved already, and the proxy
+	// must not depend on the root shard to become ready.
+	s.RootAPIExportInformerFactory.Start(ctx.Done())
 
 	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
 	if err != nil {

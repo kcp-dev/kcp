@@ -233,7 +233,7 @@ func createIdentitySecret(ctx context.Context, t *testing.T, c rotationClients, 
 	}
 	_, err = c.kube.Cluster(providerPath).CoreV1().Secrets("kcp-system").Create(ctx, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: secretName},
-		StringData: map[string]string{"key": "a-fresh-identity-key-for-" + secretName + "-0123456789abcdef"},
+		StringData: map[string]string{"key": identityKeyFor(secretName)},
 	}, metav1.CreateOptions{})
 	if !apierrors.IsAlreadyExists(err) {
 		require.NoError(t, err)
