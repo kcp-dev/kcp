@@ -19,6 +19,8 @@ package rootphase0
 import (
 	"context"
 	"embed"
+	"sort"
+	"strings"
 	"time"
 
 	"sigs.k8s.io/yaml"
@@ -81,6 +83,23 @@ func Bootstrap(ctx context.Context, kcpClient kcpclient.Interface, rootDiscovery
 		}
 		return true, nil
 	})
+}
+
+// CoreAPIExportNames returns the names of the APIExports this package
+// creates in the root workspace: the core APIs of kcp.
+func CoreAPIExportNames() []string {
+	entries, err := fs.ReadDir(".")
+	if err != nil {
+		panic(err) // embedded, cannot fail
+	}
+	var names []string
+	for _, entry := range entries {
+		if name, ok := strings.CutPrefix(entry.Name(), "apiexport-"); ok {
+			names = append(names, strings.TrimSuffix(name, ".yaml"))
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 // Unmarshal YAML-decodes the give embedded file name into the target.

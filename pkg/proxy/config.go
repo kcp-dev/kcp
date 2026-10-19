@@ -26,6 +26,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
+	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
 )
@@ -47,6 +49,10 @@ type ExtraConfig struct {
 	// resource identities into the rest.Config used by the client. Only after it succeeds,
 	// the clients can wildcard-list/watch most kcp resources.
 	ResolveIdentities func(ctx context.Context) error
+	// RefreshIdentities keeps the identities resolved by ResolveIdentities
+	// up to date until its context is done, e.g. across an APIExport
+	// identity rotation. Start it after ResolveIdentities succeeded.
+	RefreshIdentities func(ctx context.Context)
 	RootShardConfig   *rest.Config
 	ShardsConfig      *rest.Config
 	// PeersConfig points at the Admin workspace (/services/admin) of the
@@ -83,15 +89,43 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 		Options: opts,
 	}
 
-	// get root API identities
-	//nolint:staticcheck // the deprecated root kubeconfig remains the source for identity resolution until identities are resolvable without the root shard.
+	//nolint:staticcheck // the deprecated root kubeconfig remains the legacy fallback for identity resolution and the default seed peer.
 	nonIdentityRootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.RootKubeconfig}, nil).ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load root kubeconfig: %w", err)
 	}
 
+	// Shard discovery always goes through the Admin workspace of the peers;
+	// the root workspace is no longer read for it. Without configured peers,
+	// the root kubeconfig's server is the seed peer.
+	peerKubeconfigs := c.Options.ShardsPeerKubeconfigs
+	if len(peerKubeconfigs) == 0 {
+		//nolint:staticcheck // the deprecated root kubeconfig doubles as the default seed peer for deployments that predate --shard-peer-kubeconfig.
+		peerKubeconfigs = []string{c.Options.RootKubeconfig}
+	}
+	c.PeersConfig, c.Peers, err = NewPeersConfig(peerKubeconfigs)
+	if err != nil {
+		return nil, err
+	}
+
+	// The identities of the core APIs come from the CoreIdentitySets every
+	// shard publishes into the Admin workspace; reading the root shard's
+	// APIExports stays as a fallback for peers that predate them.
+	peersClient, err := kcpclientset.NewForConfig(c.PeersConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create peers client: %w", err)
+	}
+	identityProvider := bootstrap.Chain(
+		bootstrap.AdminWorkspaceProvider(peersClient),
+		bootstrap.RootAPIExportProvider(nonIdentityRootConfig),
+	)
 	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-	kcpShardIdentityRoundTripper, c.ResolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootConfig, nil)
+	var identities *bootstrap.Identities
+	kcpShardIdentityRoundTripper, c.ResolveIdentities, identities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, identityProvider)
+	// the CoreIdentitySets in the Admin workspace follow a rotation once the
+	// shards picked it up; the root shard's set wins, so they never mix a
+	// rotated and a stale identity.
+	c.RefreshIdentities = func(ctx context.Context) { identities.RunRefresher(ctx, identityProvider) }
 	c.RootShardConfig = rest.CopyConfig(nonIdentityRootConfig)
 	c.RootShardConfig.Wrap(kcpShardIdentityRoundTripper)
 
@@ -112,19 +146,6 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 		return nil, fmt.Errorf("failed to load shard kubeconfig: %w", err)
 	}
 	c.ShardsConfig.Wrap(kcpShardIdentityRoundTripper)
-
-	// Shard discovery always goes through the Admin workspace of the peers;
-	// the root workspace is no longer read for it. Without configured peers,
-	// the root kubeconfig's server is the seed peer.
-	peerKubeconfigs := c.Options.ShardsPeerKubeconfigs
-	if len(peerKubeconfigs) == 0 {
-		//nolint:staticcheck // the deprecated root kubeconfig doubles as the default seed peer for deployments that predate --shard-peer-kubeconfig.
-		peerKubeconfigs = []string{c.Options.RootKubeconfig}
-	}
-	c.PeersConfig, c.Peers, err = NewPeersConfig(peerKubeconfigs)
-	if err != nil {
-		return nil, err
-	}
 
 	c.AdditionalAuthEnabled = c.Options.Authentication.AdditionalAuthEnabled()
 

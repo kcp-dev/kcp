@@ -22,12 +22,12 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/virtual-workspace-framework/framework"
@@ -45,14 +45,16 @@ import (
 // serves one fixed API set regardless of the caller.
 const apiDomainKey = dynamiccontext.APIDomainKey(admin.VirtualWorkspaceName)
 
-// BuildVirtualWorkspace builds the Admin workspace virtual workspace. Its
-// first resource is a read-only, cache-backed aggregate view of every
-// shard's Shard object.
+// BuildVirtualWorkspace builds the Admin workspace virtual workspace. It
+// serves cache-backed aggregate views of every shard's Shard object (with
+// the operational writes admins may make) and of every shard's
+// CoreIdentitySet (read-only).
 //
 // URL patterns:
 //
-//	/services/admin/apis/core.kcp.io/v1alpha1/shards            (plain clients, e.g. kubectl via `ws use :admin`)
-//	/services/admin/clusters/<anything>/apis/core.kcp.io/...    (cluster-aware clients; the segment is accepted and ignored)
+//	/services/admin/apis/core.kcp.io/v1alpha1/shards                 (plain clients, e.g. kubectl via `ws use :admin`)
+//	/services/admin/apis/admin.kcp.io/v1alpha1/coreidentitysets
+//	/services/admin/clusters/<anything>/apis/core.kcp.io/...         (cluster-aware clients; the segment is accepted and ignored)
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	cacheDynamicClusterClient kcpdynamic.ClusterInterface,
@@ -139,7 +141,7 @@ func digestURL(urlPath, rootPathPrefix string) (cluster genericapirequest.Cluste
 	return cluster, prefix, true
 }
 
-// singleResourceAPIDefinitionSetProvider serves the one fixed API of this
+// singleResourceAPIDefinitionSetProvider serves the fixed API set of this
 // virtual workspace, lazily constructing the serving info once.
 type singleResourceAPIDefinitionSetProvider struct {
 	config                    genericapiserver.CompletedConfig
@@ -160,17 +162,19 @@ func (p *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(_ context.C
 		return p.cached, true, nil
 	}
 
-	apiDef, err := provideShardsRestStorage(p.config, p.cacheDynamicClusterClient)
+	shardsDef, err := provideShardsRestStorage(p.config, p.cacheDynamicClusterClient)
 	if err != nil {
+		return nil, false, err
+	}
+	coreIdentitySetsDef, err := provideCoreIdentitySetsRestStorage(p.config, p.cacheDynamicClusterClient)
+	if err != nil {
+		shardsDef.TearDown()
 		return nil, false, err
 	}
 
 	p.cached = apidefinition.APIDefinitionSet{
-		schema.GroupVersionResource{
-			Group:    corev1alpha1.SchemeGroupVersion.Group,
-			Version:  corev1alpha1.SchemeGroupVersion.Version,
-			Resource: "shards",
-		}: apiDef,
+		corev1alpha1.SchemeGroupVersion.WithResource("shards"):            shardsDef,
+		adminv1alpha1.SchemeGroupVersion.WithResource("coreidentitysets"): coreIdentitySetsDef,
 	}
 	return p.cached, true, nil
 }

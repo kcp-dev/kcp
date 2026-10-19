@@ -44,6 +44,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/controlplane"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
@@ -64,16 +65,19 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	tenancyv1alpha1listers "github.com/kcp-dev/sdk/client/listers/tenancy/v1alpha1"
 
+	configrootidentities "github.com/kcp-dev/kcp/config/root-identities"
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/contextmanager"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/identity/corekey"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/network"
 	"github.com/kcp-dev/kcp/pkg/objectcount"
+	"github.com/kcp-dev/kcp/pkg/reconciler/admin/coreidentityset"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	"github.com/kcp-dev/kcp/pkg/reconciler/migration/logicalclustermigration"
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
@@ -109,7 +113,14 @@ type ExtraConfig struct {
 	// resource identities into the rest.Config used by the client. Only after it succeeds,
 	// the clients can wildcard-list/watch most kcp resources.
 	resolveIdentities func(ctx context.Context) error
+	// refreshIdentities keeps the identities resolved by resolveIdentities
+	// up to date until its context is done, e.g. across an APIExport
+	// identity rotation. It is started after resolveIdentities succeeded.
+	refreshIdentities func(ctx context.Context)
 	IdentityConfig    *rest.Config
+	// CoreIdentities is the shard's state around the core APIExport
+	// identities: the key, what was resolved, and the readiness check.
+	CoreIdentities *CoreIdentities
 
 	// authentication
 	kcpAdminToken, shardAdminToken, userToken string
@@ -293,41 +304,82 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	}
 
 	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
-	// The identities are not known before we can get them from the APIExports via the loopback client or from the root shard in case this is a non-root shard,
-	// hence we postpone this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
+	// The identities are not known before we can get them from the APIExports via the loopback client, from the
+	// shard's own CoreIdentitySet, from the cache server, from the core identities key or (legacy) from the root
+	// shard in case this is a non-root shard, hence we postpone this to the kcp-start-informers post-start hook.
 	// The informers here are not used before the informers are actually started (i.e. no race).
+	if c.CoreIdentities, err = c.newCoreIdentities(); err != nil {
+		return nil, err
+	}
+	var provider bootstrap.Provider
+	var nonIdentityRootKcpShardBaseConfig *rest.Config
 	if len(c.Options.Extra.RootShardKubeconfigFile) > 0 {
 		// TODO(p0lyn0mial): use kcp-admin instead of system:admin
-		nonIdentityRootKcpShardBaseConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.RootShardKubeconfigFile}, &clientcmd.ConfigOverrides{CurrentContext: "shard-base"}).ClientConfig()
+		nonIdentityRootKcpShardBaseConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.RootShardKubeconfigFile}, &clientcmd.ConfigOverrides{CurrentContext: "shard-base"}).ClientConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for the root shard, err: %w", c.Options.Extra.RootShardKubeconfigFile, err)
 		}
+	}
+	// refreshProvider reports the current identities of the core APIExports
+	// after the initial resolution, so rotated identities are picked up. It
+	// never asks this shard's own CoreIdentitySet or the core identities
+	// key: those report what the shard already uses, and a rotated identity
+	// is not derived from the key.
+	var refreshProvider bootstrap.Provider
+	if c.Options.Extra.ShardName == corev1alpha1.RootShard {
+		// the root shard hosts the root workspace: its APIExports are the
+		// source of truth. Their identity secrets are seeded from
+		// --root-identities-file and the core identities key before.
+		provider = bootstrap.RootAPIExportProvider(c.GenericConfig.LoopbackClientConfig)
+		refreshProvider = provider
+	} else {
+		// in order of preference: what this shard already uses, what the
+		// cache server knows, the key, and (legacy) the root shard.
+		providers := []bootstrap.Provider{
+			c.CoreIdentities.Local.Provider(),
+			bootstrap.LegacyConfigMapProvider(c.KubeClusterClient),
+			bootstrap.CacheProvider(c.KcpCacheClusterClient),
+			bootstrap.KeyProvider(c.CoreIdentities.Key, bootstrap.KeyGate(c.CoreIdentities.Key, c.CoreIdentities.Local)),
+		}
+		refreshProviders := []bootstrap.Provider{
+			bootstrap.LegacyConfigMapProvider(c.KubeClusterClient),
+			bootstrap.CacheProvider(c.KcpCacheClusterClient),
+		}
+		if nonIdentityRootKcpShardBaseConfig != nil {
+			providers = append(providers, bootstrap.RootAPIExportProvider(nonIdentityRootKcpShardBaseConfig))
+			refreshProviders = append(refreshProviders, bootstrap.RootAPIExportProvider(nonIdentityRootKcpShardBaseConfig))
+		}
+		provider = bootstrap.Chain(providers...)
+		refreshProvider = bootstrap.Chain(refreshProviders...)
+	}
 
-		var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-		kcpShardIdentityRoundTripper, c.resolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardBaseConfig, c.KubeClusterClient)
+	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
+	kcpShardIdentityRoundTripper, c.resolveIdentities, c.CoreIdentities.Identities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, provider)
+	var devFileHashes map[string]string
+	if c.CoreIdentities.DevFile != nil {
+		devFileHashes = c.CoreIdentities.DevFile.Hashes()
+	}
+	c.CoreIdentities.Identities.SetClassifier(bootstrap.WithRecorded(c.CoreIdentities.Local, bootstrap.NewClassifier(c.CoreIdentities.Key, devFileHashes)))
+	identities := c.CoreIdentities.Identities
+	c.refreshIdentities = func(ctx context.Context) { identities.RunRefresher(ctx, refreshProvider) }
+
+	c.IdentityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+	c.IdentityConfig.Wrap(kcpShardIdentityRoundTripper)
+	c.KcpClusterClient, err = kcpclientset.NewForConfig(c.IdentityConfig) // this is now generic to be used for all kcp API groups
+	if err != nil {
+		return nil, err
+	}
+	if nonIdentityRootKcpShardBaseConfig != nil {
 		rootKcpShardIdentityConfig := rest.CopyConfig(nonIdentityRootKcpShardBaseConfig)
 		rootKcpShardIdentityConfig.Wrap(kcpShardIdentityRoundTripper)
 		c.RootShardKcpClusterClient, err = kcpclientset.NewForConfig(rootKcpShardIdentityConfig)
 		if err != nil {
 			return nil, err
 		}
-
-		c.IdentityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
-		c.IdentityConfig.Wrap(kcpShardIdentityRoundTripper)
-		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.IdentityConfig) // this is now generic to be used for all kcp API groups
-		if err != nil {
-			return nil, err
-		}
 	} else {
-		// The informers here are not used before the informers are actually started (i.e. no race).
-
-		c.IdentityConfig, c.resolveIdentities = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
-		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.IdentityConfig) // this is now generic to be used for all kcp API groups
-		if err != nil {
-			return nil, err
-		}
 		c.RootShardKcpClusterClient = c.KcpClusterClient
 	}
+	c.GenericConfig.AddReadyzChecks(c.CoreIdentities.Health)
 
 	informerConfig := rest.CopyConfig(c.IdentityConfig)
 	informerConfig.UserAgent = "kcp-informers"
@@ -925,4 +977,48 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	}
 
 	return c, nil
+}
+
+// newCoreIdentities loads the core identities key and --root-identities-file
+// (development only) and prepares the shard's core identity state.
+func (c *Config) newCoreIdentities() (*CoreIdentities, error) {
+	ci := &CoreIdentities{
+		Health: coreidentityset.NewHealth(),
+	}
+
+	if path := c.Options.Extra.CoreIdentitiesKeyFile; path != "" {
+		key, err := corekey.Load(path)
+		if err != nil {
+			return nil, err
+		}
+		ci.Key = key
+	}
+
+	if path := c.Options.Extra.RootIdentitiesFile; path != "" {
+		if c.Options.Extra.ShardName != corev1alpha1.RootShard {
+			return nil, fmt.Errorf("--root-identities-file is only used by the root shard")
+		}
+		bs, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read --root-identities-file %q: %w", path, err)
+		}
+		ids, err := configrootidentities.Parse(bs)
+		if err != nil {
+			return nil, fmt.Errorf("invalid --root-identities-file %q: %w", path, err)
+		}
+		ci.DevFile = ids
+		if ci.Key != nil {
+			klog.Background().Info("WARNING: --root-identities-file is for development only and deprecated; it is used together with --core-identities-key-file, existing identities from the file win over the key")
+		} else {
+			klog.Background().Info("WARNING: --root-identities-file is for development only and deprecated; use --core-identities-key-file")
+		}
+	}
+
+	var err error
+	ci.NonIdentityKcpClusterClient, err = kcpclientset.NewForConfig(c.GenericConfig.LoopbackClientConfig)
+	if err != nil {
+		return nil, err
+	}
+	ci.Local = bootstrap.NewLocalCoreIdentitySet(ci.NonIdentityKcpClusterClient, c.Options.Extra.ShardName)
+	return ci, nil
 }

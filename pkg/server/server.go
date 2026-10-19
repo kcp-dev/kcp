@@ -286,6 +286,9 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 	if err := s.installApiExportIdentityController(ctx, controllerConfig); err != nil {
 		return err
 	}
+	if err := s.installCoreIdentitySetController(ctx, controllerConfig); err != nil {
+		return err
+	}
 	if err := s.installShardRepresentationController(ctx, controllerConfig); err != nil {
 		return err
 	}
@@ -558,8 +561,7 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("bootstrapping root workspace phase 0")
 			s.RootShardKcpClusterClient = s.KcpClusterClient
 
-			if s.Options.Extra.RootIdentitiesFile != "" {
-				logger.Info("bootstrapping identities into root workspace", "file", s.Options.Extra.RootIdentitiesFile)
+			if s.CoreIdentities.DevFile != nil || s.CoreIdentities.Key != nil {
 				logger.Info("creating system namespace in root workspace")
 				if err := configrootidentitiesns.Bootstrap(hookCtx,
 					s.BootstrapApiExtensionsClusterClient.Cluster(core.RootCluster.Path()).Discovery(),
@@ -570,6 +572,12 @@ func (s *Server) Run(ctx context.Context) error {
 					return nil // don't klog.Fatal. This only happens when context is cancelled.
 				}
 				logger.Info("created system namespace in root workspace")
+			}
+
+			// --root-identities-file (development only) goes first: its entries
+			// are the configured identities and win over the key. Existing
+			// identities are never replaced; a disagreeing entry is reported.
+			if s.CoreIdentities.DevFile != nil {
 				logger.Info("bootstrapping root workspace with identities", "file", s.Options.Extra.RootIdentitiesFile)
 				identitiesBytes, err := os.ReadFile(s.Options.Extra.RootIdentitiesFile)
 				if err != nil {
@@ -586,6 +594,32 @@ func (s *Server) Run(ctx context.Context) error {
 					return nil // don't klog.Fatal. This only happens when context is cancelled.
 				}
 				logger.Info("bootstrapped root workspace with identities", "file", s.Options.Extra.RootIdentitiesFile)
+
+				if err := configrootidentities.Verify(hookCtx, s.KubeClusterClient.Cluster(core.RootCluster.Path()), s.CoreIdentities.DevFile); err != nil {
+					// not fatal: existing identities stay as they are. The
+					// conflict is reported in the CoreIdentitySet and keeps
+					// the shard not-ready until the configuration is fixed.
+					logger.Error(err, "--root-identities-file disagrees with existing identities; keeping the existing identities, reporting not-ready")
+					s.CoreIdentities.SetConflict(err.Error())
+				}
+			}
+
+			// the core identities key fills in identities that are still
+			// missing: all of them on a fresh install, and the ones of core
+			// APIs added by an upgrade. It never replaces an existing one.
+			if s.CoreIdentities.Key != nil {
+				logger.Info("seeding missing core identities from the core identities key", "keyID", s.CoreIdentities.Key.ID())
+				if err := wait.PollUntilContextCancel(hookCtx, time.Second, true, func(ctx context.Context) (bool, error) {
+					if err := configrootidentities.SeedFromKey(ctx, s.KubeClusterClient.Cluster(core.RootCluster.Path()), s.CoreIdentities.Key, configrootphase0.CoreAPIExportNames()); err != nil {
+						logger.Error(err, "failed to seed core identities from the core identities key, retrying")
+						return false, nil
+					}
+					return true, nil
+				}); err != nil {
+					logger.Error(err, "failed to seed core identities from the core identities key")
+					return nil // don't klog.Fatal. This only happens when context is cancelled.
+				}
+				logger.Info("seeded missing core identities from the core identities key")
 			}
 
 			// bootstrap root workspace phase 0 only if we are on the root shard, no APIBinding resources yet
@@ -599,35 +633,39 @@ func (s *Server) Run(ctx context.Context) error {
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 			logger.Info("bootstrapped root workspace phase 0")
-
-			logger.Info("getting kcp APIExport identities")
-			var identityErr error
-			if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
-				if err := s.resolveIdentities(ctx); err != nil {
-					logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
-					identityErr = err
-					return false, nil
-				}
-				return true, nil
-			}); err != nil {
-				logger.Error(err, "failed to get or create identities: %w", identityErr)
-				return nil // don't klog.Fatal. This only happens when context is cancelled.
-			}
-			logger.Info("finished getting kcp APIExport identities")
-		} else if len(s.Options.Extra.RootShardKubeconfigFile) > 0 {
-			logger.Info("getting kcp APIExport identities for the root shard")
-			if err := wait.PollUntilContextCancel(hookContext, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
-				if err := s.resolveIdentities(ctx); err != nil {
-					logger.V(3).Info("failed to resolve identities for the root shard, keeping trying", "err", err)
-					return false, nil
-				}
-				return true, nil
-			}); err != nil {
-				logger.Error(err, "failed to get or create identities for the root shard")
-				return nil // don't klog.Fatal. This only happens when context is cancelled.
-			}
-			logger.Info("finished getting kcp APIExport identities for the root shard")
 		}
+
+		// Every shard resolves the identities of the core APIExports: the root
+		// shard from its own APIExports, the other shards from their own
+		// CoreIdentitySet, the cache server, the core identities key or
+		// (legacy) the root shard. Until they are resolved the shard reports
+		// not-ready through the core-identities readiness check, and
+		// publishes what it knows in its CoreIdentitySet from time to time.
+		logger.Info("getting kcp APIExport identities")
+		var identityErr error
+		attempts := 0
+		if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
+			if err := s.resolveIdentities(ctx); err != nil {
+				logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
+				identityErr = err
+				attempts++
+				if attempts%20 == 1 {
+					s.CoreIdentities.Health.Set(fmt.Errorf("core identities are not resolved yet: %w", err))
+					s.publishCoreIdentitySet(ctx)
+				}
+				return false, nil
+			}
+			return true, nil
+		}); err != nil {
+			logger.Error(err, "failed to get or create identities", "lastError", identityErr)
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+		s.publishCoreIdentitySet(hookCtx)
+		logger.Info("finished getting kcp APIExport identities")
+		// a rotated identity is published right away, so the front-proxy and
+		// the other shards, which read the CoreIdentitySets, follow quickly.
+		s.CoreIdentities.Identities.AddChangeListener(func() { s.publishCoreIdentitySet(hookCtx) })
+		go s.refreshIdentities(hookCtx)
 
 		s.KcpSharedInformerFactory.Start(hookCtx.Done())
 		s.CacheKcpSharedInformerFactory.Start(hookCtx.Done())

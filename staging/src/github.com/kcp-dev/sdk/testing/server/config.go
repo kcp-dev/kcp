@@ -17,7 +17,13 @@ limitations under the License.
 package server
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -91,7 +97,35 @@ func (c Config) BuildArgs(t TestingT) ([]string, error) {
 		args = append(args, mountArgs...)
 	}
 
+	if !hasFlag(args, "--core-identities-key-file") && !hasFlag(args, "--root-identities-file") {
+		keyArgs, err := coreIdentitiesKeyArgs(t)
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, keyArgs...)
+	}
+
 	return args, nil
+}
+
+// coreIdentitiesKeyArgs generates a core identities key, from which the
+// identities of the core APIExports are derived, and returns the kcp flag
+// that wires it up. Tests then exercise the same path as a production
+// installation with a key instead of randomly created identities.
+func coreIdentitiesKeyArgs(t TestingT) ([]string, error) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate core identities key: %w", err)
+	}
+	der, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal core identities key: %w", err)
+	}
+	path := filepath.Join(t.TempDir(), "core-identities.key")
+	if err := os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), 0o600); err != nil {
+		return nil, fmt.Errorf("failed to write core identities key: %w", err)
+	}
+	return []string{"--core-identities-key-file", path}, nil
 }
 
 // hasFlag returns true if args contains the given flag, either as "--flag value"
