@@ -27,6 +27,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -42,6 +44,8 @@ import (
 const (
 	oldHash = "1111111111111111111111111111111111111111111111111111111111111111"
 	newHash = "2222222222222222222222222222222222222222222222222222222222222222"
+	// otherHash is the identity of an export that is not rotated.
+	otherHash = "3333333333333333333333333333333333333333333333333333333333333333"
 )
 
 var (
@@ -224,6 +228,91 @@ func TestWatchExpiresOnIdentityChange(t *testing.T) {
 	if open != 0 {
 		t.Errorf("expected no tracked watches after the watch ended, got %d", open)
 	}
+}
+
+// TestWatchExpiresWhenIdentityChangesMidRequest covers the window between
+// reading the identity for the request path and tracking the watch once the
+// response headers arrive: an identity replaced in that window has already
+// expired the tracked watches, so the late one must be expired on arrival.
+func TestWatchExpiresWhenIdentityChangesMidRequest(t *testing.T) {
+	t.Parallel()
+
+	ids := resolvedIdentities(t, &fakeProvider{hashes: map[string]string{"tenancy.kcp.io": oldHash, "shards.core.kcp.io": otherHash}})
+	pr, pw := io.Pipe()
+	t.Cleanup(func() { _ = pw.Close() })
+
+	// the transport swaps the identity while the request is in flight.
+	transport := roundTripperFunc{fn: func(req *http.Request) (*http.Response, error) {
+		if got, want := req.URL.Path, "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:"+oldHash; got != want {
+			t.Errorf("expected the request to be sent to %q, got %q", want, got)
+		}
+		apiExportHandler(ids).OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       pr,
+			Request:    req,
+		}, nil
+	}}
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://kcp/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces?watch=true", http.NoBody)
+	require.NoError(t, err)
+	resp, err := injectKcpIdentities(ids)(transport).RoundTrip(req)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = resp.Body.Close() })
+
+	body, ok := resp.Body.(*expirableWatchBody)
+	require.True(t, ok, "expected the watch body to be tracked")
+	require.True(t, body.expired, "a watch sent with an identity that was replaced in flight must be expired on arrival")
+	rest, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, expiredWatchEvent, rest, "the reader must get the expired event")
+
+	// the same request after the swap goes out with the new identity and is not expired.
+	plain := roundTripperFunc{fn: func(req *http.Request) (*http.Response, error) {
+		require.Equal(t, "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:"+newHash, req.URL.Path)
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader("")), Request: req}, nil
+	}}
+	resp, err = injectKcpIdentities(ids)(plain).RoundTrip(req)
+	require.NoError(t, err)
+	require.False(t, resp.Body.(*expirableWatchBody).expired, "a watch on the current identity must not be expired")
+}
+
+// TestExpireDoesNotBlockOnStalledReader checks that expiring a watch whose
+// reader is blocked in Read returns right away and unblocks the reader: the
+// body lock is not held across the underlying read, and closing the stream
+// ends it.
+func TestExpireDoesNotBlockOnStalledReader(t *testing.T) {
+	t.Parallel()
+
+	pr, pw := io.Pipe()
+	body := newExpirableWatchBody(pr, true)
+
+	readDone := make(chan error, 1)
+	go func() {
+		_, err := io.ReadAll(body) // blocks: nothing is ever written
+		readDone <- err
+	}()
+	// give the reader time to block in the underlying Read.
+	time.Sleep(50 * time.Millisecond)
+
+	expired := make(chan struct{})
+	go func() {
+		body.expire()
+		close(expired)
+	}()
+	select {
+	case <-expired:
+	case <-time.After(wait30s):
+		t.Fatal("expire blocked on a stalled reader")
+	}
+	select {
+	case err := <-readDone:
+		require.NoError(t, err, "the stalled reader must end cleanly")
+	case <-time.After(wait30s):
+		t.Fatal("the stalled reader was not unblocked by expire")
+	}
+	_ = pw.Close()
 }
 
 const wait30s = 30 * time.Second

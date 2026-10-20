@@ -426,6 +426,9 @@ func injectKcpIdentities(ids *identities) func(rt http.RoundTripper) http.RoundT
 				body := newExpirableWatchBody(resp.Body, isJSON(resp.Header.Get("Content-Type")))
 				body.onClose = func() { ids.untrackWatch(identity, body) }
 				ids.trackWatch(identity, body)
+				if _, current, err := decorateWildcardPathsWithResourceIdentities(origReq.URL.Path, ids); err != nil || current != identity {
+					body.expire()
+				}
 				resp.Body = body
 				return resp, nil
 			},
