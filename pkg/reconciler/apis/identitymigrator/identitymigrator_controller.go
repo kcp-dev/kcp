@@ -70,6 +70,7 @@ import (
 	apisv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
+	migrationv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/migration/v1alpha1"
 
 	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/indexers"
@@ -108,6 +109,7 @@ func NewController(
 	apiResourceSchemaInformer apisv1alpha1informers.APIResourceSchemaClusterInformer,
 	crdInformer kcpapiextensionsv1informers.CustomResourceDefinitionClusterInformer,
 	logicalClusterInformer corev1alpha1informers.LogicalClusterClusterInformer,
+	globalRotationInformer migrationv1alpha1informers.APIExportIdentityRotationClusterInformer,
 ) (*Controller, error) {
 	c := &Controller{
 		// waiting states (fence propagation, sibling drains, CRD
@@ -198,8 +200,8 @@ func NewController(
 			}
 			return bindings, nil
 		},
-		getReportedProgress: func(ctx context.Context, cluster logicalcluster.Path, rotationName string) (*migrationv1alpha1.ShardMigrationProgress, error) {
-			rotation, err := externalKcpClusterClient.Cluster(cluster).MigrationV1alpha1().APIExportIdentityRotations().Get(ctx, rotationName, metav1.GetOptions{})
+		getReportedProgress: func(_ context.Context, cluster logicalcluster.Name, rotationName string) (*migrationv1alpha1.ShardMigrationProgress, error) {
+			rotation, err := globalRotationInformer.Lister().Cluster(cluster).Get(rotationName)
 			if err != nil {
 				return nil, err
 			}
@@ -209,28 +211,6 @@ func NewController(
 				}
 			}
 			return nil, nil
-		},
-		listRotatingExports: func() ([]*apisv1alpha2.APIExport, error) {
-			seen := sets.New[string]()
-			var result []*apisv1alpha2.APIExport
-			for _, informer := range []apisv1alpha2informers.APIExportClusterInformer{apiExportInformer, globalAPIExportInformer} {
-				exports, err := informer.Lister().List(labels.Everything())
-				if err != nil {
-					return nil, err
-				}
-				for _, export := range exports {
-					if export.Annotations[migrationv1alpha1.ActiveRotationAnnotationKey] == "" {
-						continue
-					}
-					key := logicalcluster.From(export).String() + "|" + export.Name
-					if seen.Has(key) {
-						continue
-					}
-					seen.Insert(key)
-					result = append(result, export)
-				}
-			}
-			return result, nil
 		},
 		applyShardProgress: func(ctx context.Context, cluster logicalcluster.Path, rotationName string, counts shardCounts) error {
 			entry := migrationv1alpha1apply.ShardMigrationProgress().
@@ -279,6 +259,10 @@ func NewController(
 	// exports carry the active-rotation annotation while a drain is in
 	// progress; it is how this shard learns it has to report progress, even
 	// when it hosts no binding of the export at all.
+	_, _ = globalRotationInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.enqueueReportForRotation,
+		UpdateFunc: func(_, obj interface{}) { c.enqueueReportForRotation(obj) },
+	})
 	_, _ = globalAPIExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj interface{}) { c.enqueueReportForExport(obj) },
 		UpdateFunc: func(_, obj interface{}) { c.enqueueReportForExport(obj) },
@@ -326,11 +310,8 @@ type Controller struct {
 	deleteBoundCRD           func(ctx context.Context, name string, uid types.UID) error
 	listBindingsForExport    func(export *apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error)
 	// getReportedProgress returns this shard's entry in the rotation's
-	// status.shards, nil if it has none. It reads the rotation object live.
-	getReportedProgress func(ctx context.Context, cluster logicalcluster.Path, rotationName string) (*migrationv1alpha1.ShardMigrationProgress, error)
-	// listRotatingExports lists the APIExports with an active identity
-	// rotation, from the local and the cache server's informers.
-	listRotatingExports func() ([]*apisv1alpha2.APIExport, error)
+	// status.shards as replicated to the cache server, nil if it has none.
+	getReportedProgress func(ctx context.Context, cluster logicalcluster.Name, rotationName string) (*migrationv1alpha1.ShardMigrationProgress, error)
 	applyShardProgress  func(ctx context.Context, cluster logicalcluster.Path, rotationName string, counts shardCounts) error
 }
 
@@ -403,7 +384,6 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
 	go wait.UntilWithContext(ctx, c.startReportWorker, time.Second)
-	go wait.UntilWithContext(ctx, c.resyncReports, reportResyncInterval)
 
 	<-ctx.Done()
 }
@@ -477,19 +457,19 @@ func (c *Controller) reportProgress(ctx context.Context, key string) error {
 		}
 	}
 
-	// The counts are compared with the rotation object itself, not with a
-	// cache of what this shard applied last: an applied entry can get lost.
-	// While migration.kcp.io itself rotates, the rotation objects move to a
-	// new storage prefix, and a report written to the old prefix after the
-	// copy goes with it. Reading the truth keeps the periodic resync
-	// (reportResyncInterval) self-healing and still saves the write when
-	// nothing changed.
+	// The counts are compared with the rotation object as replicated to the
+	// cache server, not with a cache of what this shard applied last: an
+	// applied entry can get lost. While migration.kcp.io itself rotates, the
+	// rotation objects move to a new storage prefix, and a report written to
+	// the old prefix after the copy goes with it. The replica lags a little
+	// behind, which costs a redundant (idempotent) apply right after a
+	// report, but every change of the replica re-enqueues the report
+	// (enqueueReportForRotation), so a lost entry is re-applied as soon as
+	// the moved object shows up without it. A replica that is not there yet
+	// is treated like a missing entry.
 	rotationPath := logicalcluster.NewPath(rotationCluster)
-	current, err := c.getReportedProgress(ctx, rotationPath, rotationName)
-	if apierrors.IsNotFound(err) {
-		return nil // rotation is gone; nothing to report to
-	}
-	if err != nil {
+	current, err := c.getReportedProgress(ctx, logicalcluster.Name(rotationCluster), rotationName)
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 	if current != nil && current.IdentityHash == counts.identityHash && current.TotalBindings == counts.total && current.MigratedBindings == counts.migrated {
@@ -506,22 +486,23 @@ func (c *Controller) reportProgress(ctx context.Context, key string) error {
 	return nil
 }
 
-// reportResyncInterval is how often the drain-progress reports of every
-// rotating export are re-evaluated, on top of the event-driven reports. It
-// recovers reports that got lost, see reportProgress.
-const reportResyncInterval = 10 * time.Second
-
-// resyncReports enqueues a drain-progress report for every export with an
-// active identity rotation.
-func (c *Controller) resyncReports(ctx context.Context) {
-	exports, err := c.listRotatingExports()
-	if err != nil {
-		utilruntime.HandleError(fmt.Errorf("%q controller failed to list rotating APIExports: %w", ControllerName, err))
+// enqueueReportForRotation re-evaluates this shard's drain-progress report
+// whenever a rotation object changes on the cache server: another shard
+// reported, the rotation controller moved on, or the object reappeared on a
+// new storage prefix without this shard's entry.
+func (c *Controller) enqueueReportForRotation(obj interface{}) {
+	if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj = tombstone.Obj
+	}
+	rotation, ok := obj.(*migrationv1alpha1.APIExportIdentityRotation)
+	if !ok || rotation.Status.Phase != migrationv1alpha1.APIExportIdentityRotationMigrating {
 		return
 	}
-	for _, export := range exports {
-		c.reportQueue.Add(logicalcluster.From(export).String() + "|" + export.Name)
+	path := logicalcluster.NewPath(rotation.Spec.Export.Path)
+	if path.Empty() {
+		path = logicalcluster.From(rotation).Path()
 	}
+	c.reportQueue.Add(path.String() + "|" + rotation.Spec.Export.Name)
 }
 
 // bindingFullyOn reports whether every bound resource of the binding serves

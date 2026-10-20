@@ -1304,6 +1304,7 @@ func (s *Server) installIdentityMigratorController(_ context.Context, config *re
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
 		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
 		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.CacheKcpSharedInformerFactory.Migration().V1alpha1().APIExportIdentityRotations(),
 	)
 	if err != nil {
 		return err
@@ -1319,7 +1320,8 @@ func (s *Server) installIdentityMigratorController(_ context.Context, config *re
 					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
 					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
 					s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
-					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced(), nil
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Migration().V1alpha1().APIExportIdentityRotations().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {

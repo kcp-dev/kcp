@@ -61,7 +61,7 @@ func TestReportProgress(t *testing.T) {
 	var reported *migrationv1alpha1.ShardMigrationProgress
 	c := &Controller{
 		shardName: "alpha",
-		getReportedProgress: func(context.Context, logicalcluster.Path, string) (*migrationv1alpha1.ShardMigrationProgress, error) {
+		getReportedProgress: func(context.Context, logicalcluster.Name, string) (*migrationv1alpha1.ShardMigrationProgress, error) {
 			return reported, nil
 		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
