@@ -109,7 +109,12 @@ type ExtraConfig struct {
 	// resource identities into the rest.Config used by the client. Only after it succeeds,
 	// the clients can wildcard-list/watch most kcp resources.
 	resolveIdentities func(ctx context.Context) error
-	IdentityConfig    *rest.Config
+	// coreIdentityHandler keeps the identities resolved by resolveIdentities
+	// in sync with the APIExports in the root workspace, e.g. across an
+	// APIExport identity rotation. It is registered on the APIExport
+	// informers once the identities are resolved.
+	coreIdentityHandler cache.ResourceEventHandler
+	IdentityConfig      *rest.Config
 
 	// authentication
 	kcpAdminToken, shardAdminToken, userToken string
@@ -304,7 +309,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		}
 
 		var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-		kcpShardIdentityRoundTripper, c.resolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardBaseConfig, c.KubeClusterClient)
+		kcpShardIdentityRoundTripper, c.resolveIdentities, c.coreIdentityHandler = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardBaseConfig, c.KubeClusterClient)
 		rootKcpShardIdentityConfig := rest.CopyConfig(nonIdentityRootKcpShardBaseConfig)
 		rootKcpShardIdentityConfig.Wrap(kcpShardIdentityRoundTripper)
 		c.RootShardKcpClusterClient, err = kcpclientset.NewForConfig(rootKcpShardIdentityConfig)
@@ -321,7 +326,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	} else {
 		// The informers here are not used before the informers are actually started (i.e. no race).
 
-		c.IdentityConfig, c.resolveIdentities = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
+		c.IdentityConfig, c.resolveIdentities, c.coreIdentityHandler = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
 		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.IdentityConfig) // this is now generic to be used for all kcp API groups
 		if err != nil {
 			return nil, err

@@ -23,6 +23,7 @@ import (
 
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
@@ -47,8 +48,13 @@ type ExtraConfig struct {
 	// resource identities into the rest.Config used by the client. Only after it succeeds,
 	// the clients can wildcard-list/watch most kcp resources.
 	ResolveIdentities func(ctx context.Context) error
-	RootShardConfig   *rest.Config
-	ShardsConfig      *rest.Config
+	// CoreIdentityHandler keeps the identities resolved by ResolveIdentities
+	// in sync with the APIExports in the root workspace, e.g. across an
+	// APIExport identity rotation. Register it on an informer of those
+	// APIExports.
+	CoreIdentityHandler cache.ResourceEventHandler
+	RootShardConfig     *rest.Config
+	ShardsConfig        *rest.Config
 	// PeersConfig points at the Admin workspace (/services/admin) of the
 	// peer shards with round-robin and per-request failover, and is the only
 	// source for Shard discovery. When no peers are configured, the root
@@ -91,7 +97,7 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 	}
 
 	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-	kcpShardIdentityRoundTripper, c.ResolveIdentities = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootConfig, nil)
+	kcpShardIdentityRoundTripper, c.ResolveIdentities, c.CoreIdentityHandler = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootConfig, nil)
 	c.RootShardConfig = rest.CopyConfig(nonIdentityRootConfig)
 	c.RootShardConfig.Wrap(kcpShardIdentityRoundTripper)
 

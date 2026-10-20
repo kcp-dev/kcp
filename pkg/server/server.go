@@ -629,6 +629,8 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("finished getting kcp APIExport identities for the root shard")
 		}
 
+		_, _ = s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().AddEventHandler(s.coreIdentityHandler)
+
 		s.KcpSharedInformerFactory.Start(hookCtx.Done())
 		s.CacheKcpSharedInformerFactory.Start(hookCtx.Done())
 

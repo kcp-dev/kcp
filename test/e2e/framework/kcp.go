@@ -27,6 +27,10 @@ import (
 // DefaultTokenAuthFile returns the default auth tokens file.
 var DefaultTokenAuthFile string
 
+// TestFeatureGates are the feature gates the e2e servers run with: the
+// shared server, private servers and private sharded servers alike.
+const TestFeatureGates = "WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true,APIExportIdentityRotation=true"
+
 func init() {
 	repo, err := kcptestinghelpers.RepositoryDir()
 	if err != nil {
@@ -37,6 +41,6 @@ func init() {
 
 	kcptesting.InitSharedKcpServer(kcptestingserver.WithCustomArguments(
 		"--token-auth-file", DefaultTokenAuthFile,
-		"--feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true,APIExportIdentityRotation=true",
+		"--feature-gates="+TestFeatureGates,
 	))
 }

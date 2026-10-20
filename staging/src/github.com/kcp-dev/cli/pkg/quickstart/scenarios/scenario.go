@@ -27,8 +27,10 @@ import (
 )
 
 const (
-	quickstartLabel       = "kcp.io/quickstart"
-	quickstartPrefixLabel = "kcp.io/quickstart-prefix"
+	// Label keys must stay outside the kcp.io domain, which is reserved for
+	// system use by the ReservedMetadata admission plugin.
+	quickstartLabel       = "kcp-quickstart"
+	quickstartPrefixLabel = "kcp-quickstart-prefix"
 
 	OrgSuffix      = "-org"
 	ProviderSuffix = "-provider"

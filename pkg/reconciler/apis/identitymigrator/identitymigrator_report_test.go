@@ -57,9 +57,13 @@ func TestReportProgress(t *testing.T) {
 	var appliedCluster logicalcluster.Path
 	var appliedName string
 	var applied []shardCounts
+	// reported is what the rotation object currently holds for this shard.
+	var reported *migrationv1alpha1.ShardMigrationProgress
 	c := &Controller{
-		shardName:    "alpha",
-		lastReported: map[string]shardCounts{},
+		shardName: "alpha",
+		getReportedProgress: func(context.Context, logicalcluster.Name, string) (*migrationv1alpha1.ShardMigrationProgress, error) {
+			return reported, nil
+		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return export, nil
 		},
@@ -73,6 +77,7 @@ func TestReportProgress(t *testing.T) {
 		applyShardProgress: func(_ context.Context, cluster logicalcluster.Path, name string, counts shardCounts) error {
 			appliedCluster, appliedName = cluster, name
 			applied = append(applied, counts)
+			reported = &migrationv1alpha1.ShardMigrationProgress{Shard: "alpha", IdentityHash: counts.identityHash, TotalBindings: counts.total, MigratedBindings: counts.migrated}
 			return nil
 		},
 	}
@@ -98,12 +103,29 @@ func TestReportProgress(t *testing.T) {
 		t.Fatalf("expected apply to be skipped for unchanged counts, got %d applies", len(applied))
 	}
 
+	// a lost or stale entry on the rotation object is re-applied, even though
+	// this shard already applied these counts once.
+	reported = &migrationv1alpha1.ShardMigrationProgress{Shard: "alpha", IdentityHash: "new", TotalBindings: 3, MigratedBindings: 0}
+	if err := c.reportProgress(context.Background(), "provider|cowboys"); err != nil {
+		t.Fatal(err)
+	}
+	if len(applied) != 2 {
+		t.Fatalf("expected the stale entry to be re-applied, got %d applies", len(applied))
+	}
+	reported = nil
+	if err := c.reportProgress(context.Background(), "provider|cowboys"); err != nil {
+		t.Fatal(err)
+	}
+	if len(applied) != 3 {
+		t.Fatalf("expected a missing entry to be re-applied, got %d applies", len(applied))
+	}
+
 	// no active rotation: nothing to report.
 	delete(export.Annotations, migrationv1alpha1.ActiveRotationAnnotationKey)
 	if err := c.reportProgress(context.Background(), "provider|cowboys"); err != nil {
 		t.Fatal(err)
 	}
-	if len(applied) != 1 {
+	if len(applied) != 3 {
 		t.Fatalf("expected no report without an active rotation, got %d applies", len(applied))
 	}
 }
