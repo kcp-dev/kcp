@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -44,9 +45,9 @@ import (
 // privateMigrationServer starts two private shards and a front proxy. The root
 // shard also hosts their shared cache. All ports, storage, and credentials are
 // allocated per test, independently of --kcp-kubeconfig and --shard-kubeconfigs.
-func privateMigrationServer(t *testing.T) kcptestingserver.RunningServer {
+func privateMigrationServer(t *testing.T, rootArgs ...string) kcptestingserver.RunningServer {
 	t.Helper()
-	server, _ := privateMigrationServerWithArgs(t, nil)
+	server, _ := privateMigrationServerWithArgs(t, map[string][]string{"root": rootArgs})
 	return server
 }
 
@@ -54,9 +55,25 @@ func privateMigrationServer(t *testing.T) kcptestingserver.RunningServer {
 // Extra arguments allow tests to configure different storage policies per shard.
 func privateMigrationServerWithArgs(t *testing.T, shardArgs map[string][]string) (kcptestingserver.RunningServer, func()) {
 	t.Helper()
+	server, restart := privateMigrationServerWithRestart(t, shardArgs)
+	return server, func() { restart("shard-1") }
+}
 
+func privateMigrationServerWithRestart(t *testing.T, shardArgs map[string][]string) (kcptestingserver.RunningServer, func(string)) {
+	t.Helper()
 	artifacts, dataDir, err := kcptestingserver.ScratchDirs(t)
 	require.NoError(t, err)
+	// Even restarted servers must stay up until workspace cleanup finishes.
+	serverT := &migrationServerTestingT{T: t}
+	t.Cleanup(func() {
+		serverT.mu.Lock()
+		cleanups := append([]func(){}, serverT.cleanups...)
+		serverT.mu.Unlock()
+		for i := len(cleanups) - 1; i >= 0; i-- {
+			cleanups[i]()
+		}
+	})
+
 	rootPort, err := kcptestingserver.GetFreePort(t)
 	require.NoError(t, err)
 	destinationPort, err := kcptestingserver.GetFreePort(t)
@@ -193,13 +210,13 @@ func privateMigrationServerWithArgs(t *testing.T, shardArgs map[string][]string)
 		args = append(args, "--shard-name="+name, "--secure-port="+port)
 		args = append(args, extraArgs...)
 		args = append(args, shardArgs[name]...)
-		return kcptesting.PrivateKcpServer(t,
+		return kcptesting.PrivateKcpServer(serverT,
 			kcptestingserver.WithScratchDirectories(filepath.Join(artifacts, name), filepath.Join(dataDir, name)),
 			kcptestingserver.WithClientCA(dataDir),
 			kcptestingserver.WithCustomArguments(args...),
 		)
 	}
-	startShard("root", rootPort)
+	root := startShard("root", rootPort)
 	destination := startShard("shard-1", destinationPort, "--root-shard-kubeconfig-file="+rootConfig, "--cache-kubeconfig="+rootConfig)
 	// Cleanup runs in reverse order: delete workspaces first, then stop the
 	// proxy's wildcard watches before shutting down the shards they watch.
@@ -212,9 +229,37 @@ func privateMigrationServerWithArgs(t *testing.T, shardArgs map[string][]string)
 	}, dataDir)
 	require.NoError(t, err)
 	require.NoError(t, kcptestingserver.WaitForReady(t.Context(), server.BaseConfig(t)))
-	return server, func() {
+	return server, func(name string) {
 		t.Helper()
-		destination.Stop()
-		destination = startShard("shard-1", destinationPort, "--root-shard-kubeconfig-file="+rootConfig, "--cache-kubeconfig="+rootConfig)
+		switch name {
+		case "root":
+			root.Stop()
+			root = startShard("root", rootPort)
+		case "shard-1":
+			destination.Stop()
+			destination = startShard("shard-1", destinationPort, "--root-shard-kubeconfig-file="+rootConfig, "--cache-kubeconfig="+rootConfig)
+		default:
+			t.Fatalf("unknown shard %q", name)
+		}
 	}
+}
+
+type migrationServerTestingT struct {
+	*testing.T
+	mu       sync.Mutex
+	cleanups []func()
+}
+
+func (t *migrationServerTestingT) Cleanup(f func()) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.cleanups = append(t.cleanups, f)
+}
+
+func (t *migrationServerTestingT) TempDir() string {
+	t.Helper()
+	dir, err := os.MkdirTemp("", "migration-server-")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, os.RemoveAll(dir)) })
+	return dir
 }
