@@ -23,8 +23,6 @@ import (
 )
 
 type ClusterInterface interface {
-	// APIExportIdentityRotations returns a APIExportIdentityRotationClusterInformer.
-	APIExportIdentityRotations() APIExportIdentityRotationClusterInformer
 	// LogicalClusterMigrations returns a LogicalClusterMigrationClusterInformer.
 	LogicalClusterMigrations() LogicalClusterMigrationClusterInformer
 }
@@ -39,19 +37,12 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
-// APIExportIdentityRotations returns a APIExportIdentityRotationClusterInformer.
-func (v *version) APIExportIdentityRotations() APIExportIdentityRotationClusterInformer {
-	return &aPIExportIdentityRotationClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // LogicalClusterMigrations returns a LogicalClusterMigrationClusterInformer.
 func (v *version) LogicalClusterMigrations() LogicalClusterMigrationClusterInformer {
 	return &logicalClusterMigrationClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 type Interface interface {
-	// APIExportIdentityRotations returns a APIExportIdentityRotationInformer.
-	APIExportIdentityRotations() APIExportIdentityRotationInformer
 	// LogicalClusterMigrations returns a LogicalClusterMigrationInformer.
 	LogicalClusterMigrations() LogicalClusterMigrationInformer
 }
@@ -65,11 +56,6 @@ type scopedVersion struct {
 // New returns a new Interface.
 func NewScoped(f kcpinternalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) Interface {
 	return &scopedVersion{factory: f, tweakListOptions: tweakListOptions}
-}
-
-// APIExportIdentityRotations returns a APIExportIdentityRotationInformer.
-func (v *scopedVersion) APIExportIdentityRotations() APIExportIdentityRotationInformer {
-	return &aPIExportIdentityRotationScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // LogicalClusterMigrations returns a LogicalClusterMigrationInformer.

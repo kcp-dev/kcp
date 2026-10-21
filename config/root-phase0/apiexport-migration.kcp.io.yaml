@@ -5,11 +5,6 @@ metadata:
 spec:
   resources:
   - group: migration.kcp.io
-    name: apiexportidentityrotations
-    schema: v260907-c79ed92af.apiexportidentityrotations.migration.kcp.io
-    storage:
-      crd: {}
-  - group: migration.kcp.io
     name: logicalclusterdumps
     schema: v261015-c6aa67685.logicalclusterdumps.migration.kcp.io
     storage:

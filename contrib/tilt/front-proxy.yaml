@@ -10,7 +10,7 @@ spec:
     ref:
       name: root
   extraArgs:
-    - --feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true,APIExportIdentityRotation=true
+    - --feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true
   auth:
     serviceAccount:
       enabled: true
