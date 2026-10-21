@@ -34,9 +34,14 @@ var ShardsSchema *apisv1alpha1.APIResourceSchema
 // CoreIdentitySets, derived from the embedded CRD manifest.
 var CoreIdentitySetsSchema *apisv1alpha1.APIResourceSchema
 
+// APIIdentitiesSchema is the APIResourceSchema for admin.kcp.io/v1alpha1
+// APIIdentities, derived from the embedded CRD manifest.
+var APIIdentitiesSchema *apisv1alpha1.APIResourceSchema
+
 func init() {
 	ShardsSchema = mustSchema("core.kcp.io_shards.yaml")
 	CoreIdentitySetsSchema = mustSchema("admin.kcp.io_coreidentitysets.yaml")
+	APIIdentitiesSchema = mustSchema("admin.kcp.io_apiidentities.yaml")
 }
 
 func mustSchema(file string) *apisv1alpha1.APIResourceSchema {

@@ -193,7 +193,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 	var crdName string
 	for _, boundResource := range apiBinding.Status.BoundResources {
 		if boundResource.Group == gr.Group && boundResource.Resource == gr.Resource {
-			crdName = boundResource.Schema.UID
+			crdName = indexers.BoundCRDNameFor(boundResource)
 
 			if len(boundResource.StorageVersions) > 0 {
 				// Virtual resources have zero storage versions, because they don't

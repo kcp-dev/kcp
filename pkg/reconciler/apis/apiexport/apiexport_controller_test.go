@@ -299,11 +299,11 @@ func TestReconcile(t *testing.T) {
 
 			if !tc.wantUnsetIdentity {
 				if tc.wantDefaultSecretRef {
-					require.Equal(t, "default-ns", apiExport.Spec.Identity.SecretRef.Namespace)
-					require.Equal(t, apiExport.Name, apiExport.Spec.Identity.SecretRef.Name)
+					require.Equal(t, "default-ns", apiExport.Spec.Identity.SecretRef.Namespace) //nolint:staticcheck // deprecated field under test
+					require.Equal(t, apiExport.Name, apiExport.Spec.Identity.SecretRef.Name)    //nolint:staticcheck // deprecated field under test
 				} else {
-					require.Equal(t, "somens", apiExport.Spec.Identity.SecretRef.Namespace)
-					require.Equal(t, "somename", apiExport.Spec.Identity.SecretRef.Name)
+					require.Equal(t, "somens", apiExport.Spec.Identity.SecretRef.Namespace) //nolint:staticcheck // deprecated field under test
+					require.Equal(t, "somename", apiExport.Spec.Identity.SecretRef.Name)    //nolint:staticcheck // deprecated field under test
 				}
 			}
 

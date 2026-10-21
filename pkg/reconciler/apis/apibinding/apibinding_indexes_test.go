@@ -76,6 +76,36 @@ func TestIndexAPIExportByAPIResourceSchemas(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		"adopted resource indexes the source's schema from status": {
+			obj: &apisv1alpha2.APIExport{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						logicalcluster.AnnotationKey: "root:default",
+					},
+					Name: "foo",
+				},
+				Spec: apisv1alpha2.APIExportSpec{
+					Resources: []apisv1alpha2.ResourceSchema{
+						{
+							Name:  "schema1",
+							Group: "org",
+							Storage: apisv1alpha2.ResourceSchemaStorage{
+								Adopted: &apisv1alpha2.ResourceSchemaStorageAdopted{From: apisv1alpha2.ExportBindingReference{Path: "root:source", Name: "bar"}},
+							},
+						},
+					},
+				},
+				Status: apisv1alpha2.APIExportStatus{
+					Resources: []apisv1alpha2.ResourceStatus{
+						{GroupResource: apisv1alpha2.GroupResource{Group: "org", Resource: "schema1"}, Schema: "v1.schema1.org", SchemaCluster: "source-cluster"},
+					},
+				},
+			},
+			want: []string{
+				client.ToClusterAwareKey(logicalcluster.NewPath("source-cluster"), "v1.schema1.org"),
+			},
+			wantErr: false,
+		},
 	}
 
 	for name, tt := range tests {

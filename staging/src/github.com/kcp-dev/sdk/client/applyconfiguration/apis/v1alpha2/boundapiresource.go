@@ -39,6 +39,12 @@ type BoundAPIResourceApplyConfiguration struct {
 	//
 	// Versions may not be removed while they exist in this list.
 	StorageVersions []string `json:"storageVersions,omitempty"`
+	// storage records the etcd prefix the bound instances of this resource
+	// live under. The prefix is independent of the export's identity: it is
+	// the identity by default, it differs while the export serves this
+	// resource out of another export's prefix (adopted storage), and it
+	// changes during a storage re-keying.
+	Storage *BoundAPIResourceStorageApplyConfiguration `json:"storage,omitempty"`
 }
 
 // BoundAPIResourceApplyConfiguration constructs a declarative configuration of the BoundAPIResource type for use with
@@ -78,5 +84,13 @@ func (b *BoundAPIResourceApplyConfiguration) WithStorageVersions(values ...strin
 	for i := range values {
 		b.StorageVersions = append(b.StorageVersions, values[i])
 	}
+	return b
+}
+
+// WithStorage sets the Storage field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Storage field is set to the value of the last call.
+func (b *BoundAPIResourceApplyConfiguration) WithStorage(value *BoundAPIResourceStorageApplyConfiguration) *BoundAPIResourceApplyConfiguration {
+	b.Storage = value
 	return b
 }

@@ -138,13 +138,14 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 		apiExportGetter := c.apiExportGetter(apiExportPath, apiBinding.Spec.Reference.Export.Name)
 
 		for _, boundResource := range apiBinding.Status.BoundResources {
+			boundCRDName := indexers.BoundCRDNameFor(boundResource)
 			logger := logging.WithObject(logger, &apiextensionsv1.CustomResourceDefinition{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        boundResource.Schema.UID,
+					Name:        boundCRDName,
 					Annotations: map[string]string{logicalcluster.AnnotationKey: apibinding.SystemBoundCRDsClusterName.String()},
 				},
 			})
-			crd, err := c.crdLister.Cluster(apibinding.SystemBoundCRDsClusterName).Get(boundResource.Schema.UID)
+			crd, err := c.crdLister.Cluster(apibinding.SystemBoundCRDsClusterName).Get(boundCRDName)
 			if err != nil {
 				logger.Error(err, "error getting bound CRD")
 				continue
@@ -162,9 +163,10 @@ func (c *apiBindingAwareCRDLister) List(ctx context.Context, selector labels.Sel
 			}
 
 			// Priority 2: Add APIBinding CRDs. These take priority over those from the local workspace.
-			// Add the APIExport identity hash as an annotation to the CRD so the RESTOptionsGetter can assign
-			// the correct etcd resource prefix.
-			crd = decorateCRDWithBinding(crd, boundResource.Schema.IdentityHash, apiBinding.DeletionTimestamp)
+			// Add the bound resource's storage key as an annotation to the CRD so the RESTOptionsGetter can
+			// assign the correct etcd resource prefix. The storage key is the export's identity unless the
+			// resource was adopted from, or is being re-keyed onto, another prefix.
+			crd = decorateCRDWithBinding(crd, boundResource.StorageKey(), apiBinding.DeletionTimestamp)
 
 			if len(boundResource.StorageVersions) == 0 {
 				// No storage versions means this bound resource uses non-CRD storage.
@@ -394,7 +396,7 @@ func (c *apiBindingAwareCRDLister) getForIdentityWildcard(ctx context.Context, n
 	// sort of greatest-common-denominator for the CRD/schema?
 	apiBinding := apiBindings[0].(*apisv1alpha2.APIBinding)
 
-	var boundCRDName string
+	var boundCRDName, storageKey string
 	// Bound resources with no storage versions don't use the CRD storage,
 	// and need to be annotated accordingly, to let the apiserver know how
 	// to handle the resource.
@@ -402,7 +404,8 @@ func (c *apiBindingAwareCRDLister) getForIdentityWildcard(ctx context.Context, n
 
 	for _, r := range apiBinding.Status.BoundResources {
 		if r.Group == group && r.Resource == resource && r.Schema.IdentityHash == identity {
-			boundCRDName = r.Schema.UID
+			boundCRDName = indexers.BoundCRDNameFor(r)
+			storageKey = r.StorageKey()
 			if len(r.StorageVersions) == 0 {
 				needsStorageAnnotation = true
 			}
@@ -419,9 +422,11 @@ func (c *apiBindingAwareCRDLister) getForIdentityWildcard(ctx context.Context, n
 		return nil, err
 	}
 
-	// Add the APIExport identity hash as an annotation to the CRD so the RESTOptionsGetter can assign
-	// the correct etcd resource prefix. Use a shallow copy because deep copy is expensive (but deep copy the annotations).
-	crd = decorateCRDWithBinding(crd, identity, apiBinding.DeletionTimestamp)
+	// Add the bound resource's storage key as an annotation to the CRD so the RESTOptionsGetter can assign
+	// the correct etcd resource prefix. Requests are routed by identity, data is stored by storage key; the two
+	// differ only for adopted or re-keyed resources. Use a shallow copy because deep copy is expensive (but
+	// deep copy the annotations).
+	crd = decorateCRDWithBinding(crd, storageKey, apiBinding.DeletionTimestamp)
 
 	if needsStorageAnnotation {
 		apiExportPath := logicalcluster.NewPath(apiBinding.Spec.Reference.Export.Path)
@@ -482,7 +487,7 @@ func (c *apiBindingAwareCRDLister) get(ctx context.Context, clusterName logicalc
 			matchingIdentity := identity == "" || boundResource.Schema.IdentityHash == identity
 
 			if boundResource.Group == group && boundResource.Resource == resource && matchingIdentity {
-				crd, err = c.crdLister.Cluster(apibinding.SystemBoundCRDsClusterName).Get(boundResource.Schema.UID)
+				crd, err = c.crdLister.Cluster(apibinding.SystemBoundCRDsClusterName).Get(indexers.BoundCRDNameFor(boundResource))
 				if err != nil && apierrors.IsNotFound(err) {
 					// If we got here, it means there is supposed to be a CRD coming from an APIBinding, but
 					// the CRD doesn't exist for some reason.
@@ -492,9 +497,9 @@ func (c *apiBindingAwareCRDLister) get(ctx context.Context, clusterName logicalc
 					return nil, err
 				}
 
-				// Add the APIExport identity hash as an annotation to the CRD so the RESTOptionsGetter can assign
-				// the correct etcd resource prefix.
-				crd = decorateCRDWithBinding(crd, boundResource.Schema.IdentityHash, apiBinding.DeletionTimestamp)
+				// Add the bound resource's storage key as an annotation to the CRD so the RESTOptionsGetter can
+				// assign the correct etcd resource prefix.
+				crd = decorateCRDWithBinding(crd, boundResource.StorageKey(), apiBinding.DeletionTimestamp)
 
 				if len(boundResource.StorageVersions) == 0 {
 					crd, err = tryDecorateCRDWithSchemaStorage(crd, apiExportGetter)

@@ -32,6 +32,7 @@ import (
 
 type AdminV1alpha1ClusterInterface interface {
 	AdminV1alpha1ClusterScoper
+	APIIdentitiesClusterGetter
 	CoreIdentitySetsClusterGetter
 }
 
@@ -49,6 +50,10 @@ func (c *AdminV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) kc
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
 	return c.clientCache.ClusterOrDie(clusterPath)
+}
+
+func (c *AdminV1alpha1ClusterClient) APIIdentities() APIIdentityClusterInterface {
+	return &aPIIdentitiesClusterInterface{clientCache: c.clientCache}
 }
 
 func (c *AdminV1alpha1ClusterClient) CoreIdentitySets() CoreIdentitySetClusterInterface {

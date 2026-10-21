@@ -556,6 +556,57 @@ which is deprecated and kept for one more release for older
 virtual-workspaces servers. Direct writes to `CoreIdentitySet` objects by
 non-system users are denied by admission.
 
+### `APIIdentity`
+
+Every APIExport identity in the installation, core or not, is listed as an
+`APIIdentity` named after the identity value. The shard hosting the owning
+export derives it into its `system:shard` logical cluster; all shards' objects
+are replicated to the cache server and shown together in the Admin workspace:
+
+```sh
+$ kubectl ws use :admin
+$ kubectl get apiidentities
+NAME                          OWNER              CLUSTER   CORE    SHARED   LEGACY   AGE
+system-tenancy.kcp.io         tenancy.kcp.io     root      true                      3d
+2v9w7bq1rt2mdzn6-5f1c...      networking         2v9w...   false   True              2d
+```
+
+```yaml
+apiVersion: admin.kcp.io/v1alpha1
+kind: APIIdentity
+metadata:
+  name: 2v9w7bq1rt2mdzn6-5f1c...
+spec: {}                            # operator knobs of the legacy conversion only
+status:
+  owner: {cluster: 2v9w7bq1rt2mdzn6, export: networking}
+  groupResources:
+  - {group: networking.io, resource: vnets}
+  storageSharedWith:                # exports whose bindings sit on this prefix
+  - export: {cluster: 1k3f..., export: compute}
+    resources: [{group: networking.io, resource: vnets}]
+  conditions:
+  - type: StorageShared
+    status: "True"
+```
+
+The object outlives its export: when the owner is deleted it stays with
+`Orphaned: "True"` until no binding on the shard stores under the identity
+any more, so that no other export can pin the identity while consumers' data
+may still sit under it.
+
+Identities that several exports hold, which was possible by copying an
+identity secret, are reported with `LegacyShared: "True"` and
+`status.legacyHolders`. With the `APIIdentityDecoupling` feature gate enabled
+kcp converts them once: the owner (`spec.owner`, by default the oldest holder)
+keeps the identity, every other holder gets a fresh one and keeps the shared
+one as an alias in its `status.identityAliasHashes`, so permission claims and
+wildcard requests naming the old identity keep resolving for the resources
+that holder serves. `status.aliases[].references` counts the claims still
+naming an alias; an alias is retired once no claim references it for a week,
+or at once with `spec.retireAliases: true`. `spec.convert: false` holds a
+conversion. Only `spec` may be written through the Admin workspace; everything
+else is derived.
+
 ### Identities do not change
 
 kcp continuously checks that every shard agrees with the root shard (or,
@@ -574,9 +625,10 @@ it in the `Consistent` condition. The rules:
    restored.
 
 A shard that disagrees with the root shard reports `Consistent=False` and
-not-ready. Rotating a core identity is future work (see KEP 0005,
-APIExport identity rotation); with it, changing the key will start a
-rotation instead of being reported as an error.
+not-ready. Core identities never change. What can move is the storage of
+their bound instances, with a storage re-keying (see
+[APIExport Storage Re-keying](../apis/storage-rekeying.md)); the identity
+stays what it is while the data moves.
 
 ### `--root-identities-file`: development only
 

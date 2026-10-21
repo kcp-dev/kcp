@@ -325,6 +325,21 @@ func InstallIndexers(
 			Local:       localKcpInformers.Admin().V1alpha1().CoreIdentitySets().Informer(),
 			Global:      globalKcpInformers.Admin().V1alpha1().CoreIdentitySets().Informer(),
 		},
+		adminv1alpha1.SchemeGroupVersion.WithResource("apiidentities"): {
+			Kind: "APIIdentity",
+			// derived by the shard hosting the owning export, written into
+			// its system:shard logical cluster; replicated so that every
+			// shard (and the Admin workspace) sees every identity. The
+			// operator knobs of the legacy conversion are written through
+			// the Admin workspace, land on the cache copy and flow
+			// cache -> local.
+			CacheOwnedFields: [][]string{
+				{"spec"},
+			},
+			EventFilter: isNoSystemClusterNameExceptSystemShard,
+			Local:       localKcpInformers.Admin().V1alpha1().APIIdentities().Informer(),
+			Global:      globalKcpInformers.Admin().V1alpha1().APIIdentities().Informer(),
+		},
 		corev1alpha1.SchemeGroupVersion.WithResource("logicalclusters"): {
 			Kind: "LogicalCluster",
 			Filter: func(u *unstructured.Unstructured) bool {
@@ -337,6 +352,13 @@ func InstallIndexers(
 			Kind:   "LogicalClusterMigration",
 			Local:  localKcpInformers.Migration().V1alpha1().LogicalClusterMigrations().Informer(),
 			Global: globalKcpInformers.Migration().V1alpha1().LogicalClusterMigrations().Informer(),
+		},
+		// the per-shard identity migrators compare their drain-progress
+		// reports with the rotation object through the cache server.
+		migration.SchemeGroupVersion.WithResource("apiexportstoragerekeys"): {
+			Kind:   "APIExportStorageRekey",
+			Local:  localKcpInformers.Migration().V1alpha1().APIExportStorageRekeys().Informer(),
+			Global: globalKcpInformers.Migration().V1alpha1().APIExportStorageRekeys().Informer(),
 		},
 		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"): {
 			Kind:   "WorkspaceType",

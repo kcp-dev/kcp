@@ -54,7 +54,7 @@ func TestDeleteHandlers(t *testing.T) {
 					factory := kcpinformers.NewSharedInformerFactory(client, 0)
 					kubeFactory := kubeinformers.NewSharedInformerFactory(nil, 0)
 					secrets, shards, slices := &recordingInformer{}, &recordingInformer{}, &recordingInformer{}
-					c, err := NewController(client, factory.Apis().V1alpha2().APIExports(),
+					c, err := NewController(client, factory.Apis().V1alpha2().APIExports(), factory.Apis().V1alpha2().APIExports(), nil,
 						&recordingSliceInformer{informer: slices}, &recordingShardInformer{informer: shards},
 						nil, kubeFactory.Core().V1().Namespaces(), &recordingSecretInformer{informer: secrets}, "root")
 					require.NoError(t, err)

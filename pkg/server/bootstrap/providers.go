@@ -92,6 +92,29 @@ func RootAPIExportProvider(config *rest.Config) Provider {
 	}
 }
 
+// APIIdentityProvider reads the identity of a core export from the APIIdentity
+// registry as replicated to the cache server (enhancements KEP 0008): the
+// object named after the identity whose owner is the export in the root
+// workspace.
+func APIIdentityProvider(cacheKcpClusterClient kcpclientset.ClusterInterface) Provider {
+	return func(ctx context.Context, exportName string) (ResolvedIdentity, error) {
+		identities, err := cacheKcpClusterClient.AdminV1alpha1().APIIdentities().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return ResolvedIdentity{}, fmt.Errorf("cache server: APIIdentities: %w", err)
+		}
+		for i := range identities.Items {
+			id := &identities.Items[i]
+			if !id.Status.Core || id.Status.Owner == nil {
+				continue
+			}
+			if id.Status.Owner.Export == exportName && id.Status.Owner.Cluster == core.RootCluster.String() {
+				return legacy(id.Name), nil
+			}
+		}
+		return ResolvedIdentity{}, fmt.Errorf("cache server has no APIIdentity for %s: %w", exportName, ErrUnknown)
+	}
+}
+
 // LegacyConfigMapProvider reads the identity from the deprecated
 // apiexport-identity-cache ConfigMap in the shard-local system:shard logical
 // cluster.

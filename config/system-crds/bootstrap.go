@@ -64,6 +64,9 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 		// the shard's report of its core identities; a system CRD so that it
 		// is readable before the shard has resolved those identities.
 		{Group: admin.GroupName, Resource: "coreidentitysets"},
+		// the registry of APIExport identities, derived per shard into
+		// system:shard (enhancements KEP 0008).
+		{Group: admin.GroupName, Resource: "apiidentities"},
 	}
 
 	if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {

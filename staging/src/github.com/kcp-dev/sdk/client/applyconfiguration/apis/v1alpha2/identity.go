@@ -25,11 +25,25 @@ import (
 // IdentityApplyConfiguration represents a declarative configuration of the Identity type for use
 // with apply.
 //
-// Identity defines the identity of an APIExport, i.e. determines the etcd prefix
-// data of this APIExport are stored under.
+// Identity configures the identity of an APIExport: an opaque, unique,
+// immutable identifier that is also the default etcd prefix of the export's
+// bound instances. It is assigned by kcp and recorded in status.identityHash.
 type IdentityApplyConfiguration struct {
 	// secretRef is a reference to a secret that contains the API identity in the 'key' file.
+	//
+	// Deprecated: identities carry no secret. The field is honored once, for
+	// an export that has no identity yet, so flows that pre-create a secret to
+	// pin an identity keep landing on it; it is never created by kcp when the
+	// APIIdentityDecoupling feature gate is enabled, and it will be removed.
+	// Use value to pin an identity.
 	SecretRef *v1.SecretReference `json:"secretRef,omitempty"`
+	// value pins the identity of this export instead of letting kcp generate
+	// one. It is honored only while status.identityHash is empty. The value
+	// must be prefixed with the export's own logical cluster name followed by
+	// "-", so that ownership is checkable without a lookup, and must not be
+	// held by another export. Used to keep an identity across a
+	// delete-and-recreate of the export, e.g. by GitOps.
+	Value *string `json:"value,omitempty"`
 }
 
 // IdentityApplyConfiguration constructs a declarative configuration of the Identity type for use with
@@ -43,5 +57,13 @@ func Identity() *IdentityApplyConfiguration {
 // If called multiple times, the SecretRef field is set to the value of the last call.
 func (b *IdentityApplyConfiguration) WithSecretRef(value v1.SecretReference) *IdentityApplyConfiguration {
 	b.SecretRef = &value
+	return b
+}
+
+// WithValue sets the Value field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Value field is set to the value of the last call.
+func (b *IdentityApplyConfiguration) WithValue(value string) *IdentityApplyConfiguration {
+	b.Value = &value
 	return b
 }

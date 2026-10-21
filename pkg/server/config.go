@@ -329,6 +329,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			c.CoreIdentities.Local.Provider(),
 			bootstrap.LegacyConfigMapProvider(c.KubeClusterClient),
 			bootstrap.CacheProvider(c.KcpCacheClusterClient),
+			bootstrap.APIIdentityProvider(c.KcpCacheClusterClient),
 			bootstrap.KeyProvider(c.CoreIdentities.Key, bootstrap.KeyGate(c.CoreIdentities.Key, c.CoreIdentities.Local)),
 		}
 		if nonIdentityRootKcpShardBaseConfig != nil {

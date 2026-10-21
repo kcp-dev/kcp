@@ -54,6 +54,7 @@ const apiDomainKey = dynamiccontext.APIDomainKey(admin.VirtualWorkspaceName)
 //
 //	/services/admin/apis/core.kcp.io/v1alpha1/shards                 (plain clients, e.g. kubectl via `ws use :admin`)
 //	/services/admin/apis/admin.kcp.io/v1alpha1/coreidentitysets
+//	/services/admin/apis/admin.kcp.io/v1alpha1/apiidentities
 //	/services/admin/clusters/<anything>/apis/core.kcp.io/...         (cluster-aware clients; the segment is accepted and ignored)
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
@@ -171,10 +172,17 @@ func (p *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(_ context.C
 		shardsDef.TearDown()
 		return nil, false, err
 	}
+	apiIdentitiesDef, err := provideAPIIdentitiesRestStorage(p.config, p.cacheDynamicClusterClient)
+	if err != nil {
+		shardsDef.TearDown()
+		coreIdentitySetsDef.TearDown()
+		return nil, false, err
+	}
 
 	p.cached = apidefinition.APIDefinitionSet{
 		corev1alpha1.SchemeGroupVersion.WithResource("shards"):            shardsDef,
 		adminv1alpha1.SchemeGroupVersion.WithResource("coreidentitysets"): coreIdentitySetsDef,
+		adminv1alpha1.SchemeGroupVersion.WithResource("apiidentities"):    apiIdentitiesDef,
 	}
 	return p.cached, true, nil
 }

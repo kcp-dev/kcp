@@ -52,12 +52,24 @@ import (
 func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
 	// Group=admin.kcp.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithKind("APIIdentity"):
+		return &adminv1alpha1.APIIdentityApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIIdentitySpec"):
+		return &adminv1alpha1.APIIdentitySpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIIdentityStatus"):
+		return &adminv1alpha1.APIIdentityStatusApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("CoreIdentity"):
 		return &adminv1alpha1.CoreIdentityApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("CoreIdentitySet"):
 		return &adminv1alpha1.CoreIdentitySetApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("CoreIdentitySetStatus"):
 		return &adminv1alpha1.CoreIdentitySetStatusApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ExportIdentityReference"):
+		return &adminv1alpha1.ExportIdentityReferenceApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("IdentityAlias"):
+		return &adminv1alpha1.IdentityAliasApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("StorageShare"):
+		return &adminv1alpha1.StorageShareApplyConfiguration{}
 
 		// Group=apis.kcp.io, Version=v1alpha1
 	case apisv1alpha1.SchemeGroupVersion.WithKind("AcceptablePermissionClaim"):
@@ -142,26 +154,44 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &apisv1alpha2.BoundAPIResourceApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("BoundAPIResourceSchema"):
 		return &apisv1alpha2.BoundAPIResourceSchemaApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("BoundAPIResourceStorage"):
+		return &apisv1alpha2.BoundAPIResourceStorageApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ClaimGrant"):
+		return &apisv1alpha2.ClaimGrantApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ExportBindingReference"):
 		return &apisv1alpha2.ExportBindingReferenceApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("GroupResource"):
 		return &apisv1alpha2.GroupResourceApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("Identity"):
 		return &apisv1alpha2.IdentityApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("IdentityStatus"):
+		return &apisv1alpha2.IdentityStatusApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("MaximalPermissionPolicy"):
 		return &apisv1alpha2.MaximalPermissionPolicyApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("PermissionClaim"):
 		return &apisv1alpha2.PermissionClaimApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("PermissionClaimSelector"):
 		return &apisv1alpha2.PermissionClaimSelectorApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResolvedPermissionClaim"):
+		return &apisv1alpha2.ResolvedPermissionClaimApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchema"):
 		return &apisv1alpha2.ResourceSchemaApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchemaStorage"):
 		return &apisv1alpha2.ResourceSchemaStorageApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchemaStorageAdopted"):
+		return &apisv1alpha2.ResourceSchemaStorageAdoptedApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchemaStorageCRD"):
+		return &apisv1alpha2.ResourceSchemaStorageCRDApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ResourceSchemaStorageVirtual"):
 		return &apisv1alpha2.ResourceSchemaStorageVirtualApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResourceStatus"):
+		return &apisv1alpha2.ResourceStatusApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("ResourceStorageStatus"):
+		return &apisv1alpha2.ResourceStorageStatusApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("ScopedPermissionClaim"):
 		return &apisv1alpha2.ScopedPermissionClaimApplyConfiguration{}
+	case v1alpha2.SchemeGroupVersion.WithKind("StorageStatus"):
+		return &apisv1alpha2.StorageStatusApplyConfiguration{}
 	case v1alpha2.SchemeGroupVersion.WithKind("VirtualWorkspace"):
 		return &apisv1alpha2.VirtualWorkspaceApplyConfiguration{}
 
@@ -236,12 +266,22 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &applyconfigurationmetav1.TypeMetaApplyConfiguration{}
 
 		// Group=migration.kcp.io, Version=v1alpha1
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("APIExportStorageRekey"):
+		return &applyconfigurationmigrationv1alpha1.APIExportStorageRekeyApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("APIExportStorageRekeySpec"):
+		return &applyconfigurationmigrationv1alpha1.APIExportStorageRekeySpecApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("APIExportStorageRekeyStatus"):
+		return &applyconfigurationmigrationv1alpha1.APIExportStorageRekeyStatusApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("ExportReference"):
+		return &applyconfigurationmigrationv1alpha1.ExportReferenceApplyConfiguration{}
 	case migrationv1alpha1.SchemeGroupVersion.WithKind("LogicalClusterMigration"):
 		return &applyconfigurationmigrationv1alpha1.LogicalClusterMigrationApplyConfiguration{}
 	case migrationv1alpha1.SchemeGroupVersion.WithKind("LogicalClusterMigrationSpec"):
 		return &applyconfigurationmigrationv1alpha1.LogicalClusterMigrationSpecApplyConfiguration{}
 	case migrationv1alpha1.SchemeGroupVersion.WithKind("LogicalClusterMigrationStatus"):
 		return &applyconfigurationmigrationv1alpha1.LogicalClusterMigrationStatusApplyConfiguration{}
+	case migrationv1alpha1.SchemeGroupVersion.WithKind("ShardMigrationProgress"):
+		return &applyconfigurationmigrationv1alpha1.ShardMigrationProgressApplyConfiguration{}
 
 		// Group=tenancy.kcp.io, Version=v1alpha1
 	case tenancyv1alpha1.SchemeGroupVersion.WithKind("APIExportReference"):

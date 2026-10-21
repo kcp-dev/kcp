@@ -159,18 +159,73 @@ In kcp, however, it is possible for multiple API providers to each define the sa
 _without interference_! This is where `APIExport` "identity" becomes critical.
 
 When you create an `APIExport` and you don't specify its identity (as is the case in the `example.kcp.io` example
-above), kcp automatically generates one for you. The identity is always stored in a secret in the same workspace as
-the `APIExport.` By default, it is created in the `kcp-system` namespace in a secret whose name is the name of
-the `APIExport`.
+above), kcp automatically generates one for you and records it in `status.identityHash`. The identity is an opaque,
+unique identifier that never changes for the lifetime of the export. It is public: it appears in every consumer's
+`APIBinding` status and in permission claims that reference your resources, and there are times when other API
+providers need to know and reference it.
 
-An `APIExport`'s identity is similar to a private key; you should never share it with anyone.
-
-The identity's **hash** is similar to a public key; it is not private and there are times when other consumers of your
-exported APIs need to know and reference it.
-
-Given 2 Workspaces, each with its own `APIExport` that exports `widgets.example.kcp.io`, kcp uses the identity hash (in
+Given 2 Workspaces, each with its own `APIExport` that exports `widgets.example.kcp.io`, kcp uses the identity (in
 a mostly transparent manner) to ensure the correct instances associated with the appropriate `APIResourceSchema` are
 served to clients. See [Build Your Controller](#build-your-controller) for more information.
+
+Knowing an identity grants nothing by itself: claiming a resource needs the consumer's acceptance and passes the
+claimed export's maximal permission policy, and serving a resource under an identity is reserved to the export that
+holds it. `status.identityHash` is immutable once set.
+
+Historically the identity was derived from a secret in the `kcp-system` namespace of the export's workspace, and
+`spec.identity.secretRef` could point to a pre-created secret to pin it. The secret protected nothing and is
+deprecated. With the `APIIdentityDecoupling` feature gate enabled (alpha, off by default) kcp no longer creates
+secrets: identities are generated as `<logical cluster name>-<random>`, kcp's core exports in `root` use well-known
+identities such as `system-tenancy.kcp.io`, and an export can pin its identity instead with `spec.identity.value`.
+The value must be prefixed with the export's own logical cluster name followed by `-` and must not be held by
+another export; it is honored only while the export has no identity yet. This is how a GitOps flow keeps consumers'
+data across a delete-and-recreate of the export.
+
+Every identity is listed in the Admin workspace as an `APIIdentity` (`kubectl ws use :admin; kubectl get
+apiidentities`): who owns it, what is served under it and who else stores on its prefix. An `APIIdentity` outlives its
+export while consumers' data may still sit under the identity, so nobody else can take it over in the meantime.
+
+### Taking over a resource from another export
+
+An export serves its resources from an etcd prefix keyed by its identity. When a resource moves from one export to
+another (an export is split, renamed or replaced), the new export can serve the existing instances in place instead of
+asking every consumer to migrate data: it declares **adopted storage** for the resource, and the old export consents
+by listing the new one in `sharedWith`. Both sides are per resource; identities are never shared.
+
+```yaml
+# the old export, owner of the storage
+spec:
+  resources:
+  - group: example.kcp.io
+    name: widgets
+    schema: v220801.widgets.example.kcp.io
+    storage:
+      crd:
+        sharedWith:
+        - path: root:acme:platform
+          name: platform
+---
+# the new export
+metadata:
+  name: platform
+spec:
+  resources:
+  - group: example.kcp.io
+    name: widgets
+    storage:
+      adopted:
+        from:
+          path: root:acme:legacy
+          name: example.kcp.io
+```
+
+An adopted resource is served with the source export's `APIResourceSchema`; `schema` is left empty (or must name the
+source's schema). The new export's `status.resources` reports the schema in effect and `status.storage` the prefix
+its bindings use, and both exports carry the `StorageShared` condition while the handover lasts. A consumer replaces
+its `APIBinding` of the old export with one of the new export and its objects keep their UIDs. Once the old export is
+gone, the new export can move the data onto its own prefix with a
+[storage re-keying](storage-rekeying.md). While storage is shared, both providers see each other's consumers'
+instances of that resource through their virtual workspaces; treat it as a handover phase, not a steady state.
 
 ### Permission Claims
 
@@ -208,9 +263,40 @@ spec:
 ```
 
 1. This is how you specify the core API group
-2. To claim another exported API, you must include its `identityHash`
+2. To claim another exported API, you identify its export: by `identityHash`, or by naming the export
+   (`export: {path: root:acme:things, name: things.somegroup.kcp.io}`) and letting kcp resolve the identity
 3. Verbs is a list of the [API verbs](https://kubernetes.io/docs/reference/using-api/api-concepts/#api-verbs)
 4. `"*"` is a special "verb" that matches any possible verb
+
+A claim that names the export instead of the identity is resolved by kcp into `status.permissionClaims`, together
+with how it resolved (`resolvedBy: IdentityHash | Export | Grant | BuiltIn`); consumers see the resolved identity in
+their `APIBinding`'s `status.exportPermissionClaims` and may accept such a claim without a hash too.
+
+The claimed export can also hand out claims up front with **claim grants** on the resource, so a claimer needs neither
+the hash nor a reference:
+
+```yaml
+spec:
+  resources:
+  - group: somegroup.kcp.io
+    name: things
+    schema: v220801.things.somegroup.kcp.io
+    storage:
+      crd: {}
+    claimableBy:
+    - export: {path: root:acme:widgets, name: example.kcp.io}   # one export
+      verbs: ["get", "list", "watch"]                            # optional cap on the claim's verbs
+    - exportSelector: {matchLabels: {team: platform}}            # every export with these labels
+    - rbac: {}                                                   # every export allowed the verb "claim" on this
+                                                                 # APIExport by RBAC in this workspace, as user
+                                                                 # apis.kcp.io:export:<cluster>:<name>, group
+                                                                 # apis.kcp.io:exports
+      delegated: true                                            # consumers bound to both exports need not accept
+```
+
+A granted claim satisfies the claimed export's maximal permission policy. Consumers still accept the claim on their
+`APIBinding` unless the grant is `delegated`. A claim with no identity, no export reference and no grant stays
+unresolved and inert; the claiming export reports it in its `ClaimsResolved` condition.
 
 This is essentially a request from the API provider, asking each consumer to grant permission for the claimed
 resources. The consumer can, via `APIBinding`, accept or reject the service provider's request to access these

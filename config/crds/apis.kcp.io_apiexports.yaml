@@ -342,8 +342,14 @@ spec:
                   created.
                 properties:
                   secretRef:
-                    description: secretRef is a reference to a secret that contains
-                      the API identity in the 'key' file.
+                    description: |-
+                      secretRef is a reference to a secret that contains the API identity in the 'key' file.
+
+                      Deprecated: identities carry no secret. The field is honored once, for
+                      an export that has no identity yet, so flows that pre-create a secret to
+                      pin an identity keep landing on it; it is never created by kcp when the
+                      APIIdentityDecoupling feature gate is enabled, and it will be removed.
+                      Use value to pin an identity.
                     properties:
                       name:
                         description: name is unique within a namespace to reference
@@ -355,6 +361,17 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
+                  value:
+                    description: |-
+                      value pins the identity of this export instead of letting kcp generate
+                      one. It is honored only while status.identityHash is empty. The value
+                      must be prefixed with the export's own logical cluster name followed by
+                      "-", so that ownership is checkable without a lookup, and must not be
+                      held by another export. Used to keep an identity across a
+                      delete-and-recreate of the export, e.g. by GitOps.
+                    maxLength: 253
+                    pattern: ^([a-z0-9][a-z0-9.-]*)?$
+                    type: string
                 type: object
               maximalPermissionPolicy:
                 description: |-
@@ -457,6 +474,25 @@ spec:
                           type: object
                       type: object
                       x-kubernetes-map-type: atomic
+                    export:
+                      description: |-
+                        export names the APIExport whose resource is claimed, as an alternative
+                        to identityHash. kcp resolves it to the export's identity. At most one
+                        of export and identityHash is set.
+                      properties:
+                        name:
+                          description: name is the name of the APIExport that describes
+                            the API.
+                          type: string
+                        path:
+                          description: |-
+                            path is a logical cluster path where the APIExport is defined.
+                            If the path is unset, the logical cluster of the APIBinding is used.
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
                     group:
                       default: ""
                       description: |-
@@ -471,6 +507,11 @@ spec:
                         The hash can be found on APIExport and APIResourceSchema's status.
                         It will be empty for core types.
                         Note that one must look this up for a particular kcp instance.
+
+                        It may be left empty for a resource of another export when export names
+                        that export, or when the claimed export grants this export the claim
+                        through claimableBy; kcp then resolves the identity and records it in
+                        status.permissionClaims.
                       type: string
                     resource:
                       description: |-
@@ -518,6 +559,118 @@ spec:
                   description: ResourceSchema defines the resource schemas that are
                     exposed with this APIExport.
                   properties:
+                    claimableBy:
+                      description: |-
+                        claimableBy grants other APIExports the right to claim this resource
+                        without naming this export's identity in their permission claim: a claim
+                        for this group/resource on a granted export resolves to this export, and
+                        the claimed export's maximal permission policy is satisfied by the grant.
+                        Consumers still accept the claim on their APIBinding unless the grant is
+                        delegated. A grant is never required: any export may claim this resource
+                        by identity or by export reference, subject to consumer acceptance and the
+                        maximal permission policy.
+                      items:
+                        description: |-
+                          ClaimGrant names exports that may claim a resource. Exactly one of export,
+                          exportSelector or rbac is set (enforced by a oneOf in the CRD schema patch
+                          and by admission).
+                        oneOf:
+                        - required:
+                          - export
+                        - required:
+                          - exportSelector
+                        - required:
+                          - rbac
+                        properties:
+                          delegated:
+                            description: |-
+                              delegated lets this export extend its own access to the grantee:
+                              consumers bound to both exports are treated as having accepted the
+                              grantee's claim, because this export already had that access and is
+                              answerable for it. Default false: each consumer accepts the claim.
+                            type: boolean
+                          export:
+                            description: export names one APIExport that may claim
+                              the resource.
+                            properties:
+                              name:
+                                description: name is the name of the APIExport that
+                                  describes the API.
+                                type: string
+                              path:
+                                description: |-
+                                  path is a logical cluster path where the APIExport is defined.
+                                  If the path is unset, the logical cluster of the APIBinding is used.
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          exportSelector:
+                            description: exportSelector grants every APIExport whose
+                              labels match the selector.
+                            properties:
+                              matchExpressions:
+                                description: matchExpressions is a list of label selector
+                                  requirements. The requirements are ANDed.
+                                items:
+                                  description: |-
+                                    A label selector requirement is a selector that contains values, a key, and an operator that
+                                    relates the key and values.
+                                  properties:
+                                    key:
+                                      description: key is the label key that the selector
+                                        applies to.
+                                      type: string
+                                    operator:
+                                      description: |-
+                                        operator represents a key's relationship to a set of values.
+                                        Valid operators are In, NotIn, Exists and DoesNotExist.
+                                      type: string
+                                    values:
+                                      description: |-
+                                        values is an array of string values. If the operator is In or NotIn,
+                                        the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                        the values array must be empty. This array is replaced during a strategic
+                                        merge patch.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                description: |-
+                                  matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                  map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                  operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                type: object
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          rbac:
+                            description: |-
+                              rbac grants every APIExport whose owner is allowed the verb "claim" on
+                              this APIExport, evaluated through RBAC in this export's workspace with
+                              the same "apis.kcp.io:binding:" prefixing the maximal permission policy
+                              uses.
+                            type: object
+                          verbs:
+                            description: |-
+                              verbs caps the verbs a granted claim may use. Empty means no cap beyond
+                              the claim's own verbs.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: set
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                     group:
                       description: Group is the API group of the resource. Empty string
                         represents the core group.
@@ -529,6 +682,11 @@ spec:
                       description: |-
                         Schema is the name of the referenced APIResourceSchema. This must be of the format
                         "<version>.<name>.<group>".
+
+                        It is optional for a resource with adopted storage: such a resource is
+                        served with the schema the source export references for it, which kcp
+                        resolves and records in status.resources. If set on an adopted resource it
+                        must name the same APIResourceSchema the source uses.
                       type: string
                     storage:
                       default:
@@ -539,13 +697,75 @@ spec:
                         - crd
                       - required:
                         - virtual
+                      - required:
+                        - adopted
                       properties:
+                        adopted:
+                          description: |-
+                            Adopted storage defines that this resource is exposed as
+                            CustomResourceDefinitions like crd storage, but stored on another
+                            export's storage prefix: bindings of this export start on the prefix
+                            the source export's bindings use for the same resource, so the objects
+                            the source's consumers created are served in place. This is how one
+                            export takes over serving a resource from another (zero-copy adoption).
+                            The source must serve the same resource with crd storage and list this
+                            export in its crd.sharedWith. The resource is served with the source's
+                            schema. The adopter may later move onto its own prefix with an
+                            APIExportStorageRekey.
+                          properties:
+                            from:
+                              description: from is the export whose storage prefix
+                                for this resource is adopted.
+                              properties:
+                                name:
+                                  description: name is the name of the APIExport that
+                                    describes the API.
+                                  type: string
+                                path:
+                                  description: |-
+                                    path is a logical cluster path where the APIExport is defined.
+                                    If the path is unset, the logical cluster of the APIBinding is used.
+                                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                          required:
+                          - from
+                          type: object
                         crd:
                           description: |-
                             CRD storage defines that this APIResourceSchema is exposed as
                             CustomResourceDefinitions inside the workspaces that bind to the APIExport.
                             Like in vanilla Kubernetes, users can then create, update and delete
                             custom resources.
+                          properties:
+                            sharedWith:
+                              description: |-
+                                sharedWith lists exports whose bindings for this resource may sit on
+                                this export's storage prefix (adopted storage on their side). This is
+                                the owner's half of a storage handover; it is not how other exports
+                                get access to the resource, that is a permission claim. Edited only by
+                                this export's owner.
+                              items:
+                                description: ExportBindingReference is a reference
+                                  to an APIExport by cluster and name.
+                                properties:
+                                  name:
+                                    description: name is the name of the APIExport
+                                      that describes the API.
+                                    type: string
+                                  path:
+                                    description: |-
+                                      path is a logical cluster path where the APIExport is defined.
+                                      If the path is unset, the logical cluster of the APIBinding is used.
+                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
                           type: object
                         virtual:
                           description: |-
@@ -581,14 +801,13 @@ spec:
                           - reference
                           type: object
                       type: object
-                      x-kubernetes-validations:
-                      - message: Exactly one of crd or virtual must be set
-                        rule: has(self.crd) != has(self.virtual)
                   required:
                   - group
                   - name
-                  - schema
                   type: object
+                  x-kubernetes-validations:
+                  - message: schema is required unless storage.adopted is set
+                    rule: has(self.schema) || (has(self.storage) && has(self.storage.adopted))
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -644,11 +863,186 @@ spec:
                   - type
                   type: object
                 type: array
+              identity:
+                description: identity describes where the identity came from.
+                properties:
+                  source:
+                    description: source says where the identity came from.
+                    enum:
+                    - Generated
+                    - Pinned
+                    - Legacy
+                    - WellKnown
+                    - Converted
+                    type: string
+                type: object
+              identityAliasHashes:
+                description: |-
+                  identityAliasHashes lists previous identity hashes of this APIExport
+                  that are still honored as equivalents of the current identityHash for
+                  the resources this export serves. Permission claims and wildcard
+                  consumers referencing an alias hash keep resolving to this export until
+                  the alias is retired. Set by the one-time conversion of an identity that
+                  was shared by several exports; managed by kcp.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
               identityHash:
                 description: |-
-                  identityHash is the hash of the API identity key of this APIExport. This value
-                  is immutable as soon as it is set.
+                  identityHash is the identity of this APIExport: an opaque, unique
+                  identifier that is also the default etcd storage prefix of its bound
+                  instances. It is assigned once by kcp and immutable afterwards.
                 type: string
+              permissionClaims:
+                description: |-
+                  permissionClaims records how every permission claim of spec that does
+                  not name an identity resolved: to which identity and by which means.
+                items:
+                  description: ResolvedPermissionClaim records the resolution of one
+                    permission claim.
+                  properties:
+                    delegated:
+                      description: |-
+                        delegated is true when the resolving grant delegates the claimed
+                        export's access: consumers bound to both exports need not accept.
+                      type: boolean
+                    group:
+                      default: ""
+                      description: |-
+                        group is the name of an API group.
+                        For core groups this is the empty string '""'.
+                      pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                      type: string
+                    identityHash:
+                      description: identityHash is the resolved identity of the claimed
+                        export.
+                      type: string
+                    resolvedBy:
+                      description: resolvedBy says how the identity was resolved.
+                      enum:
+                      - IdentityHash
+                      - Export
+                      - Grant
+                      - BuiltIn
+                      type: string
+                    resource:
+                      description: |-
+                        resource is the name of the resource.
+                        A subresource may be claimed as "resource/subresource",
+                        e.g. "serviceaccounts/token", in the style of RBAC rules.
+                        Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+                        not provided by an api export.
+                      maxLength: 127
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    verbs:
+                      description: |-
+                        verbs is the effective verb set of the claim: the claim's verbs capped
+                        by the resolving grant's verbs, if the grant caps them. Empty means the
+                        claim's own verbs apply.
+                      items:
+                        type: string
+                      type: array
+                      x-kubernetes-list-type: set
+                  required:
+                  - resource
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - group
+                - resource
+                x-kubernetes-list-type: map
+              resources:
+                description: |-
+                  resources reports, per resource of this export, the schema in effect.
+                  It differs from spec only for adopted resources, which are served with
+                  the source export's schema.
+                items:
+                  description: ResourceStatus reports the schema in effect for one
+                    resource.
+                  properties:
+                    group:
+                      default: ""
+                      description: |-
+                        group is the name of an API group.
+                        For core groups this is the empty string '""'.
+                      pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                      type: string
+                    resource:
+                      description: |-
+                        resource is the name of the resource.
+                        A subresource may be claimed as "resource/subresource",
+                        e.g. "serviceaccounts/token", in the style of RBAC rules.
+                        Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+                        not provided by an api export.
+                      maxLength: 127
+                      pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    schema:
+                      description: schema is the name of the APIResourceSchema in
+                        effect.
+                      type: string
+                    schemaCluster:
+                      description: |-
+                        schemaCluster is the logical cluster the schema lives in: this export's
+                        cluster, or the source export's cluster for an adopted resource.
+                      type: string
+                  required:
+                  - resource
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - group
+                - resource
+                x-kubernetes-list-type: map
+              storage:
+                description: |-
+                  storage reports, per resource of this export, the storage prefixes its
+                  bindings are expected to use: the export's own identity in the steady
+                  state, the source's identity for adopted resources.
+                properties:
+                  resources:
+                    description: resources lists, per resource, the storage prefixes
+                      its bindings use.
+                    items:
+                      description: ResourceStorageStatus reports the storage prefixes
+                        of one resource.
+                      properties:
+                        group:
+                          default: ""
+                          description: |-
+                            group is the name of an API group.
+                            For core groups this is the empty string '""'.
+                          pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                          type: string
+                        keys:
+                          description: |-
+                            keys lists the storage prefixes bindings of this resource use: the
+                            export's identity, or the source's identity for an adopted resource.
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
+                        resource:
+                          description: |-
+                            resource is the name of the resource.
+                            A subresource may be claimed as "resource/subresource",
+                            e.g. "serviceaccounts/token", in the style of RBAC rules.
+                            Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+                            not provided by an api export.
+                          maxLength: 127
+                          pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - resource
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - group
+                    - resource
+                    x-kubernetes-list-type: map
+                type: object
               virtualWorkspaces:
                 description: |-
                   virtualWorkspaces contains all APIExport virtual workspace URLs.

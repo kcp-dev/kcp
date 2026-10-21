@@ -66,6 +66,24 @@ const (
 	// alpha: v0.1
 	// Enables migrating logical clusters between shards.
 	LogicalClusterMigration featuregate.Feature = "LogicalClusterMigration"
+
+	// owner: @mjudeikis
+	// alpha: v0.1
+	// Enables re-keying the storage of APIExport resources via
+	// APIExportStorageRekey objects: the re-keying controller marks the
+	// export with the target storage key, and the per-shard storage migrator
+	// drains bound resource instances onto it. Identities never change.
+	APIExportStorageRekey featuregate.Feature = "APIExportStorageRekey"
+
+	// owner: @mjudeikis
+	// alpha: v0.1
+	// Decouples APIExport identities from identity secrets (enhancements
+	// KEP 0008): new APIExports and ClusterCachedResources get an opaque,
+	// owner-prefixed identity assigned directly to status and no identity
+	// secret is created. Existing identities are left exactly as they are
+	// and their secrets are no longer read; a pre-created secretRef on an
+	// export without an identity is honored once.
+	APIIdentityDecoupling featuregate.Feature = "APIIdentityDecoupling"
 )
 
 // Re-export upstream feature gates used by kcp server logic so callers import
@@ -160,6 +178,12 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	LogicalClusterMigration: {
+		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
+	},
+	APIExportStorageRekey: {
+		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
+	},
+	APIIdentityDecoupling: {
 		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	// StorageVersionAPI mirrors the upstream k8s gate; kcp keeps it Alpha/off-by-default.

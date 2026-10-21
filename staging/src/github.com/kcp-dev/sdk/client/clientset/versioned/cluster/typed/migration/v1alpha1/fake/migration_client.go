@@ -40,6 +40,10 @@ func (c *MigrationV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path
 	return &MigrationV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+func (c *MigrationV1alpha1ClusterClient) APIExportStorageRekeys() kcpmigrationv1alpha1.APIExportStorageRekeyClusterInterface {
+	return newFakeAPIExportStorageRekeyClusterClient(c)
+}
+
 func (c *MigrationV1alpha1ClusterClient) LogicalClusterDumps() kcpmigrationv1alpha1.LogicalClusterDumpClusterInterface {
 	return newFakeLogicalClusterDumpClusterClient(c)
 }
@@ -51,6 +55,10 @@ func (c *MigrationV1alpha1ClusterClient) LogicalClusterMigrations() kcpmigration
 type MigrationV1alpha1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
+}
+
+func (c *MigrationV1alpha1Client) APIExportStorageRekeys() migrationv1alpha1.APIExportStorageRekeyInterface {
+	return newFakeAPIExportStorageRekeyClient(c.Fake, c.ClusterPath)
 }
 
 func (c *MigrationV1alpha1Client) LogicalClusterDumps() migrationv1alpha1.LogicalClusterDumpInterface {

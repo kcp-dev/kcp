@@ -48,6 +48,12 @@ func (a *SystemCRDAuthorizer) Authorize(ctx context.Context, attr authorizer.Att
 		case attr.GetResource() == "apibindings" && attr.GetSubresource() == "status":
 			return authorizer.DecisionDeny, "apibinding status updates not permitted", nil
 		case attr.GetResource() == "apiexports" && attr.GetSubresource() == "status":
+			// APIExport status, the identity in particular, is written
+			// only by the owning shard's controllers through loopback
+			// (system:masters, which never reaches this authorizer). No
+			// external request may write it: storage re-keying marks the
+			// export through its spec annotation and never touches the
+			// identity.
 			return authorizer.DecisionDeny, "apiexport status updates not permitted", nil
 		}
 	}

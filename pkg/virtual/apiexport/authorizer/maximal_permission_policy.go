@@ -86,6 +86,16 @@ func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr author
 		return authorizer.DecisionNoOpinion, "", err
 	}
 
+	normalizedGR := permissionclaim.NormalizeEventGroupResource(schema.GroupResource{Group: attr.GetAPIGroup(), Resource: attr.GetResource()})
+	for _, resolved := range claimingAPIExport.Status.PermissionClaims {
+		if resolved.Group == normalizedGR.Group && resolved.Resource == normalizedGR.Resource && resolved.ResolvedBy == apisv1alpha2.ClaimResolvedByGrant {
+			// the claimed export granted this export the claim; the grant is
+			// the claimed export's consent and stands in for its maximal
+			// permission policy.
+			return authorizer.DecisionAllow, fmt.Sprintf("claim on %s granted by the claimed export (identity %q)", normalizedGR, resolved.IdentityHash), nil
+		}
+	}
+
 	claimedIdentityHash, found := getClaimedIdentity(claimingAPIExport, attr)
 	if !found {
 		// it's a resource in the claiming API export, hence unclaimed
@@ -145,10 +155,9 @@ func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr author
 
 func getClaimedIdentity(apiExport *apisv1alpha2.APIExport, attr authorizer.Attributes) (string, bool) {
 	normalizedGR := permissionclaim.NormalizeEventGroupResource(schema.GroupResource{Group: attr.GetAPIGroup(), Resource: attr.GetResource()})
-	for i := range apiExport.Spec.PermissionClaims {
-		if apiExport.Spec.PermissionClaims[i].Resource == normalizedGR.Resource &&
-			apiExport.Spec.PermissionClaims[i].Group == normalizedGR.Group {
-			return apiExport.Spec.PermissionClaims[i].IdentityHash, true
+	for _, claim := range apiExport.ResolvedPermissionClaims() {
+		if claim.Resource == normalizedGR.Resource && claim.Group == normalizedGR.Group {
+			return claim.IdentityHash, true
 		}
 	}
 	return "", false

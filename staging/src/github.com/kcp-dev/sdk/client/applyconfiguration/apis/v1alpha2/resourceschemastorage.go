@@ -18,24 +18,33 @@ limitations under the License.
 
 package v1alpha2
 
-import (
-	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
-)
-
 // ResourceSchemaStorageApplyConfiguration represents a declarative configuration of the ResourceSchemaStorage type for use
 // with apply.
 //
-// ResourceSchemaStorage defines how the resource is stored.
+// ResourceSchemaStorage defines how the resource is stored. Exactly one of
+// crd, virtual or adopted is set (enforced by a oneOf in the CRD schema patch
+// and by admission).
 type ResourceSchemaStorageApplyConfiguration struct {
 	// CRD storage defines that this APIResourceSchema is exposed as
 	// CustomResourceDefinitions inside the workspaces that bind to the APIExport.
 	// Like in vanilla Kubernetes, users can then create, update and delete
 	// custom resources.
-	CRD *apisv1alpha2.ResourceSchemaStorageCRD `json:"crd,omitempty"`
+	CRD *ResourceSchemaStorageCRDApplyConfiguration `json:"crd,omitempty"`
 	// Virtual storage defines that this APIResourceSchema is exposed as
 	// a projection of the referenced resource inside the workspaces that
 	// bind to the APIExport.
 	Virtual *ResourceSchemaStorageVirtualApplyConfiguration `json:"virtual,omitempty"`
+	// Adopted storage defines that this resource is exposed as
+	// CustomResourceDefinitions like crd storage, but stored on another
+	// export's storage prefix: bindings of this export start on the prefix
+	// the source export's bindings use for the same resource, so the objects
+	// the source's consumers created are served in place. This is how one
+	// export takes over serving a resource from another (zero-copy adoption).
+	// The source must serve the same resource with crd storage and list this
+	// export in its crd.sharedWith. The resource is served with the source's
+	// schema. The adopter may later move onto its own prefix with an
+	// APIExportStorageRekey.
+	Adopted *ResourceSchemaStorageAdoptedApplyConfiguration `json:"adopted,omitempty"`
 }
 
 // ResourceSchemaStorageApplyConfiguration constructs a declarative configuration of the ResourceSchemaStorage type for use with
@@ -47,8 +56,8 @@ func ResourceSchemaStorage() *ResourceSchemaStorageApplyConfiguration {
 // WithCRD sets the CRD field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
 // If called multiple times, the CRD field is set to the value of the last call.
-func (b *ResourceSchemaStorageApplyConfiguration) WithCRD(value apisv1alpha2.ResourceSchemaStorageCRD) *ResourceSchemaStorageApplyConfiguration {
-	b.CRD = &value
+func (b *ResourceSchemaStorageApplyConfiguration) WithCRD(value *ResourceSchemaStorageCRDApplyConfiguration) *ResourceSchemaStorageApplyConfiguration {
+	b.CRD = value
 	return b
 }
 
@@ -57,5 +66,13 @@ func (b *ResourceSchemaStorageApplyConfiguration) WithCRD(value apisv1alpha2.Res
 // If called multiple times, the Virtual field is set to the value of the last call.
 func (b *ResourceSchemaStorageApplyConfiguration) WithVirtual(value *ResourceSchemaStorageVirtualApplyConfiguration) *ResourceSchemaStorageApplyConfiguration {
 	b.Virtual = value
+	return b
+}
+
+// WithAdopted sets the Adopted field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Adopted field is set to the value of the last call.
+func (b *ResourceSchemaStorageApplyConfiguration) WithAdopted(value *ResourceSchemaStorageAdoptedApplyConfiguration) *ResourceSchemaStorageApplyConfiguration {
+	b.Adopted = value
 	return b
 }

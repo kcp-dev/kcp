@@ -289,6 +289,9 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 	if err := s.installCoreIdentitySetController(ctx, controllerConfig); err != nil {
 		return err
 	}
+	if err := s.installAPIIdentityController(ctx, controllerConfig); err != nil {
+		return err
+	}
 	if err := s.installShardRepresentationController(ctx, controllerConfig); err != nil {
 		return err
 	}
@@ -318,6 +321,15 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 			return err
 		}
 		if err := s.installLogicalCluster(ctx, controllerConfig, s.ExternalLogicalClusterAdminConfig); err != nil {
+			return err
+		}
+	}
+
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.APIExportStorageRekey) {
+		if err := s.installStorageMigratorController(ctx, controllerConfig); err != nil {
+			return err
+		}
+		if err := s.installStorageRekeyController(ctx, controllerConfig); err != nil {
 			return err
 		}
 	}
@@ -598,7 +610,11 @@ func (s *Server) Run(ctx context.Context) error {
 			// the core identities key fills in identities that are still
 			// missing: all of them on a fresh install, and the ones of core
 			// APIs added by an upgrade. It never replaces an existing one.
-			if s.CoreIdentities.Key != nil {
+			//
+			// With identity decoupling the core exports get their well-known
+			// identities from the APIExport controller instead; nothing is
+			// seeded from the key.
+			if s.CoreIdentities.Key != nil && !kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.APIIdentityDecoupling) {
 				logger.Info("seeding missing core identities from the core identities key", "keyID", s.CoreIdentities.Key.ID())
 				if err := wait.PollUntilContextCancel(hookCtx, time.Second, true, func(ctx context.Context) (bool, error) {
 					if err := configrootidentities.SeedFromKey(ctx, s.KubeClusterClient.Cluster(core.RootCluster.Path()), s.CoreIdentities.Key, configrootphase0.CoreAPIExportNames()); err != nil {

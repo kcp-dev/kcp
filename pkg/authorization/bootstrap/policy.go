@@ -171,6 +171,21 @@ func clusterRoles() []rbacv1.ClusterRole {
 				rbacv1helpers.NewRule("get", "create").Groups(apiextensions.GroupName).Resources("customresourcedefinitions").RuleOrDie(),
 			},
 		},
+		{
+			// apiexport storage re-keying
+			ObjectMeta: metav1.ObjectMeta{Name: SystemExternalLogicalClusterAdmin},
+			Rules: []rbacv1.PolicyRule{
+				// the re-keying controller maintains the active-rekey
+				// annotation on the re-keyed export; the export may live on
+				// another shard than the re-keying object. It never writes
+				// the export's status: identities do not change.
+				rbacv1helpers.NewRule("get", "update", "patch").Groups(apis.GroupName).Resources("apiexports").RuleOrDie(),
+				// per-shard storage migrators report drain progress into the
+				// re-keying object's status via server-side apply, wherever
+				// the re-keying lives.
+				rbacv1helpers.NewRule("get", "update", "patch").Groups(migration.GroupName).Resources("apiexportstoragerekeys", "apiexportstoragerekeys/status").RuleOrDie(),
+			},
+		},
 	}
 }
 

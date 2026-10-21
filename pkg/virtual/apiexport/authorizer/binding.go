@@ -41,6 +41,7 @@ import (
 type boundAPIAuthorizer struct {
 	getAPIExport          func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error)
 	getAPIBindingByExport func(clusterName, apiExportName, apiExportCluster string) (*apisv1alpha2.APIBinding, error)
+	listAPIBindings       func(clusterName string) ([]*apisv1alpha2.APIBinding, error)
 
 	delegate authorizer.Authorizer
 }
@@ -57,6 +58,9 @@ func NewBoundAPIAuthorizer(delegate authorizer.Authorizer, apiBindingInformer ap
 		delegate: delegate,
 		getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
 			return apiExportLister.Cluster(logicalcluster.Name(clusterName)).Get(apiExportName)
+		},
+		listAPIBindings: func(clusterName string) ([]*apisv1alpha2.APIBinding, error) {
+			return apiBindingLister.Cluster(logicalcluster.Name(clusterName)).List(labels.Everything())
 		},
 		getAPIBindingByExport: func(clusterName, apiExportName, apiExportCluster string) (*apisv1alpha2.APIBinding, error) {
 			bindings, err := apiBindingLister.Cluster(logicalcluster.Name(clusterName)).List(labels.Everything())
@@ -91,9 +95,23 @@ func NewBoundAPIAuthorizer(delegate authorizer.Authorizer, apiBindingInformer ap
 
 // exportClaimsResource reports whether the APIExport claims group/resource for identityHash.
 func exportClaimsResource(export *apisv1alpha2.APIExport, group, resource, identityHash string) bool {
-	for _, claim := range export.Spec.PermissionClaims {
+	for _, claim := range export.ResolvedPermissionClaims() {
 		if claim.Group == group && claim.Resource == resource && claim.IdentityHash == identityHash {
 			return true
+		}
+	}
+	return false
+}
+
+// boundToIdentity reports whether any binding of the workspace serves a
+// resource of the export with the given identity, i.e. the consumer bound
+// that export.
+func boundToIdentity(bindings []*apisv1alpha2.APIBinding, identityHash string) bool {
+	for _, binding := range bindings {
+		for _, br := range binding.Status.BoundResources {
+			if br.Schema.IdentityHash == identityHash {
+				return true
+			}
 		}
 	}
 	return false
@@ -148,6 +166,7 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 		// may inherit the parent resource claim
 		claimedResource = normalizedGR.Resource + "/" + sub
 	}
+	exportClaims := apiExport.ResolvedPermissionClaims()
 	for _, permissionClaim := range apiBinding.Spec.PermissionClaims {
 		if permissionClaim.State != apisv1alpha2.ClaimAccepted {
 			// if the claim is not accepted it cannot be used.
@@ -174,11 +193,10 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 		apiBindingVerbs := sets.New(permissionClaim.Verbs...)
 
 		apiExportVerbs := sets.New[string]()
-		for _, exportPermpermissionClaim := range apiExport.Spec.PermissionClaims {
-			if exportPermpermissionClaim.EqualGRI(permissionClaim.PermissionClaim) {
-				apiExportVerbs.Insert(exportPermpermissionClaim.Verbs...)
-				break
-			}
+		// the accepted claim may omit the identity when the export's claim
+		// resolved through an export reference or a grant.
+		if exportClaim, ok := apisv1alpha2.MatchClaim(permissionClaim.PermissionClaim, exportClaims); ok {
+			apiExportVerbs.Insert(exportClaim.Verbs...)
 		}
 
 		allowedVerbs := apiBindingVerbs.Intersection(apiExportVerbs)
@@ -189,6 +207,28 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 		}
 
 		return a.delegate.Authorize(ctx, attr)
+	}
+
+	// delegated grants: the claimed export extended its own access to this
+	// export, so a consumer bound to both exports needs no acceptance. The
+	// claim's verbs (capped by the grant) apply.
+	for _, exportClaim := range exportClaims {
+		if exportClaim.Group != normalizedGR.Group || exportClaim.Resource != claimedResource || exportClaim.IdentityHash == "" {
+			continue
+		}
+		if !apiExport.DelegatedClaim(exportClaim.Group, exportClaim.Resource) {
+			continue
+		}
+		bindings, err := a.listAPIBindings(targetCluster.Name.String())
+		if err != nil {
+			return authorizer.DecisionNoOpinion, "", err
+		}
+		if !boundToIdentity(bindings, exportClaim.IdentityHash) {
+			continue
+		}
+		if sets.New(exportClaim.Verbs...).HasAny(attr.GetVerb(), wildcardVerb) {
+			return a.delegate.Authorize(ctx, attr)
+		}
 	}
 
 	// special case: APIBindings are always available from an APIExport VW,

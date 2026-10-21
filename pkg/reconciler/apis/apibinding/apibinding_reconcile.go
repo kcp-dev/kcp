@@ -39,9 +39,12 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/core"
+	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -192,8 +195,9 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	}
 	logger = logging.WithObject(logger, apiExport)
 
-	// Record the export's permission claims
-	apiBinding.Status.ExportPermissionClaims = apiExport.Spec.PermissionClaims
+	// Record the export's permission claims, with the identities kcp
+	// resolved for claims that name an export or rely on a grant.
+	apiBinding.Status.ExportPermissionClaims = apiExport.ResolvedPermissionClaims()
 
 	// Make sure the APIExport has an identity
 	if apiExport.Status.IdentityHash == "" {
@@ -213,30 +217,41 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	// The full path is unreliable for this purpose.
 	apiBinding.Status.APIExportClusterName = logicalcluster.From(apiExport).String()
 
-	// Collect the schemas.
-	schemas := make(map[string]*apisv1alpha1.APIResourceSchema)
+	// Resolve the schemas and default storage keys. A resource with crd
+	// storage is served with the export's own schema and stored under the
+	// export's identity. A resource with adopted storage is served with the
+	// source export's schema and starts on the source's storage prefix,
+	// provided the source consents (crd.sharedWith).
+	resolved := make(map[schema.GroupResource]resolvedResource)
 	grs := sets.New[schema.GroupResource]()
 	for _, resourceSchema := range apiExport.Spec.Resources {
-		sch, err := r.getAPIResourceSchema(logicalcluster.From(apiExport), resourceSchema.Schema)
+		res, err := r.resolveResource(apiExport, resourceSchema)
 		if err != nil {
 			logger.Error(err, "error binding")
 
+			reason := apisv1alpha2.InternalErrorReason
+			var invalid *invalidResourceError
+			if errors.As(err, &invalid) {
+				reason = invalid.reason
+			}
 			conditions.MarkFalse(
 				apiBinding,
 				apisv1alpha2.APIExportValid,
-				apisv1alpha2.InternalErrorReason,
+				reason,
 				conditionsv1alpha1.ConditionSeverityError,
-				"Invalid APIExport. Please contact the APIExport owner to resolve: APIResourceSchema %q not found", resourceSchema.Schema,
+				"Invalid APIExport. Please contact the APIExport owner to resolve: %v", err,
 			)
 
-			if apierrors.IsNotFound(err) {
-				return reconcileStatusContinue, nil
+			if apierrors.IsNotFound(err) || invalid != nil {
+				return reconcileStatusContinue, nil //nolint:nilerr // reported on the binding; a retry cannot fix it
 			}
 
 			return reconcileStatusContinue, err
 		}
-		schemas[resourceSchema.Schema] = sch
-		grs = grs.Insert(schema.GroupResource{Group: sch.Spec.Group, Resource: sch.Spec.Names.Plural})
+		// keyed by the export's resource entry; the lock set uses the schema's
+		// group and plural, which is what is served.
+		resolved[schema.GroupResource{Group: resourceSchema.Group, Resource: resourceSchema.Name}] = res
+		grs = grs.Insert(schema.GroupResource{Group: res.schema.Spec.Group, Resource: res.schema.Spec.Names.Plural})
 	}
 
 	crds, err := r.listCRDs(logicalcluster.From(apiBinding))
@@ -333,8 +348,26 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	}
 	var needToWaitForRequeueWhenEstablished []string
 	for _, resourceSchema := range apiExport.Spec.Resources {
-		sch := schemas[resourceSchema.Schema]
+		res, ok := resolved[schema.GroupResource{Group: resourceSchema.Group, Resource: resourceSchema.Name}]
+		if !ok {
+			continue
+		}
+		sch := res.schema
 		logger := logging.WithObject(logger, sch)
+
+		// The storage key of the bound resource: what the binding already
+		// uses, or the resolved default for a new binding. It never flips in
+		// place; only the storage migrator moves data.
+		storageKey := res.storageKey
+		for _, br := range apiBinding.Status.BoundResources {
+			if br.Group == sch.Spec.Group && br.Resource == sch.Spec.Names.Plural {
+				if key := br.StorageKey(); key != "" {
+					storageKey = key
+				}
+				break
+			}
+		}
+		boundCRDName := indexers.BoundCRDNameForKey(string(sch.UID), apiExport.Status.IdentityHash, storageKey)
 
 		if _, ok := skipped[schema.GroupResource{Group: sch.Spec.Group, Resource: sch.Spec.Names.Plural}]; ok {
 			// This resource was skipped because it's already locked by another binding.
@@ -388,7 +421,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 		}
 
 		// Try to get the bound CRD
-		existingCRD, err := r.getCRD(SystemBoundCRDsClusterName, BoundCRDName(sch))
+		existingCRD, err := r.getCRD(SystemBoundCRDsClusterName, boundCRDName)
 		if err != nil && !apierrors.IsNotFound(err) {
 			conditions.MarkFalse(
 				apiBinding,
@@ -400,7 +433,7 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 
 			return reconcileStatusContinue, fmt.Errorf(
 				"error getting CRD %s|%s for APIBinding %s|%s, APIExport %s|%s, APIResourceSchema %s|%s: %w",
-				SystemBoundCRDsClusterName, BoundCRDName(sch),
+				SystemBoundCRDsClusterName, boundCRDName,
 				logicalcluster.From(apiBinding), apiBinding.Name,
 				apiExportPath, apiExport.Name,
 				apiExportPath, resourceSchema.Schema,
@@ -420,8 +453,18 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				continue
 			}
 		} else {
+			// While the binding is mid storage re-keying the storage migrator
+			// owns the bound CRD lifecycle: it recreates the CRD to force the
+			// serving storage to be rebuilt against the target storage key.
+			// Creating it here would race that rebuild.
+			if conditions.IsFalse(apiBinding, apisv1alpha2.StorageRekeyCompleted) {
+				logger.V(4).Info("not creating bound CRD: binding is mid storage re-keying", "schema", resourceSchema.Schema)
+				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
+				continue
+			}
+
 			// Need to create bound CRD
-			crd, err := GenerateBoundCRD(sch)
+			crd, err := GenerateBoundCRDNamed(sch, boundCRDName)
 			if err != nil {
 				logger.Error(err, "error generating CRD")
 
@@ -536,18 +579,56 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				IdentityHash: apiExport.Status.IdentityHash,
 			},
 			StorageVersions: sortedStorageVersions,
+			// a fresh binding stores under the resolved default: the export's
+			// identity, or the source's identity for an adopted resource.
+			Storage: apisv1alpha2.BoundAPIResourceStorage{Key: storageKey},
 		}
 
-		found := false
+		index := -1
 		for i, r := range apiBinding.Status.BoundResources {
 			if r.Group == sch.Spec.Group && r.Resource == sch.Spec.Names.Plural {
+				// The storage key keys the etcd prefix of the bound instances
+				// and must never flip in place: existing data lives under the
+				// current prefix. Keep serving it and preserve the drain
+				// bookkeeping; only the storage migrator moves data, flips
+				// and prunes. A binding created before storage keys were
+				// tracked served from the identity it was bound with.
+				newBoundResource.Storage = r.Storage
+				if newBoundResource.Storage.Key == "" {
+					newBoundResource.Storage.Key = r.StorageKey()
+				}
+				if newBoundResource.Storage.Key == "" {
+					newBoundResource.Storage.Key = storageKey
+				}
 				apiBinding.Status.BoundResources[i] = newBoundResource
-				found = true
+				index = i
 				break
 			}
 		}
-		if !found {
+		if index < 0 {
 			apiBinding.Status.BoundResources = append(apiBinding.Status.BoundResources, newBoundResource)
+			index = len(apiBinding.Status.BoundResources) - 1
+		}
+
+		// An active storage re-keying of the export names the prefix the
+		// bound instances have to move to. Record it as a pending key; the
+		// storage migrator drains the current prefix onto it, flips and
+		// prunes.
+		if active, ok := migrationv1alpha1.ParseActiveRekey(apiExport.Annotations[migrationv1alpha1.ActiveRekeyAnnotationKey]); ok && active.Covers(sch.Spec.Group, sch.Spec.Names.Plural) {
+			br := &apiBinding.Status.BoundResources[index]
+			if br.StorageKey() != active.TargetKey {
+				br.Storage.PendingKeys = sets.List(sets.New(br.Storage.PendingKeys...).Insert(active.TargetKey))
+			}
+			if len(br.Storage.PendingKeys) > 0 {
+				conditions.MarkFalse(
+					apiBinding,
+					apisv1alpha2.StorageRekeyCompleted,
+					apisv1alpha2.StorageRekeyInProgressReason,
+					conditionsv1alpha1.ConditionSeverityInfo,
+					"bound resources are being drained onto storage key %s of APIExport %s",
+					active.TargetKey, apiExport.Name,
+				)
+			}
 		}
 	}
 
@@ -604,9 +685,103 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 	return reconcileStatusContinue, nil
 }
 
-// BoundCRDName returns the name used for a bound CRD in system:bound-crds.
+// BoundCRDName returns the name used for a bound CRD in system:bound-crds
+// serving a resource stored under its export's identity. Resources on another
+// storage key use indexers.BoundCRDNameForKey.
 func BoundCRDName(schema *apisv1alpha1.APIResourceSchema) string {
 	return string(schema.UID)
+}
+
+// resolvedResource is an export resource with its schema and the storage key
+// a new binding of it starts on.
+type resolvedResource struct {
+	schema     *apisv1alpha1.APIResourceSchema
+	storageKey string
+}
+
+// invalidResourceError is a permanent misconfiguration of an export resource,
+// reported on the binding with the given reason and not retried.
+type invalidResourceError struct {
+	reason string
+	err    error
+}
+
+func (e *invalidResourceError) Error() string { return e.err.Error() }
+func (e *invalidResourceError) Unwrap() error { return e.err }
+
+// resolveResource resolves the schema and default storage key of one export
+// resource. For crd (and virtual) storage the schema is the one the export
+// references in its own workspace and the key is the export's identity. For
+// adopted storage the source export is looked up, its consent checked
+// (crd.sharedWith must list this export for the resource), and the resource is
+// served with the source's schema from the source's storage prefix.
+func (r *bindingReconciler) resolveResource(apiExport *apisv1alpha2.APIExport, resourceSchema apisv1alpha2.ResourceSchema) (resolvedResource, error) {
+	exportCluster := logicalcluster.From(apiExport)
+	if resourceSchema.Storage.Adopted == nil {
+		sch, err := r.getAPIResourceSchema(exportCluster, resourceSchema.Schema)
+		if err != nil {
+			return resolvedResource{}, fmt.Errorf("APIResourceSchema %q: %w", resourceSchema.Schema, err)
+		}
+		return resolvedResource{schema: sch, storageKey: apiExport.Status.IdentityHash}, nil
+	}
+
+	from := resourceSchema.Storage.Adopted.From
+	sourcePath := logicalcluster.NewPath(from.Path)
+	if sourcePath.Empty() {
+		sourcePath = exportCluster.Path()
+	}
+	source, err := r.controller.getAPIExportByPath(sourcePath, from.Name)
+	if err != nil {
+		return resolvedResource{}, &invalidResourceError{reason: apisv1alpha2.StorageSourceInvalidReason,
+			err: fmt.Errorf("adopted storage of %s.%s: source APIExport %s|%s: %w", resourceSchema.Name, resourceSchema.Group, sourcePath, from.Name, err)}
+	}
+	if source.Status.IdentityHash == "" {
+		return resolvedResource{}, &invalidResourceError{reason: apisv1alpha2.StorageSourceInvalidReason,
+			err: fmt.Errorf("adopted storage of %s.%s: source APIExport %s|%s has no identity yet", resourceSchema.Name, resourceSchema.Group, sourcePath, from.Name)}
+	}
+	var sourceResource *apisv1alpha2.ResourceSchema
+	for i := range source.Spec.Resources {
+		if source.Spec.Resources[i].Group == resourceSchema.Group && source.Spec.Resources[i].Name == resourceSchema.Name {
+			sourceResource = &source.Spec.Resources[i]
+			break
+		}
+	}
+	if sourceResource == nil || sourceResource.Storage.CRD == nil {
+		return resolvedResource{}, &invalidResourceError{reason: apisv1alpha2.StorageSourceInvalidReason,
+			err: fmt.Errorf("adopted storage of %s.%s: source APIExport %s|%s does not serve it with crd storage", resourceSchema.Name, resourceSchema.Group, sourcePath, from.Name)}
+	}
+	if !SharedWith(sourceResource.Storage.CRD.SharedWith, apiExport) {
+		return resolvedResource{}, &invalidResourceError{reason: apisv1alpha2.StorageNotSharedReason,
+			err: fmt.Errorf("adopted storage of %s.%s: source APIExport %s|%s does not list this export in crd.sharedWith", resourceSchema.Name, resourceSchema.Group, sourcePath, from.Name)}
+	}
+	schemaName := sourceResource.Schema
+	if resourceSchema.Schema != "" && resourceSchema.Schema != schemaName {
+		return resolvedResource{}, &invalidResourceError{reason: apisv1alpha2.StorageSourceInvalidReason,
+			err: fmt.Errorf("adopted storage of %s.%s: schema %q must be the source's schema %q or empty", resourceSchema.Name, resourceSchema.Group, resourceSchema.Schema, schemaName)}
+	}
+	sch, err := r.getAPIResourceSchema(logicalcluster.From(source), schemaName)
+	if err != nil {
+		return resolvedResource{}, fmt.Errorf("adopted storage of %s.%s: source APIResourceSchema %s|%s: %w", resourceSchema.Name, resourceSchema.Group, logicalcluster.From(source), schemaName, err)
+	}
+	return resolvedResource{schema: sch, storageKey: source.Status.IdentityHash}, nil
+}
+
+// SharedWith reports whether the sharedWith list of a resource names the
+// export: by name and by path, where the path may be the export's logical
+// cluster name, its canonical workspace path, or empty for the source's own
+// workspace (compared against the export's cluster by the caller).
+func SharedWith(sharedWith []apisv1alpha2.ExportBindingReference, apiExport *apisv1alpha2.APIExport) bool {
+	cluster := logicalcluster.From(apiExport).String()
+	canonical := apiExport.Annotations[core.LogicalClusterPathAnnotationKey]
+	for _, ref := range sharedWith {
+		if ref.Name != apiExport.Name {
+			continue
+		}
+		if ref.Path == cluster || (canonical != "" && ref.Path == canonical) {
+			return true
+		}
+	}
+	return false
 }
 
 // permissionClaimMaterialiserReconciler ensures that, for each accepted permission claim
@@ -738,11 +913,19 @@ func (r *permissionClaimMaterialiserReconciler) ensurePermissionClaimBoundCRD(ct
 	return nil
 }
 
-// GenerateBoundCRD creates a CRD object from an APIResourceSchema for use in system:bound-crds.
+// GenerateBoundCRD creates a CRD object from an APIResourceSchema for use in
+// system:bound-crds, named for a resource stored under its export's identity.
 func GenerateBoundCRD(schema *apisv1alpha1.APIResourceSchema) (*apiextensionsv1.CustomResourceDefinition, error) {
+	return GenerateBoundCRDNamed(schema, BoundCRDName(schema))
+}
+
+// GenerateBoundCRDNamed creates a CRD object from an APIResourceSchema for
+// use in system:bound-crds under the given name (see
+// indexers.BoundCRDNameForKey for the per-storage-key variants).
+func GenerateBoundCRDNamed(schema *apisv1alpha1.APIResourceSchema, name string) (*apiextensionsv1.CustomResourceDefinition, error) {
 	crd := &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: BoundCRDName(schema),
+			Name: name,
 			Annotations: map[string]string{
 				logicalcluster.AnnotationKey:            SystemBoundCRDsClusterName.String(),
 				apisv1alpha1.AnnotationBoundCRDKey:      "",

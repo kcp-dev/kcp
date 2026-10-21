@@ -540,3 +540,54 @@ func TestValidateOverhangingPermissionClaims(t *testing.T) {
 		})
 	}
 }
+
+// statusAttr builds a status-subresource update of an APIExport from old to
+// new.
+func statusAttr(oldHash, newHash string) admission.Attributes {
+	export := func(hash string) runtime.Object {
+		return &apisv1alpha2.APIExport{
+			ObjectMeta: metav1.ObjectMeta{Name: "cool-something"},
+			Status:     apisv1alpha2.APIExportStatus{IdentityHash: hash},
+		}
+	}
+	return admission.NewAttributesRecord(
+		helpers.ToUnstructuredOrDie(export(newHash)),
+		helpers.ToUnstructuredOrDie(export(oldHash)),
+		apisv1alpha2.Kind("APIExport").WithVersion("v1alpha2"),
+		"",
+		"cool-something",
+		apisv1alpha2.Resource("apiexports").WithVersion("v1alpha2"),
+		"status",
+		admission.Update,
+		&metav1.UpdateOptions{},
+		false,
+		&user.DefaultInfo{},
+	)
+}
+
+func TestStatusIdentityHashImmutable(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		oldHash, newHash string
+		wantErr          string
+	}{
+		"first assignment is allowed":    {oldHash: "", newHash: "abc"},
+		"unchanged is allowed":           {oldHash: "abc", newHash: "abc"},
+		"other status fields may change": {oldHash: "", newHash: ""},
+		"changing it is forbidden":       {oldHash: "abc", newHash: "def", wantErr: "identityHash is immutable once set"},
+		"clearing it is forbidden":       {oldHash: "abc", newHash: "", wantErr: "identityHash is immutable once set"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			plugin := NewAPIExportAdmission(func(apis.GroupResource) bool { return false })
+			err := plugin.Validate(context.Background(), statusAttr(tc.oldHash, tc.newHash), nil)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}

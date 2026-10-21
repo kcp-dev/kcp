@@ -157,6 +157,7 @@ func Run(ctx context.Context, o *options.Options) error {
 		bootstrap.NewLocalCoreIdentitySet(localShardKcpClusterClient, "").Provider(),
 		bootstrap.LegacyConfigMapProvider(localShardKubeClusterClient),
 		bootstrap.CacheProvider(cacheKcpClusterClient),
+		bootstrap.APIIdentityProvider(cacheKcpClusterClient),
 		bootstrap.RootAPIExportProvider(nonIdentityConfig),
 	)
 	identityConfig, resolveIdentities, identities := bootstrap.NewConfigWithWildcardIdentities(nonIdentityConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, identityProvider)

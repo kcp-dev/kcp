@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// APIExportStorageRekeyClusterListerExpansion allows custom methods to be added to
+// APIExportStorageRekeyClusterLister.
+type APIExportStorageRekeyClusterListerExpansion interface{}
+
+// APIExportStorageRekeyListerExpansion allows custom methods to be added to
+// APIExportStorageRekeyLister.
+type APIExportStorageRekeyListerExpansion interface{}
+
 // LogicalClusterMigrationClusterListerExpansion allows custom methods to be added to
 // LogicalClusterMigrationClusterLister.
 type LogicalClusterMigrationClusterListerExpansion interface{}

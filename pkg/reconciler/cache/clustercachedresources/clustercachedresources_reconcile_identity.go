@@ -28,6 +28,7 @@ import (
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/identity"
 )
 
@@ -50,6 +51,10 @@ func (r *identityReconciler) reconcile(ctx context.Context, clusterCachedResourc
 	}
 
 	clusterName := logicalcluster.From(clusterCachedResource)
+
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.APIIdentityDecoupling) {
+		return r.reconcileDecoupled(ctx, clusterName, clusterCachedResource)
+	}
 
 	if identity.SecretRef == nil {
 		r.ensureSecretNamespaceExists(ctx, clusterName, r.secretNamespace)
@@ -107,6 +112,48 @@ func (r *identityReconciler) reconcile(ctx context.Context, clusterCachedResourc
 		conditions.MarkTrue(clusterCachedResource, cachev1alpha1.ClusterCachedResourceIdentityValid)
 	}
 
+	return reconcileStatusContinue, nil
+}
+
+// reconcileDecoupled assigns and validates the cached resource's identity
+// under the APIIdentityDecoupling feature gate (enhancements KEP 0008): an
+// opaque, owner-prefixed identifier assigned once to status, with no
+// identity secret created or read for it. An existing identity is kept
+// untouched; a pre-created secretRef on a resource without an identity is
+// hashed once.
+func (r *identityReconciler) reconcileDecoupled(ctx context.Context, clusterName logicalcluster.Name, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (reconcileStatus, error) {
+	if clusterCachedResource.Status.IdentityHash == "" {
+		if clusterCachedResource.Spec.Identity != nil && clusterCachedResource.Spec.Identity.SecretRef != nil {
+			if err := r.updateOrVerifyIdentitySecretHash(ctx, clusterName, clusterCachedResource, r.secretNamespace); err != nil {
+				conditions.MarkFalse(
+					clusterCachedResource,
+					cachev1alpha1.ClusterCachedResourceIdentityValid,
+					cachev1alpha1.IdentityVerificationFailedReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"%v",
+					err,
+				)
+				return reconcileStatusStop, err
+			}
+		} else {
+			id, err := identity.GenerateIdentity(clusterName)
+			if err != nil {
+				conditions.MarkFalse(
+					clusterCachedResource,
+					cachev1alpha1.ClusterCachedResourceIdentityValid,
+					cachev1alpha1.IdentityGenerationFailedReason,
+					conditionsv1alpha1.ConditionSeverityError,
+					"Error generating identity: %v",
+					err,
+				)
+				return reconcileStatusStop, err
+			}
+			clusterCachedResource.Status.IdentityHash = id
+		}
+	}
+	if !conditions.IsTrue(clusterCachedResource, cachev1alpha1.ClusterCachedResourceIdentityValid) {
+		conditions.MarkTrue(clusterCachedResource, cachev1alpha1.ClusterCachedResourceIdentityValid)
+	}
 	return reconcileStatusContinue, nil
 }
 

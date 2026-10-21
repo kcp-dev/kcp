@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// APIIdentityClusterListerExpansion allows custom methods to be added to
+// APIIdentityClusterLister.
+type APIIdentityClusterListerExpansion interface{}
+
+// APIIdentityListerExpansion allows custom methods to be added to
+// APIIdentityLister.
+type APIIdentityListerExpansion interface{}
+
 // CoreIdentitySetClusterListerExpansion allows custom methods to be added to
 // CoreIdentitySetClusterLister.
 type CoreIdentitySetClusterListerExpansion interface{}

@@ -18,7 +18,9 @@ package identity
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -27,6 +29,7 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpcrypto "github.com/kcp-dev/apimachinery/v2/pkg/util/crypto"
+	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 )
 
@@ -56,6 +59,25 @@ func GenerateIdentitySecret(ctx context.Context, namespace, name string) (*corev
 			apisv1alpha1.SecretKeyAPIExportIdentity: key,
 		},
 	}, nil
+}
+
+// GenerateIdentity returns a fresh, opaque identity for an APIExport or
+// ClusterCachedResource owned by the given logical cluster (enhancements KEP
+// 0008). The identity is owner-prefixed, "<logical cluster name>-<random>",
+// so that an identity pinned on an object can be checked to belong to the
+// object's own logical cluster without any lookup. The random suffix is 128
+// bits, hex-encoded. The result is a single etcd path segment and a valid
+// "resource:identity" URL suffix. It carries no secret: knowing an identity
+// grants nothing.
+func GenerateIdentity(clusterName logicalcluster.Name) (string, error) {
+	if clusterName.Empty() {
+		return "", fmt.Errorf("logical cluster name must not be empty")
+	}
+	suffix := make([]byte, 16)
+	if _, err := rand.Read(suffix); err != nil {
+		return "", fmt.Errorf("failed to generate identity: %w", err)
+	}
+	return clusterName.String() + "-" + hex.EncodeToString(suffix), nil
 }
 
 // IdentityHash computes a SHA-256 hash of the identity key stored in the given Secret.

@@ -29,6 +29,10 @@ type FakeMigrationV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeMigrationV1alpha1) APIExportStorageRekeys() v1alpha1.APIExportStorageRekeyInterface {
+	return newFakeAPIExportStorageRekeys(c)
+}
+
 func (c *FakeMigrationV1alpha1) LogicalClusterDumps() v1alpha1.LogicalClusterDumpInterface {
 	return newFakeLogicalClusterDumps(c)
 }

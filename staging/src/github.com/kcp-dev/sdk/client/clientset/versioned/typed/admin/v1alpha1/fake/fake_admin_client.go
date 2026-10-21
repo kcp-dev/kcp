@@ -29,6 +29,10 @@ type FakeAdminV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeAdminV1alpha1) APIIdentities() v1alpha1.APIIdentityInterface {
+	return newFakeAPIIdentities(c)
+}
+
 func (c *FakeAdminV1alpha1) CoreIdentitySets() v1alpha1.CoreIdentitySetInterface {
 	return newFakeCoreIdentitySets(c)
 }

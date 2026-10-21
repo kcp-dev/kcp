@@ -101,6 +101,8 @@ func (i *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericClusterInformer, error) {
 	switch resource {
 	// Group=admin.kcp.io, Version=v1alpha1
+	case kcpv1alpha1.SchemeGroupVersion.WithResource("apiidentities"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Admin().V1alpha1().APIIdentities().Informer()}, nil
 	case kcpv1alpha1.SchemeGroupVersion.WithResource("coreidentitysets"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Admin().V1alpha1().CoreIdentitySets().Informer()}, nil
 
@@ -135,6 +137,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Core().V1alpha1().Shards().Informer()}, nil
 
 		// Group=migration.kcp.io, Version=v1alpha1
+	case kcpmigrationv1alpha1.SchemeGroupVersion.WithResource("apiexportstoragerekeys"):
+		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Migration().V1alpha1().APIExportStorageRekeys().Informer()}, nil
 	case kcpmigrationv1alpha1.SchemeGroupVersion.WithResource("logicalclustermigrations"):
 		return &genericClusterInformer{resource: resource.GroupResource(), informer: f.Migration().V1alpha1().LogicalClusterMigrations().Informer()}, nil
 
@@ -162,6 +166,9 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=admin.kcp.io, Version=v1alpha1
+	case kcpv1alpha1.SchemeGroupVersion.WithResource("apiidentities"):
+		informer := f.Admin().V1alpha1().APIIdentities().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case kcpv1alpha1.SchemeGroupVersion.WithResource("coreidentitysets"):
 		informer := f.Admin().V1alpha1().CoreIdentitySets().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
@@ -208,6 +215,9 @@ func (f *sharedScopedInformerFactory) ForResource(resource schema.GroupVersionRe
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 
 		// Group=migration.kcp.io, Version=v1alpha1
+	case kcpmigrationv1alpha1.SchemeGroupVersion.WithResource("apiexportstoragerekeys"):
+		informer := f.Migration().V1alpha1().APIExportStorageRekeys().Informer()
+		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil
 	case kcpmigrationv1alpha1.SchemeGroupVersion.WithResource("logicalclustermigrations"):
 		informer := f.Migration().V1alpha1().LogicalClusterMigrations().Informer()
 		return &genericInformer{lister: cache.NewGenericLister(informer.GetIndexer(), resource.GroupResource()), informer: informer}, nil

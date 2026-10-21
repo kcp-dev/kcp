@@ -5,6 +5,11 @@ metadata:
 spec:
   resources:
   - group: migration.kcp.io
+    name: apiexportstoragerekeys
+    schema: v261020-1f104ff6b.apiexportstoragerekeys.migration.kcp.io
+    storage:
+      crd: {}
+  - group: migration.kcp.io
     name: logicalclusterdumps
     schema: v261015-c6aa67685.logicalclusterdumps.migration.kcp.io
     storage:

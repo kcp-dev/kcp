@@ -1,0 +1,264 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: v261020-1f104ff6b.apiexportstoragerekeys.migration.kcp.io
+spec:
+  group: migration.kcp.io
+  names:
+    categories:
+    - kcp
+    kind: APIExportStorageRekey
+    listKind: APIExportStorageRekeyList
+    plural: apiexportstoragerekeys
+    singular: apiexportstoragerekey
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.export.name
+      name: Export
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.migratedBindings
+      name: Migrated
+      type: string
+    - jsonPath: .status.totalBindings
+      name: Total
+      type: string
+    name: v1alpha1
+    schema:
+      description: |-
+        APIExportStorageRekey is a one-shot request to move the bound instances of
+        an APIExport's resources onto another etcd storage prefix. It lives next
+        to the APIExport in the provider workspace, or in a platform-operated
+        workspace referencing the export by path, and is served through the
+        platform-owned migration APIExport: possessing the type requires binding
+        that export, which is how the platform delegates the capability.
+
+        The identity of the export never changes. Only the storage prefix of the
+        bound instances does: by default the export's own identity, which is the
+        steady state, so a re-keying ends a storage handover (an export serving a
+        resource out of another export's prefix) or separates prefixes after one.
+
+        Re-keying is a tracked, resumable procedure: every consumer workspace's
+        bound instances are drained storage-level from the current prefix to the
+        target one (preserving UIDs, status and ownerReferences), one workspace at
+        a time, behind the workspace's maintenance fence.
+      properties:
+        apiVersion:
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          type: string
+        kind:
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: |-
+            APIExportStorageRekeySpec is the request: which export, which of its
+            resources, and onto which storage key.
+          properties:
+            export:
+              description: |-
+                export references the APIExport whose bound instances are re-keyed.
+                The referenced export may live in another workspace (and on another
+                shard): re-keying is a platform capability, delegated by binding the
+                migration.kcp.io APIExport, and does not require exposing that
+                capability in the workspaces owning the re-keyed exports. Immutable.
+              properties:
+                name:
+                  description: name is the name of the APIExport.
+                  minLength: 1
+                  type: string
+                path:
+                  description: |-
+                    path is the workspace path of the APIExport (e.g. root:org:provider,
+                    or a logical cluster name). Empty means the re-keying's own workspace.
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-validations:
+              - message: export is immutable
+                rule: self == oldSelf
+            resources:
+              description: |-
+                resources limits the re-keying to the listed group/resources of the
+                export. Empty means every CRD-stored resource of the export whose
+                bindings sit on a prefix other than the target. Immutable.
+              items:
+                description: GroupResource identifies a resource.
+                properties:
+                  group:
+                    default: ""
+                    description: |-
+                      group is the name of an API group.
+                      For core groups this is the empty string '""'.
+                    pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                    type: string
+                  resource:
+                    description: |-
+                      resource is the name of the resource.
+                      A subresource may be claimed as "resource/subresource",
+                      e.g. "serviceaccounts/token", in the style of RBAC rules.
+                      Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+                      not provided by an api export.
+                    maxLength: 127
+                    pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - resource
+                type: object
+              type: array
+              x-kubernetes-list-map-keys:
+              - group
+              - resource
+              x-kubernetes-list-type: map
+            targetKey:
+              description: |-
+                targetKey is the storage key to drain onto. Empty means the export's
+                own identity, which is the steady state. Any other value is reserved
+                for platform administrators, e.g. to move onto a well-known core
+                identity. It is a single etcd path segment. Immutable.
+              maxLength: 253
+              pattern: ^([a-z0-9][a-z0-9.-]*)?$
+              type: string
+          required:
+          - export
+          type: object
+        status:
+          description: APIExportStorageRekeyStatus reports drain progress.
+          properties:
+            conditions:
+              description: conditions is a list of conditions that apply to the re-keying.
+              items:
+                description: Condition defines an observation of a object operational
+                  state.
+                properties:
+                  lastTransitionTime:
+                    description: |-
+                      Last time the condition transitioned from one status to another.
+                      This should be when the underlying condition changed. If that is not known, then using the time when
+                      the API field changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: |-
+                      A human readable message indicating details about the transition.
+                      This field may be empty.
+                    type: string
+                  reason:
+                    description: |-
+                      The reason for the condition's last transition in CamelCase.
+                      The specific API may choose whether or not this field is considered a guaranteed API.
+                      This field may not be empty.
+                    type: string
+                  severity:
+                    description: |-
+                      Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                      understand the current situation and act accordingly.
+                      The Severity field MUST be set only when Status=False.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                    type: string
+                  type:
+                    description: |-
+                      Type of condition in CamelCase or in foo.example.com/CamelCase.
+                      Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                      can be useful (see .node.status.conditions), the ability to deconflict is important.
+                    type: string
+                required:
+                - lastTransitionTime
+                - status
+                - type
+                type: object
+              type: array
+            migratedBindings:
+              description: |-
+                migratedBindings is the number of APIBindings whose bound instances
+                are fully drained onto the target key, summed over all shards that
+                have reported in status.shards.
+              format: int32
+              type: integer
+            phase:
+              description: phase is the current lifecycle phase of the re-keying.
+              type: string
+            shards:
+              description: |-
+                shards reports drain progress per shard. Each shard's storage
+                migrator maintains its own entry (including shards with zero
+                bindings, so completeness is decidable). The drain is only considered
+                complete once every shard has reported and every entry is fully
+                migrated.
+              items:
+                description: |-
+                  ShardMigrationProgress is one shard's self-reported drain progress for a
+                  re-keying. It is written by the storage migrator running on that shard via
+                  server-side apply, with a per-shard field manager, so shards never conflict
+                  with each other or with the re-keying controller.
+                properties:
+                  lastUpdateTime:
+                    description: lastUpdateTime is when this shard last refreshed
+                      its entry.
+                    format: date-time
+                    type: string
+                  migratedBindings:
+                    description: |-
+                      migratedBindings is the number of those bindings fully drained onto
+                      the target key.
+                    format: int32
+                    type: integer
+                  shard:
+                    description: shard is the name of the reporting shard.
+                    type: string
+                  storageKey:
+                    description: |-
+                      storageKey is the target key the counts were evaluated against.
+                      Reports for any other key than the re-keying's target are ignored by
+                      the re-keying controller.
+                    type: string
+                  totalBindings:
+                    description: |-
+                      totalBindings is the number of APIBindings of the re-keyed export
+                      hosted on this shard. Zero is meaningful ("this shard has nothing to
+                      drain") and always serialized.
+                    format: int32
+                    type: integer
+                required:
+                - migratedBindings
+                - shard
+                - totalBindings
+                type: object
+              type: array
+              x-kubernetes-list-map-keys:
+              - shard
+              x-kubernetes-list-type: map
+            targetKey:
+              description: targetKey is the resolved storage key the bindings are
+                drained onto.
+              type: string
+            totalBindings:
+              description: |-
+                totalBindings is the number of APIBindings bound to the re-keyed
+                export, summed over all shards that have reported in status.shards.
+              format: int32
+              type: integer
+          type: object
+      required:
+      - spec
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

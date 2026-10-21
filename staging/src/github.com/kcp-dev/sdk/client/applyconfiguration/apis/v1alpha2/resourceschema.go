@@ -29,9 +29,23 @@ type ResourceSchemaApplyConfiguration struct {
 	Group *string `json:"group,omitempty"`
 	// Schema is the name of the referenced APIResourceSchema. This must be of the format
 	// "<version>.<name>.<group>".
+	//
+	// It is optional for a resource with adopted storage: such a resource is
+	// served with the schema the source export references for it, which kcp
+	// resolves and records in status.resources. If set on an adopted resource it
+	// must name the same APIResourceSchema the source uses.
 	Schema *string `json:"schema,omitempty"`
 	// Storage defines how the resource is stored.
 	Storage *ResourceSchemaStorageApplyConfiguration `json:"storage,omitempty"`
+	// claimableBy grants other APIExports the right to claim this resource
+	// without naming this export's identity in their permission claim: a claim
+	// for this group/resource on a granted export resolves to this export, and
+	// the claimed export's maximal permission policy is satisfied by the grant.
+	// Consumers still accept the claim on their APIBinding unless the grant is
+	// delegated. A grant is never required: any export may claim this resource
+	// by identity or by export reference, subject to consumer acceptance and the
+	// maximal permission policy.
+	ClaimableBy []ClaimGrantApplyConfiguration `json:"claimableBy,omitempty"`
 }
 
 // ResourceSchemaApplyConfiguration constructs a declarative configuration of the ResourceSchema type for use with
@@ -69,5 +83,18 @@ func (b *ResourceSchemaApplyConfiguration) WithSchema(value string) *ResourceSch
 // If called multiple times, the Storage field is set to the value of the last call.
 func (b *ResourceSchemaApplyConfiguration) WithStorage(value *ResourceSchemaStorageApplyConfiguration) *ResourceSchemaApplyConfiguration {
 	b.Storage = value
+	return b
+}
+
+// WithClaimableBy adds the given value to the ClaimableBy field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the ClaimableBy field.
+func (b *ResourceSchemaApplyConfiguration) WithClaimableBy(values ...*ClaimGrantApplyConfiguration) *ResourceSchemaApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithClaimableBy")
+		}
+		b.ClaimableBy = append(b.ClaimableBy, *values[i])
+	}
 	return b
 }

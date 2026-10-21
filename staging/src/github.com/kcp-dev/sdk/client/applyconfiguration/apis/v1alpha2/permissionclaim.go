@@ -34,7 +34,16 @@ type PermissionClaimApplyConfiguration struct {
 	// The hash can be found on APIExport and APIResourceSchema's status.
 	// It will be empty for core types.
 	// Note that one must look this up for a particular kcp instance.
+	//
+	// It may be left empty for a resource of another export when export names
+	// that export, or when the claimed export grants this export the claim
+	// through claimableBy; kcp then resolves the identity and records it in
+	// status.permissionClaims.
 	IdentityHash *string `json:"identityHash,omitempty"`
+	// export names the APIExport whose resource is claimed, as an alternative
+	// to identityHash. kcp resolves it to the export's identity. At most one
+	// of export and identityHash is set.
+	Export *ExportBindingReferenceApplyConfiguration `json:"export,omitempty"`
 	// defaultSelector is the default selector to use when creating APIBindings
 	// via WorkspaceType's defaultAPIBindings. If not set, the APIBinding will
 	// default to matchAll: true.
@@ -83,6 +92,14 @@ func (b *PermissionClaimApplyConfiguration) WithVerbs(values ...string) *Permiss
 // If called multiple times, the IdentityHash field is set to the value of the last call.
 func (b *PermissionClaimApplyConfiguration) WithIdentityHash(value string) *PermissionClaimApplyConfiguration {
 	b.IdentityHash = &value
+	return b
+}
+
+// WithExport sets the Export field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Export field is set to the value of the last call.
+func (b *PermissionClaimApplyConfiguration) WithExport(value *ExportBindingReferenceApplyConfiguration) *PermissionClaimApplyConfiguration {
+	b.Export = value
 	return b
 }
 

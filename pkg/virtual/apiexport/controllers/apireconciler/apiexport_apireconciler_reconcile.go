@@ -84,7 +84,7 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 	// Find schemas for claimed resources
 	claims := map[schema.GroupResource]apisv1alpha2.PermissionClaim{}
 	claimsAPIBindings := false
-	for _, pc := range apiExport.Spec.PermissionClaims {
+	for _, pc := range apiExport.ResolvedPermissionClaims() {
 		logger := logger.WithValues("claim", pc.String())
 		logger.V(4).Info("evaluating claim")
 
@@ -216,7 +216,13 @@ func (c *APIReconciler) reconcile(ctx context.Context, apiExport *apisv1alpha2.A
 			}
 
 			var labelReqs labels.Requirements
+			apiExportIndexer := c.apiExportIndexer
 			if c, ok := claims[gvr.GroupResource()]; ok {
+				// normalize a pre-rotation identity alias to the canonical
+				// hash before hashing, mirroring the permissionclaim labeler,
+				// so claims on either side of a rotation produce identical
+				// filter labels.
+				c.IdentityHash = indexers.CanonicalIdentityHashForGR(apiExportIndexer, c.IdentityHash, c.Group, c.Resource)
 				key, label, err := permissionclaims.ToLabelKeyAndValue(clusterName, apiExport.Name, c)
 				if err != nil {
 					return fmt.Errorf("failed to convert permission claim %v to label key and value: %w", c, err)
@@ -306,14 +312,29 @@ func (c *APIReconciler) getSchemasFromAPIExport(ctx context.Context, apiExport *
 	logger := klog.FromContext(ctx)
 	apiResourceSchemas := map[schema.GroupResource]*apisv1alpha1.APIResourceSchema{}
 	for _, resourceSchema := range apiExport.Spec.Resources {
+		// an adopted resource is served with the source export's schema from
+		// the source's cluster; the apiexport reconciler records both.
 		apiExportClusterName := logicalcluster.From(apiExport)
-		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(resourceSchema.Schema)
+		schemaName := resourceSchema.Schema
+		for _, status := range apiExport.Status.Resources {
+			if status.Group == resourceSchema.Group && status.Resource == resourceSchema.Name && status.Schema != "" {
+				schemaName = status.Schema
+				if status.SchemaCluster != "" {
+					apiExportClusterName = logicalcluster.Name(status.SchemaCluster)
+				}
+				break
+			}
+		}
+		if schemaName == "" {
+			continue // adopted resource not resolved yet
+		}
+		apiResourceSchema, err := c.apiResourceSchemaLister.Cluster(apiExportClusterName).Get(schemaName)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return nil, err
 		}
 		if apierrors.IsNotFound(err) {
 			logger.WithValues(
-				"schema", resourceSchema.Schema,
+				"schema", schemaName,
 				"exportClusterName", apiExportClusterName,
 				"exportName", apiExport.Name,
 			).V(3).Info("APIResourceSchema for APIExport not found")

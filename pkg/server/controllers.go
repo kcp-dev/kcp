@@ -43,6 +43,7 @@ import (
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/cache"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
@@ -70,9 +71,11 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/objectcount"
 	permissionclaimlabler "github.com/kcp-dev/kcp/pkg/permissionclaim"
+	"github.com/kcp-dev/kcp/pkg/reconciler/admin/apiidentity"
 	"github.com/kcp-dev/kcp/pkg/reconciler/admin/coreidentityset"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
@@ -87,6 +90,8 @@ import (
 	apisreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrole"
 	apisreplicateclusterrolebinding "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrolebinding"
 	apisreplicatelogicalcluster "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicatelogicalcluster"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/storagemigrator"
+	"github.com/kcp-dev/kcp/pkg/reconciler/apis/storagerekey"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/apiexportreference"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresourceendpointslice"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresourceendpointsliceurls"
@@ -1204,6 +1209,125 @@ func (s *Server) installLogicalClusterCleanupController(ctx context.Context, con
 	})
 }
 
+// installStorageRekeyController installs the controller driving
+// APIExportStorageRekey objects (enhancements KEP 0008): validation, marking
+// the export with the target storage key, and drain progress tracking.
+func (s *Server) installStorageRekeyController(_ context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, storagerekey.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	// the re-keyed export may live on another shard; reach it by workspace
+	// path through the external logical cluster admin endpoint.
+	externalConfig := rest.CopyConfig(s.ExternalLogicalClusterAdminConfig)
+	externalConfig = rest.AddUserAgent(externalConfig, storagerekey.ControllerName)
+	externalKcpClusterClient, err := kcpclientset.NewForConfig(externalConfig)
+	if err != nil {
+		return err
+	}
+	c, err := storagerekey.NewController(
+		kcpClusterClient,
+		externalKcpClusterClient,
+		s.KcpSharedInformerFactory.Migration().V1alpha1().APIExportStorageRekeys(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: storagerekey.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Migration().V1alpha1().APIExportStorageRekeys().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+// installStorageMigratorController installs the per-shard storage migrator
+// (enhancements KEP 0008): it drains bound resource instances from their
+// current etcd prefix onto the target one for any APIBinding on this shard
+// whose boundResources carry pending storage keys.
+func (s *Server) installStorageMigratorController(_ context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, storagemigrator.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	etcdClient, err := s.newEtcdClient()
+	if err != nil {
+		return err
+	}
+	crdClusterClient, err := kcpapiextensionsclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+	// drain-progress reports go to the re-keying object, which may live on
+	// another shard; reach it by workspace path through the external logical
+	// cluster admin endpoint. Don't abuse this client for anything else :)
+	externalConfig := rest.CopyConfig(s.ExternalLogicalClusterAdminConfig)
+	externalConfig = rest.AddUserAgent(externalConfig, storagemigrator.ControllerName)
+	externalKcpClusterClient, err := kcpclientset.NewForConfig(externalConfig)
+	if err != nil {
+		return err
+	}
+	indexers.AddIfNotPresentOrDie(s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().GetIndexer(), cache.Indexers{
+		indexers.APIBindingsByAPIExport: indexers.IndexAPIBindingByAPIExport,
+	})
+	c, err := storagemigrator.NewController(
+		s.Options.Extra.ShardName,
+		kcpClusterClient,
+		externalKcpClusterClient,
+		crdClusterClient,
+		etcdClient,
+		s.Options.GenericControlPlane.Etcd.StorageConfig.Prefix,
+		s.GenericConfig.ResourceTransformers,
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas(),
+		s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions(),
+		s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters(),
+		s.CacheKcpSharedInformerFactory.Migration().V1alpha1().APIExportStorageRekeys(),
+	)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: storagemigrator.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Apis().V1alpha1().APIResourceSchemas().Informer().HasSynced() &&
+					s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
+					s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().HasSynced() &&
+					s.CacheKcpSharedInformerFactory.Migration().V1alpha1().APIExportStorageRekeys().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			defer etcdClient.Close()
+			c.Start(ctx, 2)
+		},
+	})
+}
+
 func (s *Server) installLogicalClusterMigrationController(ctx context.Context, config *rest.Config) error {
 	externalConfig := rest.CopyConfig(s.ExternalLogicalClusterAdminConfig)
 	externalConfig = rest.AddUserAgent(externalConfig, logicalclustermigration.ControllerName)
@@ -1350,6 +1474,8 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 	c, err := apiexport.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.DeepSARClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		kubeClusterClient,
@@ -1824,6 +1950,41 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	})
 }
 
+// installAPIIdentityController maintains the APIIdentity registry entries of
+// the identities whose owning APIExport is hosted on this shard (enhancements
+// KEP 0008), runs the legacy shared-identity conversion and retires aliases.
+func (s *Server) installAPIIdentityController(_ context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, apiidentity.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	localExports := s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports()
+	globalExports := s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports()
+	localBindings := s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings()
+	localIdentities := s.KcpSharedInformerFactory.Admin().V1alpha1().APIIdentities()
+
+	c, err := apiidentity.NewController(kcpClusterClient, localExports, globalExports, localBindings, localIdentities)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: apiidentity.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return localExports.Informer().HasSynced() && globalExports.Informer().HasSynced() &&
+					localBindings.Informer().HasSynced() && localIdentities.Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
 // installCoreIdentitySetController keeps the shard's CoreIdentitySet up to
 // date (leader-elected, it writes), and on every replica follows the local
 // object to keep the core-identities readiness check current.
@@ -2281,7 +2442,9 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 	)
 	apiexport.InstallIndexers(
-		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports())
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+	)
 	apiexportendpointslice.InstallIndexers(
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),

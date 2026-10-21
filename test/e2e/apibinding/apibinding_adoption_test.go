@@ -23,7 +23,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -46,8 +45,12 @@ import (
 )
 
 // TestAPIBindingAdoption models replacing an APIBinding with a successor bound
-// to a different APIExport that serves the same resource through the same
-// APIResourceSchema and identity: instances must survive the swap untouched.
+// to a different APIExport that serves the same resource out of the
+// predecessor's storage prefix (adopted storage, enhancements KEP 0008): the
+// predecessor lists the successor in crd.sharedWith, the successor declares
+// storage.adopted for the resource and inherits the predecessor's schema.
+// The two exports keep distinct identities. Instances must survive the swap
+// untouched.
 func TestAPIBindingAdoption(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
@@ -129,19 +132,17 @@ func TestAPIBindingAdoption(t *testing.T) {
 		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
-	t.Logf("Create the successor APIExport %q reusing the %q identity and schema", "cowboys", "wildwest")
+	t.Logf("Create the successor APIExport %q adopting the storage of %q for cowboys; it has no schema of its own", "cowboys", "wildwest")
 	cowboysExport := &apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{Name: "cowboys"},
 		Spec: apisv1alpha2.APIExportSpec{
-			Identity: &apisv1alpha2.Identity{
-				SecretRef: &corev1.SecretReference{Namespace: "kcp-system", Name: "wildwest"},
-			},
 			Resources: []apisv1alpha2.ResourceSchema{
 				{
-					Name:    "cowboys",
-					Group:   "wildwest.dev",
-					Schema:  "today.cowboys.wildwest.dev",
-					Storage: apisv1alpha2.ResourceSchemaStorage{CRD: &apisv1alpha2.ResourceSchemaStorageCRD{}},
+					Name:  "cowboys",
+					Group: "wildwest.dev",
+					Storage: apisv1alpha2.ResourceSchemaStorage{Adopted: &apisv1alpha2.ResourceSchemaStorageAdopted{
+						From: apisv1alpha2.ExportBindingReference{Path: providerPath.String(), Name: "wildwest"},
+					}},
 				},
 			},
 		},
@@ -149,8 +150,24 @@ func TestAPIBindingAdoption(t *testing.T) {
 	_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Create(t.Context(), cowboysExport, metav1.CreateOptions{})
 	require.NoError(t, err)
 
-	t.Logf("Both exports must share one identity hash")
-	var identity string
+	t.Logf("Without the predecessor's consent the successor's resources are not valid")
+	kcptestinghelpers.EventuallyCondition(t, func() (conditions.Getter, error) {
+		return kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(t.Context(), "cowboys", metav1.GetOptions{})
+	}, kcptestinghelpers.IsNot(apisv1alpha2.ResourcesValid).WithReason(apisv1alpha2.StorageNotSharedReason))
+
+	t.Logf("The predecessor %q shares its cowboys storage with %q", "wildwest", "cowboys")
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		export, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(t.Context(), "wildwest", metav1.GetOptions{})
+		if err != nil {
+			return false, err.Error()
+		}
+		export.Spec.Resources[0].Storage.CRD.SharedWith = []apisv1alpha2.ExportBindingReference{{Path: providerPath.String(), Name: "cowboys"}}
+		_, err = kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Update(t.Context(), export, metav1.UpdateOptions{})
+		return err == nil, fmt.Sprintf("error updating APIExport: %v", err)
+	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("The exports keep distinct identities; the successor reports the predecessor's schema and storage prefix")
+	var wildwestIdentity, cowboysIdentity string
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		oldExport, err := kcpClusterClient.Cluster(providerPath).ApisV1alpha2().APIExports().Get(t.Context(), "wildwest", metav1.GetOptions{})
 		if err != nil {
@@ -160,9 +177,20 @@ func TestAPIBindingAdoption(t *testing.T) {
 		if err != nil {
 			return false, err.Error()
 		}
-		identity = newExport.Status.IdentityHash
-		return identity != "" && identity == oldExport.Status.IdentityHash,
-			fmt.Sprintf("identities differ or unset: old=%q new=%q", oldExport.Status.IdentityHash, newExport.Status.IdentityHash)
+		wildwestIdentity, cowboysIdentity = oldExport.Status.IdentityHash, newExport.Status.IdentityHash
+		if cowboysIdentity == "" || cowboysIdentity == wildwestIdentity {
+			return false, fmt.Sprintf("identities must be distinct and set: old=%q new=%q", wildwestIdentity, cowboysIdentity)
+		}
+		if !conditions.IsTrue(newExport, apisv1alpha2.ResourcesValid) || !conditions.IsTrue(newExport, apisv1alpha2.StorageShared) {
+			return false, fmt.Sprintf("conditions not ready yet: %v", newExport.Status.Conditions)
+		}
+		if len(newExport.Status.Resources) != 1 || newExport.Status.Resources[0].Schema != "today.cowboys.wildwest.dev" {
+			return false, fmt.Sprintf("unexpected status.resources: %v", newExport.Status.Resources)
+		}
+		if newExport.Status.Storage == nil || len(newExport.Status.Storage.Resources) != 1 || len(newExport.Status.Storage.Resources[0].Keys) != 1 || newExport.Status.Storage.Resources[0].Keys[0] != wildwestIdentity {
+			return false, fmt.Sprintf("unexpected status.storage: %v", newExport.Status.Storage)
+		}
+		return true, ""
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 
 	t.Logf("Pre-create the successor APIBinding %q; it must sit in NamingConflicts", "cowboys")
@@ -203,6 +231,13 @@ func TestAPIBindingAdoption(t *testing.T) {
 		}
 		return cowboy.UID == cowboyUID, fmt.Sprintf("UID changed: was %q, now %q", cowboyUID, cowboy.UID)
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
+
+	t.Logf("The successor binding serves cowboys under its own identity from the predecessor's storage prefix")
+	binding, err := kcpClusterClient.Cluster(consumerPath).ApisV1alpha2().APIBindings().Get(t.Context(), "cowboys", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Len(t, binding.Status.BoundResources, 1)
+	require.Equal(t, cowboysIdentity, binding.Status.BoundResources[0].Schema.IdentityHash)
+	require.Equal(t, wildwestIdentity, binding.Status.BoundResources[0].StorageKey())
 }
 
 // TestAPIBindingWaitForSuccessor verifies deletionPolicy=WaitForSuccessor:

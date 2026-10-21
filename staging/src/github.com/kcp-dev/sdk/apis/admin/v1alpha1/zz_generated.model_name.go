@@ -22,6 +22,26 @@ limitations under the License.
 package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIIdentity) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.APIIdentity"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIIdentityList) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.APIIdentityList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIIdentitySpec) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.APIIdentitySpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIIdentityStatus) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.APIIdentityStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CoreIdentity) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.CoreIdentity"
 }
@@ -39,4 +59,19 @@ func (in CoreIdentitySetList) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in CoreIdentitySetStatus) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.CoreIdentitySetStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ExportIdentityReference) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.ExportIdentityReference"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in IdentityAlias) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.IdentityAlias"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in StorageShare) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.StorageShare"
 }
