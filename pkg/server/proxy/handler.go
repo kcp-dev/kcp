@@ -40,9 +40,14 @@ func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	mux := http.NewServeMux()
 
 	// fallback for all unrecognized URLs
-	if h.DefaultHandler != nil {
-		mux.Handle("/", h.DefaultHandler)
+	defaultHandler := h.DefaultHandler
+	if defaultHandler == nil {
+		// set the forbidden handler as the default to prevent an
+		// attacker enumerating the mounted services
+		// this results in an attacker getting 403 instead of 404
+		defaultHandler = lookup.ForbiddenHandler()
 	}
+	mux.Handle("/", defaultHandler)
 
 	for _, mapping := range h.Mappings {
 		p := strings.TrimRight(mapping.Path, "/")
