@@ -97,17 +97,20 @@ The re-keying controller drives `status.phase` through
         during workspace migration),
       - all instances are copied byte-for-byte from the current prefix onto
         the target one and the copy is verified,
-      - the binding's `storage.key` is flipped to the target and the bound
-        CRD is recreated so serving storage is rebuilt against the new
-        prefix (the apiextensions cleanup finalizer is stripped from the
-        stale CRD: for a bound CRD it never deletes instances, and the
-        instances are exactly the data that was just moved),
+      - the binding's `storage.key` is flipped to the target; the target
+        key has a bound CRD of its own in `system:bound-crds` (created if
+        no other binding did yet), so serving switches to storage keyed by
+        the new prefix without touching the old key's CRD,
       - the old prefix is deleted, every instance is rewritten in place once
         under the new prefix (so wildcard watchers, which see all prefixes
         of a resource as one keyspace, observe the move as an update rather
         than an add followed by a delete), and the fence is lifted once no
         other binding in the same workspace is still draining (the fence
-        is shared by all bindings of a workspace).
+        is shared by all bindings of a workspace),
+      - once no binding on the shard serves from the old key any more, its
+        bound CRD is deleted (ending watches still attached to the old
+        storage) and the target prefix is rewritten once more so those
+        watches, resuming on the new storage, see every object again.
       Object UIDs, status, and ownerReferences survive unchanged; consumers
       observe a short unavailability window while their workspace is fenced.
 3. **Completed**: every shard has reported all of its bindings migrated; the

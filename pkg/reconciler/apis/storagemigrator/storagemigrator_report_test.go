@@ -53,8 +53,24 @@ func TestReportProgress(t *testing.T) {
 				migrationv1alpha1.ActiveRekeyAnnotationKey: "ops|rekey-1|new|",
 			},
 		},
+		Spec: apisv1alpha2.APIExportSpec{Resources: []apisv1alpha2.ResourceSchema{{
+			Name: "cowboys", Group: "wildwest.dev", Schema: "today.cowboys.wildwest.dev",
+			Storage: apisv1alpha2.ResourceSchemaStorage{CRD: &apisv1alpha2.ResourceSchemaStorageCRD{}},
+		}}},
 		// the target comes from the marker, never from the export's identity.
 		Status: apisv1alpha2.APIExportStatus{IdentityHash: "identity"},
+	}
+
+	// a binding still carrying a bound resource the export no longer serves
+	// (left behind by a removed resource); the drain never touches it, so it
+	// must not keep the binding from counting as migrated.
+	withStale := func(b *apisv1alpha2.APIBinding) *apisv1alpha2.APIBinding {
+		b.Status.BoundResources = append(b.Status.BoundResources, apisv1alpha2.BoundAPIResource{
+			Group: "wildwest.dev", Resource: "outlaws",
+			Schema:  apisv1alpha2.BoundAPIResourceSchema{IdentityHash: "identity"},
+			Storage: apisv1alpha2.BoundAPIResourceStorage{Key: "identity"},
+		})
+		return b
 	}
 
 	var appliedCluster logicalcluster.Path
@@ -72,9 +88,11 @@ func TestReportProgress(t *testing.T) {
 		},
 		listBindingsForExport: func(*apisv1alpha2.APIExport) ([]*apisv1alpha2.APIBinding, error) {
 			return []*apisv1alpha2.APIBinding{
-				bindingOn("new"),        // drained
-				bindingOn("new", "old"), // flipped, old prefix not deleted yet
-				bindingOn("old", "new"), // not flipped yet
+				bindingOn("new"),                   // drained
+				bindingOn("new", "old"),            // flipped, old prefix not deleted yet
+				bindingOn("old", "new"),            // not flipped yet
+				withStale(bindingOn("new")),        // drained, stale resource ignored
+				withStale(bindingOn("old", "new")), // not flipped yet
 			}, nil
 		},
 		applyShardProgress: func(_ context.Context, cluster logicalcluster.Path, name string, counts shardCounts) error {
@@ -94,8 +112,8 @@ func TestReportProgress(t *testing.T) {
 	if appliedCluster.String() != "ops" || appliedName != "rekey-1" {
 		t.Errorf("report went to %s|%s, expected ops|rekey-1", appliedCluster, appliedName)
 	}
-	if applied[0] != (shardCounts{storageKey: "new", total: 3, migrated: 1}) {
-		t.Errorf("expected counts 1/3 against storage key \"new\", got %d/%d against %q", applied[0].migrated, applied[0].total, applied[0].storageKey)
+	if applied[0] != (shardCounts{storageKey: "new", total: 5, migrated: 2}) {
+		t.Errorf("expected counts 2/5 against storage key \"new\", got %d/%d against %q", applied[0].migrated, applied[0].total, applied[0].storageKey)
 	}
 
 	// unchanged counts must not produce a second write.
@@ -108,7 +126,7 @@ func TestReportProgress(t *testing.T) {
 
 	// a lost or stale entry on the re-keying object is re-applied, even
 	// though this shard already applied these counts once.
-	reported = &migrationv1alpha1.ShardMigrationProgress{Shard: "alpha", StorageKey: "new", TotalBindings: 3, MigratedBindings: 0}
+	reported = &migrationv1alpha1.ShardMigrationProgress{Shard: "alpha", StorageKey: "new", TotalBindings: 5, MigratedBindings: 0}
 	if err := c.reportProgress(context.Background(), "provider|cowboys"); err != nil {
 		t.Fatal(err)
 	}

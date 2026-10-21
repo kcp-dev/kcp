@@ -456,7 +456,7 @@ func (c *Controller) reportProgress(ctx context.Context, key string) error {
 			break
 		}
 		counts.total++
-		if bindingFullyOn(binding, active) {
+		if bindingFullyOn(binding, active, export) {
 			counts.migrated++
 		}
 	}
@@ -511,9 +511,13 @@ func (c *Controller) enqueueReportForRekey(obj interface{}) {
 
 // bindingFullyOn reports whether every bound resource of the binding covered
 // by the re-keying serves from its target key with no pending keys left.
-func bindingFullyOn(binding *apisv1alpha2.APIBinding, active migrationv1alpha1.ActiveRekey) bool {
+// Bound resources the export no longer serves are left out: the drain never
+// touches them (the apibinding reconciler records the target only for the
+// resources it resolves), so counting them would hold the re-keying open
+// forever on a binding that still carries a resource removed from the export.
+func bindingFullyOn(binding *apisv1alpha2.APIBinding, active migrationv1alpha1.ActiveRekey, export *apisv1alpha2.APIExport) bool {
 	for _, br := range binding.Status.BoundResources {
-		if !active.Covers(br.Group, br.Resource) {
+		if !active.Covers(br.Group, br.Resource) || !indexers.ExportServesGR(export, br.Group, br.Resource) {
 			continue
 		}
 		if br.StorageKey() != active.TargetKey || len(br.Storage.PendingKeys) > 0 {
