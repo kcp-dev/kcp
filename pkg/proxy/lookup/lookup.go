@@ -35,11 +35,10 @@ import (
 
 	kcpauthorization "github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/index"
-	proxyindex "github.com/kcp-dev/kcp/pkg/proxy/index"
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
 
-func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, index proxyindex.Index) http.Handler {
+func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, idx index.Index) http.Handler {
 	mux := http.NewServeMux()
 
 	// fallback for all unrecognized URLs
@@ -53,7 +52,7 @@ func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, in
 	// We can use the same handler for all mappings, since the actual muxing to
 	// the destinations happens later in proxy.HttpHandler; here we only care about
 	// detecting the cluster name.
-	mappingHandler := newMappingHandler(delegate, index)
+	mappingHandler := newMappingHandler(delegate, idx)
 
 	for _, mapping := range mappings {
 		p := strings.TrimRight(mapping.Path, "/")
@@ -67,7 +66,7 @@ func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, in
 		// an appropriate mapping.
 		if p == "/clusters" {
 			// we know how to parse cluster URLs
-			resolveHandler := newClusterResolveHandler(delegate, index)
+			resolveHandler := newClusterResolveHandler(delegate, idx)
 			mux.HandleFunc("/clusters/{cluster}", resolveHandler)
 			mux.HandleFunc("/clusters/{cluster}/{trail...}", resolveHandler)
 		} else {
@@ -82,11 +81,11 @@ func WithClusterResolver(delegate http.Handler, mappings []types.PathMapping, in
 	return mux
 }
 
-func newClusterResolveHandler(delegate http.Handler, index proxyindex.Index) http.HandlerFunc {
+func newClusterResolveHandler(delegate http.Handler, idx index.Index) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		clusterName := req.PathValue("cluster")
 
-		req, result := resolveClusterName(w, req, index, clusterName)
+		req, result := resolveClusterName(w, req, idx, clusterName)
 		if req == nil {
 			return
 		}
@@ -97,7 +96,7 @@ func newClusterResolveHandler(delegate http.Handler, index proxyindex.Index) htt
 		// This is only required for watches.
 		// Lists with a lower RV will get appropriate objects from the shard.
 		// Lists with a higher RV will get a 504 from the shard.
-		if index.RecentlyMigrated(result.Cluster) && isInProgressWatch(req) {
+		if idx.RecentlyMigrated(result.Cluster) && isInProgressWatch(req) {
 			err := apierrors.NewResourceExpired(fmt.Sprintf("logical cluster %q was recently migrated to another shard; watches with an explicit resourceVersion are temporarily denied to force a relist against the new shard", result.Cluster))
 			responsewriters.ErrorNegotiated(err, kubernetesscheme.Codecs, schema.GroupVersion{}, w, req)
 			return
@@ -125,7 +124,7 @@ func newClusterResolveHandler(delegate http.Handler, index proxyindex.Index) htt
 		// Bound watch requests by the per-cluster context to cancel them when the cluster is migrated or deleted.
 		if isWatchRequest(req) {
 			var cancel context.CancelFunc
-			ctx, cancel = index.ClusterContext(ctx, result.Cluster)
+			ctx, cancel = idx.ClusterContext(ctx, result.Cluster)
 			defer cancel()
 		}
 
@@ -155,7 +154,7 @@ func isInProgressWatch(req *http.Request) bool {
 	return isWatchRequest(req)
 }
 
-func newMappingHandler(delegate http.Handler, index proxyindex.Index) http.HandlerFunc {
+func newMappingHandler(delegate http.Handler, idx index.Index) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		// Not every virtual workspace and/or every mapping has a {cluster} in its URL;
 		// also wildcard requests have to be passed without lookup.
@@ -180,7 +179,7 @@ func newMappingHandler(delegate http.Handler, index proxyindex.Index) http.Handl
 			return
 		}
 
-		req, _ = resolveClusterName(w, req, index, clusterName)
+		req, _ = resolveClusterName(w, req, idx, clusterName)
 		if req == nil {
 			return
 		}
@@ -209,7 +208,7 @@ func extractClusterFromPath(path string) string {
 	return rest[:endIdx]
 }
 
-func resolveClusterName(w http.ResponseWriter, req *http.Request, index proxyindex.Index, clusterName string) (*http.Request, *index.Result) {
+func resolveClusterName(w http.ResponseWriter, req *http.Request, idx index.Index, clusterName string) (*http.Request, *index.Result) {
 	ctx := req.Context()
 	logger := klog.FromContext(ctx)
 	attributes, err := filters.GetAuthorizerAttributes(ctx)
@@ -226,7 +225,7 @@ func resolveClusterName(w http.ResponseWriter, req *http.Request, index proxyind
 		return nil, nil
 	}
 
-	result, found := index.LookupURL(clusterPath)
+	result, found := idx.LookupURL(clusterPath)
 	if result.ErrorCode != 0 {
 		http.Error(w, "Not available.", result.ErrorCode)
 		return nil, nil
