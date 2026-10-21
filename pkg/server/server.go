@@ -319,15 +319,6 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		}
 	}
 
-	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.APIExportIdentityRotation) {
-		if err := s.installIdentityMigratorController(ctx, controllerConfig); err != nil {
-			return err
-		}
-		if err := s.installIdentityRotationController(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LogicalClusterMigration) {
 		if err := s.installLogicalClusterMigrationController(ctx, controllerConfig); err != nil {
 			return err

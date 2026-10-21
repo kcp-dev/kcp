@@ -66,14 +66,6 @@ const (
 	// alpha: v0.1
 	// Enables migrating logical clusters between shards.
 	LogicalClusterMigration featuregate.Feature = "LogicalClusterMigration"
-
-	// owner: @mjudeikis
-	// alpha: v0.1
-	// Enables rotating APIExport identities via APIExportIdentityRotation
-	// objects: the rotation controller flips the export identity and
-	// publishes the old one as an alias, and the per-shard identity migrator
-	// drains bound resource instances onto the new identity.
-	APIExportIdentityRotation featuregate.Feature = "APIExportIdentityRotation"
 )
 
 // Re-export upstream feature gates used by kcp server logic so callers import
@@ -168,9 +160,6 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	LogicalClusterMigration: {
-		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
-	},
-	APIExportIdentityRotation: {
 		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	// StorageVersionAPI mirrors the upstream k8s gate; kcp keeps it Alpha/off-by-default.

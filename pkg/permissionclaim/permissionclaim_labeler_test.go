@@ -86,9 +86,8 @@ func TestLabelsForIgnoresDeletingAPIBinding(t *testing.T) {
 				listAPIBindingsAcceptingClaimedGroupResource: func(logicalcluster.Name, schema.GroupResource) ([]*apisv1alpha2.APIBinding, error) {
 					return []*apisv1alpha2.APIBinding{binding}, nil
 				},
-				getAPIBinding:         func(logicalcluster.Name, string) (*apisv1alpha2.APIBinding, error) { return binding, nil },
-				getAPIExport:          func(logicalcluster.Path, string) (*apisv1alpha2.APIExport, error) { return export, nil },
-				canonicalIdentityHash: func(hash string) string { return hash },
+				getAPIBinding: func(logicalcluster.Name, string) (*apisv1alpha2.APIBinding, error) { return binding, nil },
+				getAPIExport:  func(logicalcluster.Path, string) (*apisv1alpha2.APIExport, error) { return export, nil },
 			}
 
 			got, err := l.LabelsFor(t.Context(), logicalcluster.Name("consumer"), secrets, "db-credentials", nil)
