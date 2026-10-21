@@ -18,6 +18,7 @@ package lookup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -319,4 +320,14 @@ func WorkspaceTypeFrom(ctx context.Context) logicalcluster.Path {
 		return logicalcluster.None
 	}
 	return cluster
+}
+
+// ForbiddenHandler rejects every request with 403.
+func ForbiddenHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		responsewriters.ErrorNegotiated(
+			apierrors.NewForbidden(schema.GroupResource{}, "", errors.New(kcpauthorization.WorkspaceAccessNotPermittedReason)),
+			kubernetesscheme.Codecs, schema.GroupVersion{}, w, req,
+		)
+	})
 }
