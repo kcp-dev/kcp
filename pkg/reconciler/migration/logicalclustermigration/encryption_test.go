@@ -90,7 +90,7 @@ func TestWriteDumpEntriesEncryption(t *testing.T) {
 				transformers = encryptionconfig.StaticTransformers{schema.GroupResource{Resource: "secrets"}: destination}
 			}
 			kv := &recordingPutKV{values: map[string][]byte{}}
-			err = writeDumpEntries(ctx, kv, "/shard/dest", transformers, []migrationv1alpha1.EtcdEntry{{Key: "core/secrets/cluster/default/s1", Value: dumped}})
+			err = writeDumpEntries(ctx, kv, nil, "/shard/dest", transformers, []migrationv1alpha1.EtcdEntry{{Key: "core/secrets/cluster/default/s1", Value: dumped}})
 			require.NoError(t, err)
 			stored := kv.values[destinationKey]
 			require.NotEmpty(t, stored)
@@ -107,7 +107,7 @@ func TestWriteDumpEntriesEncryptionFailure(t *testing.T) {
 	t.Parallel()
 	kv := &recordingPutKV{values: map[string][]byte{}}
 	transformers := encryptionconfig.StaticTransformers{schema.GroupResource{Resource: "secrets"}: failedWriteTransformer{}}
-	err := writeDumpEntries(context.Background(), kv, "/shard/dest", transformers, []migrationv1alpha1.EtcdEntry{{Key: "core/secrets/cluster/default/s1", Value: []byte("secret")}})
+	err := writeDumpEntries(context.Background(), kv, nil, "/shard/dest", transformers, []migrationv1alpha1.EtcdEntry{{Key: "core/secrets/cluster/default/s1", Value: []byte("secret")}})
 	require.ErrorContains(t, err, "encryption unavailable")
 	require.Empty(t, kv.values)
 }
@@ -156,7 +156,7 @@ func TestEncryptionFailureDoesNotAdvanceMigration(t *testing.T) {
 		migratingLogicalClusters:    NewMigratingLogicalClusters(),
 		deleteLogicalClusterContext: func(logicalcluster.Path, error) {},
 		copyPageFromOrigin: func(ctx context.Context, _ logicalcluster.Name, _, _ string) (int64, string, error) {
-			return 0, "", writeDumpEntries(ctx, kv, "/dest", transformers, []migrationv1alpha1.EtcdEntry{{Key: "core/secrets/cluster/default/s1", Value: []byte("secret")}})
+			return 0, "", writeDumpEntries(ctx, kv, nil, "/dest", transformers, []migrationv1alpha1.EtcdEntry{{Key: "core/secrets/cluster/default/s1", Value: []byte("secret")}})
 		},
 	}
 	_, err := c.reconcileMigrating(t.Context(), migration)

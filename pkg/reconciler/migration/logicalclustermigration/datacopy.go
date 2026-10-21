@@ -72,17 +72,25 @@ func (c *Controller) copyPageFromOriginViaHTTP(ctx context.Context, lcName logic
 	if dump.Status.Encoding != migrationv1alpha1.DumpEncodingPlaintext {
 		return 0, "", fmt.Errorf("origin returned unsupported dump encoding %q", dump.Status.Encoding)
 	}
-	if err := writeDumpEntries(ctx, c.etcdClient, c.etcdStoragePrefix, c.resourceTransformers, dump.Status.Entries); err != nil {
+	if err := writeDumpEntries(ctx, c.etcdClient, c.etcdClient, c.etcdStoragePrefix, c.resourceTransformers, dump.Status.Entries); err != nil {
 		return 0, "", err
 	}
 
 	return int64(len(dump.Status.Entries)), dump.Status.Continue, nil
 }
 
+// leaseGranularitySeconds rounds TTLs up so similar entries share a lease.
+const leaseGranularitySeconds = 60
+
+type leaseGranter interface {
+	Grant(ctx context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error)
+}
+
 // writeDumpEntries applies the destination's current resource transformers using
 // the complete destination key as authenticated data before writing each entry.
-func writeDumpEntries(ctx context.Context, kv clientv3.KV, prefix string, transformers value.ResourceTransformers, entries []migrationv1alpha1.EtcdEntry) error {
+func writeDumpEntries(ctx context.Context, kv clientv3.KV, leases leaseGranter, prefix string, transformers value.ResourceTransformers, entries []migrationv1alpha1.EtcdEntry) error {
 	prefix = strings.TrimRight(prefix, "/") + "/"
+	granted := map[int64]clientv3.LeaseID{}
 	for _, entry := range entries {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -97,7 +105,23 @@ func writeDumpEntries(ctx context.Context, kv clientv3.KV, prefix string, transf
 		if err != nil {
 			return fmt.Errorf("failed to transform destination key %q: %w", key, err)
 		}
-		if _, err := kv.Put(ctx, key, string(data)); err != nil {
+
+		var opts []clientv3.OpOption
+		if entry.TTLSeconds > 0 {
+			ttl := (entry.TTLSeconds + leaseGranularitySeconds - 1) / leaseGranularitySeconds * leaseGranularitySeconds
+			id, ok := granted[ttl]
+			if !ok {
+				resp, err := leases.Grant(ctx, ttl)
+				if err != nil {
+					return fmt.Errorf("failed to grant lease for etcd key %q: %w", key, err)
+				}
+				id = resp.ID
+				granted[ttl] = id
+			}
+			opts = append(opts, clientv3.WithLease(id))
+		}
+
+		if _, err := kv.Put(ctx, key, string(data), opts...); err != nil {
 			return fmt.Errorf("failed to write etcd key %q: %w", key, err)
 		}
 	}

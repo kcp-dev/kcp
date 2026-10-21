@@ -107,4 +107,8 @@ type EtcdEntry struct {
 	// value is the serialized object with storage encryption removed, encoded
 	// as base64 on the wire. It must be transformed before writing to etcd.
 	Value []byte `json:"value"`
+
+	// ttlSeconds is the remaining lease TTL on the origin shard, or zero for no lease.
+	// +optional
+	TTLSeconds int64 `json:"ttlSeconds,omitempty"`
 }
