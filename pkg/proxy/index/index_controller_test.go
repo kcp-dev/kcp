@@ -28,6 +28,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/index"
 )
@@ -110,4 +111,47 @@ func TestOnShardDelete(t *testing.T) {
 
 	_, found := c.state.LookupURL(logicalcluster.NewPath("myws"))
 	require.False(t, found, "expected the shard's clusters to be unroutable after delete")
+}
+
+// fakeInformer is a SharedIndexInformer whose HasSynced result is fixed.
+type fakeInformer struct {
+	cache.SharedIndexInformer
+	synced bool
+}
+
+func (f *fakeInformer) HasSynced() bool { return f.synced }
+
+func TestHasSynced(t *testing.T) {
+	t.Parallel()
+
+	shardIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, shardIndexer.Add(shardObj("alpha", "https://alpha")))
+	require.NoError(t, shardIndexer.Add(shardObj("beta", "https://beta")))
+
+	shardsSynced := false
+	c := newTestController()
+	c.shardLister = corev1alpha1listers.NewShardLister(shardIndexer)
+	c.shardsHaveSynced = func() bool { return shardsSynced }
+
+	require.False(t, c.HasSynced(), "the Shard informer has not synced")
+
+	shardsSynced = true
+	require.False(t, c.HasSynced(), "no informers are running for the shards yet")
+
+	alphaWS, alphaLC := &fakeInformer{synced: true}, &fakeInformer{synced: true}
+	betaWS, betaLC := &fakeInformer{synced: true}, &fakeInformer{synced: false}
+	c.shardWorkspaceInformers["alpha"] = alphaWS
+	c.shardLogicalClusterInformers["alpha"] = alphaLC
+	require.False(t, c.HasSynced(), "no informers are running for beta yet")
+
+	c.shardWorkspaceInformers["beta"] = betaWS
+	c.shardLogicalClusterInformers["beta"] = betaLC
+	require.False(t, c.HasSynced(), "the LogicalCluster informer of beta has not synced")
+
+	betaLC.synced = true
+	require.True(t, c.HasSynced())
+
+	// a shard added later does not make the index unready again
+	require.NoError(t, shardIndexer.Add(shardObj("gamma", "https://gamma")))
+	require.True(t, c.HasSynced())
 }
