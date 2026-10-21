@@ -40,7 +40,6 @@ import (
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
-	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 
@@ -453,16 +452,6 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 				continue
 			}
 		} else {
-			// While the binding is mid storage re-keying the storage migrator
-			// owns the bound CRD lifecycle: it recreates the CRD to force the
-			// serving storage to be rebuilt against the target storage key.
-			// Creating it here would race that rebuild.
-			if conditions.IsFalse(apiBinding, apisv1alpha2.StorageRekeyCompleted) {
-				logger.V(4).Info("not creating bound CRD: binding is mid storage re-keying", "schema", resourceSchema.Schema)
-				needToWaitForRequeueWhenEstablished = append(needToWaitForRequeueWhenEstablished, resourceSchema.Schema)
-				continue
-			}
-
 			// Need to create bound CRD
 			crd, err := GenerateBoundCRDNamed(sch, boundCRDName)
 			if err != nil {
@@ -584,15 +573,14 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 			Storage: apisv1alpha2.BoundAPIResourceStorage{Key: storageKey},
 		}
 
-		index := -1
+		found := false
 		for i, r := range apiBinding.Status.BoundResources {
 			if r.Group == sch.Spec.Group && r.Resource == sch.Spec.Names.Plural {
 				// The storage key keys the etcd prefix of the bound instances
 				// and must never flip in place: existing data lives under the
-				// current prefix. Keep serving it and preserve the drain
-				// bookkeeping; only the storage migrator moves data, flips
-				// and prunes. A binding created before storage keys were
-				// tracked served from the identity it was bound with.
+				// current prefix, keep serving it. A binding created before
+				// storage keys were tracked served from the identity it was
+				// bound with.
 				newBoundResource.Storage = r.Storage
 				if newBoundResource.Storage.Key == "" {
 					newBoundResource.Storage.Key = r.StorageKey()
@@ -601,34 +589,12 @@ func (r *bindingReconciler) reconcile(ctx context.Context, apiBinding *apisv1alp
 					newBoundResource.Storage.Key = storageKey
 				}
 				apiBinding.Status.BoundResources[i] = newBoundResource
-				index = i
+				found = true
 				break
 			}
 		}
-		if index < 0 {
+		if !found {
 			apiBinding.Status.BoundResources = append(apiBinding.Status.BoundResources, newBoundResource)
-			index = len(apiBinding.Status.BoundResources) - 1
-		}
-
-		// An active storage re-keying of the export names the prefix the
-		// bound instances have to move to. Record it as a pending key; the
-		// storage migrator drains the current prefix onto it, flips and
-		// prunes.
-		if active, ok := migrationv1alpha1.ParseActiveRekey(apiExport.Annotations[migrationv1alpha1.ActiveRekeyAnnotationKey]); ok && active.Covers(sch.Spec.Group, sch.Spec.Names.Plural) {
-			br := &apiBinding.Status.BoundResources[index]
-			if br.StorageKey() != active.TargetKey {
-				br.Storage.PendingKeys = sets.List(sets.New(br.Storage.PendingKeys...).Insert(active.TargetKey))
-			}
-			if len(br.Storage.PendingKeys) > 0 {
-				conditions.MarkFalse(
-					apiBinding,
-					apisv1alpha2.StorageRekeyCompleted,
-					apisv1alpha2.StorageRekeyInProgressReason,
-					conditionsv1alpha1.ConditionSeverityInfo,
-					"bound resources are being drained onto storage key %s of APIExport %s",
-					active.TargetKey, apiExport.Name,
-				)
-			}
 		}
 	}
 

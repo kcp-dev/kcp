@@ -324,8 +324,7 @@ func (e *APIExportAdmission) validatev1alpha2(ctx context.Context, a admission.A
 		// once consumers may store under the export's identity, a resource
 		// cannot be moved onto another export's prefix by flipping it to
 		// adopted storage: the instances already under this export's identity
-		// would vanish from the consumers' view. Re-keying is the way to move
-		// data.
+		// would vanish from the consumers' view.
 		for i, rs := range ae.Spec.Resources {
 			if rs.Storage.Adopted == nil {
 				continue
@@ -334,7 +333,7 @@ func (e *APIExportAdmission) validatev1alpha2(ctx context.Context, a admission.A
 				if ors.Group == rs.Group && ors.Name == rs.Name && ors.Storage.CRD != nil {
 					return admission.NewForbidden(a, field.Forbidden(
 						field.NewPath("spec").Child("resources").Index(i).Child("storage").Child("adopted"),
-						"a resource with crd storage cannot switch to adopted storage once the export has an identity; use an APIExportStorageRekey to move its data"))
+						"a resource with crd storage cannot switch to adopted storage once the export has an identity"))
 				}
 			}
 		}

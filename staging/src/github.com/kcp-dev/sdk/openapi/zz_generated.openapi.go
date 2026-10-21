@@ -149,13 +149,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1alpha1.ShardResourceLimits{}.OpenAPIModelName():                         schema_sdk_apis_core_v1alpha1_ShardResourceLimits(ref),
 		corev1alpha1.ShardSpec{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
 		corev1alpha1.ShardStatus{}.OpenAPIModelName():                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
-		migrationv1alpha1.APIExportStorageRekey{}.OpenAPIModelName():                  schema_sdk_apis_migration_v1alpha1_APIExportStorageRekey(ref),
-		migrationv1alpha1.APIExportStorageRekeyList{}.OpenAPIModelName():              schema_sdk_apis_migration_v1alpha1_APIExportStorageRekeyList(ref),
-		migrationv1alpha1.APIExportStorageRekeySpec{}.OpenAPIModelName():              schema_sdk_apis_migration_v1alpha1_APIExportStorageRekeySpec(ref),
-		migrationv1alpha1.APIExportStorageRekeyStatus{}.OpenAPIModelName():            schema_sdk_apis_migration_v1alpha1_APIExportStorageRekeyStatus(ref),
-		migrationv1alpha1.ActiveRekey{}.OpenAPIModelName():                            schema_sdk_apis_migration_v1alpha1_ActiveRekey(ref),
 		migrationv1alpha1.EtcdEntry{}.OpenAPIModelName():                              schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref),
-		migrationv1alpha1.ExportReference{}.OpenAPIModelName():                        schema_sdk_apis_migration_v1alpha1_ExportReference(ref),
 		migrationv1alpha1.LogicalClusterDump{}.OpenAPIModelName():                     schema_sdk_apis_migration_v1alpha1_LogicalClusterDump(ref),
 		migrationv1alpha1.LogicalClusterDumpSpec{}.OpenAPIModelName():                 schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpSpec(ref),
 		migrationv1alpha1.LogicalClusterDumpStatus{}.OpenAPIModelName():               schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpStatus(ref),
@@ -163,7 +157,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		migrationv1alpha1.LogicalClusterMigrationList{}.OpenAPIModelName():            schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationList(ref),
 		migrationv1alpha1.LogicalClusterMigrationSpec{}.OpenAPIModelName():            schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationSpec(ref),
 		migrationv1alpha1.LogicalClusterMigrationStatus{}.OpenAPIModelName():          schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationStatus(ref),
-		migrationv1alpha1.ShardMigrationProgress{}.OpenAPIModelName():                 schema_sdk_apis_migration_v1alpha1_ShardMigrationProgress(ref),
 		tenancyv1alpha1.APIExportReference{}.OpenAPIModelName():                       schema_sdk_apis_tenancy_v1alpha1_APIExportReference(ref),
 		tenancyv1alpha1.AuthenticationConfigurationReference{}.OpenAPIModelName():     schema_sdk_apis_tenancy_v1alpha1_AuthenticationConfigurationReference(ref),
 		tenancyv1alpha1.ClaimMappings{}.OpenAPIModelName():                            schema_sdk_apis_tenancy_v1alpha1_ClaimMappings(ref),
@@ -3209,7 +3202,7 @@ func schema_sdk_apis_apis_v1alpha2_BoundAPIResource(ref common.ReferenceCallback
 					},
 					"storage": {
 						SchemaProps: spec.SchemaProps{
-							Description: "storage records the etcd prefix the bound instances of this resource live under. The prefix is independent of the export's identity: it is the identity by default, it differs while the export serves this resource out of another export's prefix (adopted storage), and it changes during a storage re-keying.",
+							Description: "storage records the etcd prefix the bound instances of this resource live under. The prefix is independent of the export's identity: it is the identity by default and differs while the export serves this resource out of another export's prefix (adopted storage).",
 							Default:     map[string]interface{}{},
 							Ref:         ref(v1alpha2.BoundAPIResourceStorage{}.OpenAPIModelName()),
 						},
@@ -3273,26 +3266,6 @@ func schema_sdk_apis_apis_v1alpha2_BoundAPIResourceStorage(ref common.ReferenceC
 							Description: "key is the etcd prefix segment currently serving this resource:\n\n\t/registry/<group>/<resource>/<key>/<cluster>/...\n\nEmpty means schema.identityHash (bindings created before storage keys were tracked); use StorageKey() to resolve it.",
 							Type:        []string{"string"},
 							Format:      "",
-						},
-					},
-					"pendingKeys": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-type": "set",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "pendingKeys lists other prefixes under which instances of this resource may exist: the target of an in-progress re-keying before serving has flipped to it, and the drained-from prefixes after the flip until they are verified empty and deleted. It mirrors storageVersions for storage re-keying and is normally empty.\n\nKeys may not be removed while instances exist under them in storage.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
 						},
 					},
 				},
@@ -3793,7 +3766,7 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchemaStorage(ref common.ReferenceCal
 					},
 					"adopted": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Adopted storage defines that this resource is exposed as CustomResourceDefinitions like crd storage, but stored on another export's storage prefix: bindings of this export start on the prefix the source export's bindings use for the same resource, so the objects the source's consumers created are served in place. This is how one export takes over serving a resource from another (zero-copy adoption). The source must serve the same resource with crd storage and list this export in its crd.sharedWith. The resource is served with the source's schema. The adopter may later move onto its own prefix with an APIExportStorageRekey.",
+							Description: "Adopted storage defines that this resource is exposed as CustomResourceDefinitions like crd storage, but stored on another export's storage prefix: bindings of this export start on the prefix the source export's bindings use for the same resource, so the objects the source's consumers created are served in place. This is how one export takes over serving a resource from another (zero-copy adoption). The source must serve the same resource with crd storage and list this export in its crd.sharedWith. The resource is served with the source's schema.",
 							Ref:         ref(v1alpha2.ResourceSchemaStorageAdopted{}.OpenAPIModelName()),
 						},
 					},
@@ -5348,289 +5321,6 @@ func schema_sdk_apis_core_v1alpha1_ShardStatus(ref common.ReferenceCallback) com
 	}
 }
 
-func schema_sdk_apis_migration_v1alpha1_APIExportStorageRekey(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "APIExportStorageRekey is a one-shot request to move the bound instances of an APIExport's resources onto another etcd storage prefix. It lives next to the APIExport in the provider workspace, or in a platform-operated workspace referencing the export by path, and is served through the platform-owned migration APIExport: possessing the type requires binding that export, which is how the platform delegates the capability.\n\nThe identity of the export never changes. Only the storage prefix of the bound instances does: by default the export's own identity, which is the steady state, so a re-keying ends a storage handover (an export serving a resource out of another export's prefix) or separates prefixes after one.\n\nRe-keying is a tracked, resumable procedure: every consumer workspace's bound instances are drained storage-level from the current prefix to the target one (preserving UIDs, status and ownerReferences), one workspace at a time, behind the workspace's maintenance fence.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(migrationv1alpha1.APIExportStorageRekeySpec{}.OpenAPIModelName()),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(migrationv1alpha1.APIExportStorageRekeyStatus{}.OpenAPIModelName()),
-						},
-					},
-				},
-				Required: []string{"spec"},
-			},
-		},
-		Dependencies: []string{
-			migrationv1alpha1.APIExportStorageRekeySpec{}.OpenAPIModelName(), migrationv1alpha1.APIExportStorageRekeyStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_sdk_apis_migration_v1alpha1_APIExportStorageRekeyList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "APIExportStorageRekeyList is a list of APIExportStorageRekey resources.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(migrationv1alpha1.APIExportStorageRekey{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"metadata", "items"},
-			},
-		},
-		Dependencies: []string{
-			migrationv1alpha1.APIExportStorageRekey{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_sdk_apis_migration_v1alpha1_APIExportStorageRekeySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "APIExportStorageRekeySpec is the request: which export, which of its resources, and onto which storage key.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"export": {
-						SchemaProps: spec.SchemaProps{
-							Description: "export references the APIExport whose bound instances are re-keyed. The referenced export may live in another workspace (and on another shard): re-keying is a platform capability, delegated by binding the migration.kcp.io APIExport, and does not require exposing that capability in the workspaces owning the re-keyed exports. Immutable.",
-							Default:     map[string]interface{}{},
-							Ref:         ref(migrationv1alpha1.ExportReference{}.OpenAPIModelName()),
-						},
-					},
-					"resources": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"group",
-									"resource",
-								},
-								"x-kubernetes-list-type": "map",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "resources limits the re-keying to the listed group/resources of the export. Empty means every CRD-stored resource of the export whose bindings sit on a prefix other than the target. Immutable.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha2.GroupResource{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"targetKey": {
-						SchemaProps: spec.SchemaProps{
-							Description: "targetKey is the storage key to drain onto. Empty means the export's own identity, which is the steady state. Any other value is reserved for platform administrators, e.g. to move onto a well-known core identity. It is a single etcd path segment. Immutable.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"export"},
-			},
-		},
-		Dependencies: []string{
-			v1alpha2.GroupResource{}.OpenAPIModelName(), migrationv1alpha1.ExportReference{}.OpenAPIModelName()},
-	}
-}
-
-func schema_sdk_apis_migration_v1alpha1_APIExportStorageRekeyStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "APIExportStorageRekeyStatus reports drain progress.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"phase": {
-						SchemaProps: spec.SchemaProps{
-							Description: "phase is the current lifecycle phase of the re-keying.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"targetKey": {
-						SchemaProps: spec.SchemaProps{
-							Description: "targetKey is the resolved storage key the bindings are drained onto.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"migratedBindings": {
-						SchemaProps: spec.SchemaProps{
-							Description: "migratedBindings is the number of APIBindings whose bound instances are fully drained onto the target key, summed over all shards that have reported in status.shards.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"totalBindings": {
-						SchemaProps: spec.SchemaProps{
-							Description: "totalBindings is the number of APIBindings bound to the re-keyed export, summed over all shards that have reported in status.shards.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"shards": {
-						VendorExtensible: spec.VendorExtensible{
-							Extensions: spec.Extensions{
-								"x-kubernetes-list-map-keys": []interface{}{
-									"shard",
-								},
-								"x-kubernetes-list-type": "map",
-							},
-						},
-						SchemaProps: spec.SchemaProps{
-							Description: "shards reports drain progress per shard. Each shard's storage migrator maintains its own entry (including shards with zero bindings, so completeness is decidable). The drain is only considered complete once every shard has reported and every entry is fully migrated.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(migrationv1alpha1.ShardMigrationProgress{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-					"conditions": {
-						SchemaProps: spec.SchemaProps{
-							Description: "conditions is a list of conditions that apply to the re-keying.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(conditionsv1alpha1.Condition{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			migrationv1alpha1.ShardMigrationProgress{}.OpenAPIModelName(), conditionsv1alpha1.Condition{}.OpenAPIModelName()},
-	}
-}
-
-func schema_sdk_apis_migration_v1alpha1_ActiveRekey(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ActiveRekey is the parsed value of the ActiveRekeyAnnotationKey annotation.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"Cluster": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Cluster is the logical cluster name the re-keying object lives in.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"Name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name is the name of the re-keying object.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"TargetKey": {
-						SchemaProps: spec.SchemaProps{
-							Description: "TargetKey is the storage key the bindings are drained onto.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"Resources": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Resources limits the re-keying to the listed group/resources. Empty means every CRD-stored resource of the export.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref(v1alpha2.GroupResource{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"Cluster", "Name", "TargetKey", "Resources"},
-			},
-		},
-		Dependencies: []string{
-			v1alpha2.GroupResource{}.OpenAPIModelName()},
-	}
-}
-
 func schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5662,35 +5352,6 @@ func schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref common.ReferenceCallback) 
 					},
 				},
 				Required: []string{"key", "value"},
-			},
-		},
-	}
-}
-
-func schema_sdk_apis_migration_v1alpha1_ExportReference(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ExportReference identifies the APIExport being re-keyed.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"path": {
-						SchemaProps: spec.SchemaProps{
-							Description: "path is the workspace path of the APIExport (e.g. root:org:provider, or a logical cluster name). Empty means the re-keying's own workspace.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "name is the name of the APIExport.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"name"},
 			},
 		},
 	}
@@ -6011,59 +5672,6 @@ func schema_sdk_apis_migration_v1alpha1_LogicalClusterMigrationStatus(ref common
 		},
 		Dependencies: []string{
 			conditionsv1alpha1.Condition{}.OpenAPIModelName()},
-	}
-}
-
-func schema_sdk_apis_migration_v1alpha1_ShardMigrationProgress(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "ShardMigrationProgress is one shard's self-reported drain progress for a re-keying. It is written by the storage migrator running on that shard via server-side apply, with a per-shard field manager, so shards never conflict with each other or with the re-keying controller.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"shard": {
-						SchemaProps: spec.SchemaProps{
-							Description: "shard is the name of the reporting shard.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"storageKey": {
-						SchemaProps: spec.SchemaProps{
-							Description: "storageKey is the target key the counts were evaluated against. Reports for any other key than the re-keying's target are ignored by the re-keying controller.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"totalBindings": {
-						SchemaProps: spec.SchemaProps{
-							Description: "totalBindings is the number of APIBindings of the re-keyed export hosted on this shard. Zero is meaningful (\"this shard has nothing to drain\") and always serialized.",
-							Default:     0,
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"migratedBindings": {
-						SchemaProps: spec.SchemaProps{
-							Description: "migratedBindings is the number of those bindings fully drained onto the target key.",
-							Default:     0,
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"lastUpdateTime": {
-						SchemaProps: spec.SchemaProps{
-							Description: "lastUpdateTime is when this shard last refreshed its entry.",
-							Ref:         ref(v1.Time{}.OpenAPIModelName()),
-						},
-					},
-				},
-				Required: []string{"shard", "totalBindings", "migratedBindings"},
-			},
-		},
-		Dependencies: []string{
-			v1.Time{}.OpenAPIModelName()},
 	}
 }
 

@@ -225,12 +225,12 @@ func (c *controller) enqueueFromAPIBinding(oldBinding, newBinding *apisv1alpha2.
 
 	if oldBinding != nil {
 		for _, boundResource := range oldBinding.Status.BoundResources {
-			uidSet.Insert(indexers.BoundCRDNamesFor(boundResource)...)
+			uidSet.Insert(indexers.BoundCRDNameFor(boundResource))
 		}
 	}
 
 	for _, boundResource := range newBinding.Status.BoundResources {
-		uidSet.Insert(indexers.BoundCRDNamesFor(boundResource)...)
+		uidSet.Insert(indexers.BoundCRDNameFor(boundResource))
 	}
 
 	for uid := range uidSet {

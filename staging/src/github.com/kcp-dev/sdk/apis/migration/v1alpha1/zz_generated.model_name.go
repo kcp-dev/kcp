@@ -22,38 +22,8 @@ limitations under the License.
 package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in APIExportStorageRekey) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.APIExportStorageRekey"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in APIExportStorageRekeyList) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.APIExportStorageRekeyList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in APIExportStorageRekeySpec) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.APIExportStorageRekeySpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in APIExportStorageRekeyStatus) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.APIExportStorageRekeyStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ActiveRekey) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.ActiveRekey"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in EtcdEntry) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.EtcdEntry"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ExportReference) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.ExportReference"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
@@ -89,9 +59,4 @@ func (in LogicalClusterMigrationSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in LogicalClusterMigrationStatus) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.LogicalClusterMigrationStatus"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in ShardMigrationProgress) OpenAPIModelName() string {
-	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.ShardMigrationProgress"
 }

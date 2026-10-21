@@ -23,8 +23,6 @@ import (
 )
 
 type ClusterInterface interface {
-	// APIExportStorageRekeys returns a APIExportStorageRekeyClusterInformer.
-	APIExportStorageRekeys() APIExportStorageRekeyClusterInformer
 	// LogicalClusterMigrations returns a LogicalClusterMigrationClusterInformer.
 	LogicalClusterMigrations() LogicalClusterMigrationClusterInformer
 }
@@ -39,19 +37,12 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
-// APIExportStorageRekeys returns a APIExportStorageRekeyClusterInformer.
-func (v *version) APIExportStorageRekeys() APIExportStorageRekeyClusterInformer {
-	return &aPIExportStorageRekeyClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
 // LogicalClusterMigrations returns a LogicalClusterMigrationClusterInformer.
 func (v *version) LogicalClusterMigrations() LogicalClusterMigrationClusterInformer {
 	return &logicalClusterMigrationClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 type Interface interface {
-	// APIExportStorageRekeys returns a APIExportStorageRekeyInformer.
-	APIExportStorageRekeys() APIExportStorageRekeyInformer
 	// LogicalClusterMigrations returns a LogicalClusterMigrationInformer.
 	LogicalClusterMigrations() LogicalClusterMigrationInformer
 }
@@ -65,11 +56,6 @@ type scopedVersion struct {
 // New returns a new Interface.
 func NewScoped(f kcpinternalinterfaces.SharedScopedInformerFactory, namespace string, tweakListOptions kcpinternalinterfaces.TweakListOptionsFunc) Interface {
 	return &scopedVersion{factory: f, tweakListOptions: tweakListOptions}
-}
-
-// APIExportStorageRekeys returns a APIExportStorageRekeyInformer.
-func (v *scopedVersion) APIExportStorageRekeys() APIExportStorageRekeyInformer {
-	return &aPIExportStorageRekeyScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // LogicalClusterMigrations returns a LogicalClusterMigrationInformer.

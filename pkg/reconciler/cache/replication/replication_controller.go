@@ -353,13 +353,6 @@ func InstallIndexers(
 			Local:  localKcpInformers.Migration().V1alpha1().LogicalClusterMigrations().Informer(),
 			Global: globalKcpInformers.Migration().V1alpha1().LogicalClusterMigrations().Informer(),
 		},
-		// the per-shard identity migrators compare their drain-progress
-		// reports with the rotation object through the cache server.
-		migration.SchemeGroupVersion.WithResource("apiexportstoragerekeys"): {
-			Kind:   "APIExportStorageRekey",
-			Local:  localKcpInformers.Migration().V1alpha1().APIExportStorageRekeys().Informer(),
-			Global: globalKcpInformers.Migration().V1alpha1().APIExportStorageRekeys().Informer(),
-		},
 		tenancyv1alpha1.SchemeGroupVersion.WithResource("workspacetypes"): {
 			Kind:   "WorkspaceType",
 			Local:  localKcpInformers.Tenancy().V1alpha1().WorkspaceTypes().Informer(),

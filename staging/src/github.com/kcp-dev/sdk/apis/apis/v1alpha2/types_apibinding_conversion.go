@@ -183,7 +183,7 @@ func Convert_v1alpha2_APIBinding_To_v1alpha1_APIBinding(in *APIBinding, out *api
 	storagePerResource := make([]BoundAPIResourceStorage, len(in.Status.BoundResources))
 	retain := false
 	for i, br := range in.Status.BoundResources {
-		if br.Storage.Key != "" || len(br.Storage.PendingKeys) > 0 {
+		if br.Storage.Key != "" {
 			storagePerResource[i] = br.Storage
 			retain = true
 		}
@@ -359,7 +359,7 @@ func Convert_v1alpha1_APIBinding_To_v1alpha2_APIBinding(in *apisv1alpha1.APIBind
 			return fmt.Errorf("failed to decode bound resource storage from JSON: %w", err)
 		}
 		for i, storage := range storagePerResource {
-			if i < len(out.Status.BoundResources) && (storage.Key != "" || len(storage.PendingKeys) > 0) {
+			if i < len(out.Status.BoundResources) && storage.Key != "" {
 				out.Status.BoundResources[i].Storage = storage
 			}
 		}

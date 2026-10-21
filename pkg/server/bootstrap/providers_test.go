@@ -208,7 +208,6 @@ func TestIdentitiesResolve(t *testing.T) {
 	grs := map[schema.GroupResource]string{
 		{Group: "core.kcp.io", Resource: "shards"}:                        "shards.core.kcp.io",
 		{Group: "migration.kcp.io", Resource: "logicalclustermigrations"}: "migration.kcp.io",
-		{Group: "migration.kcp.io", Resource: "apiexportstoragerekeys"}:   "migration.kcp.io",
 	}
 	ids := NewIdentities(groups, grs)
 	require.Equal(t, []string{"migration.kcp.io", "shards.core.kcp.io", "tenancy.kcp.io"}, ids.ExportNames())
@@ -236,9 +235,9 @@ func TestIdentitiesResolve(t *testing.T) {
 	require.True(t, ids.Resolved())
 	require.Equal(t, "t", ids.Snapshot()["tenancy.kcp.io"].Hash, "Resolve never replaces a resolved identity")
 
-	got, _, err := decorateWildcardPathsWithResourceIdentities("/clusters/*/apis/migration.kcp.io/v1alpha1/apiexportstoragerekeys", ids)
+	got, _, err := decorateWildcardPathsWithResourceIdentities("/clusters/*/apis/migration.kcp.io/v1alpha1/logicalclustermigrations", ids)
 	require.NoError(t, err)
-	require.Equal(t, "/clusters/*/apis/migration.kcp.io/v1alpha1/apiexportstoragerekeys:migration.kcp.io", got)
+	require.Equal(t, "/clusters/*/apis/migration.kcp.io/v1alpha1/logicalclustermigrations:migration.kcp.io", got)
 	got, _, err = decorateWildcardPathsWithResourceIdentities("/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces/root", ids)
 	require.NoError(t, err)
 	require.Equal(t, "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:t/root", got)

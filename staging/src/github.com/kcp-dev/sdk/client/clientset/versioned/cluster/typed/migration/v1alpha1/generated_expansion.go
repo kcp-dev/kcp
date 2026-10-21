@@ -18,8 +18,6 @@ limitations under the License.
 
 package v1alpha1
 
-type APIExportStorageRekeyClusterExpansion interface{}
-
 type LogicalClusterDumpClusterExpansion interface{}
 
 type LogicalClusterMigrationClusterExpansion interface{}

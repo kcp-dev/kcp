@@ -44,8 +44,6 @@ var (
 
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&APIExportStorageRekey{},
-		&APIExportStorageRekeyList{},
 		&LogicalClusterDump{},
 		&LogicalClusterMigration{},
 		&LogicalClusterMigrationList{},

@@ -287,16 +287,6 @@ const (
 	// successfully when the APIBinding is deleting.
 	BindingResourceDeleteSuccess conditionsv1alpha1.ConditionType = "BindingResourceDeleteSuccess"
 
-	// StorageRekeyCompleted is a condition for APIBinding that is False
-	// while a storage re-keying drain is in progress for any bound resource
-	// of this binding (a boundResources entry lists pending storage keys),
-	// and True when all source prefixes are verified empty and pruned.
-	StorageRekeyCompleted conditionsv1alpha1.ConditionType = "StorageRekeyCompleted"
-
-	// StorageRekeyInProgressReason indicates that the storage migrator is
-	// still draining instances from a source storage prefix.
-	StorageRekeyInProgressReason = "StorageRekeyInProgress"
-
 	// PermissionClaimsValid is a condition for APIBinding that indicates that the permission claims were valid or not.
 	PermissionClaimsValid conditionsv1alpha1.ConditionType = "PermissionClaimsValid"
 
@@ -345,9 +335,8 @@ type BoundAPIResource struct {
 
 	// storage records the etcd prefix the bound instances of this resource
 	// live under. The prefix is independent of the export's identity: it is
-	// the identity by default, it differs while the export serves this
-	// resource out of another export's prefix (adopted storage), and it
-	// changes during a storage re-keying.
+	// the identity by default and differs while the export serves this
+	// resource out of another export's prefix (adopted storage).
 	//
 	// +optional
 	Storage BoundAPIResourceStorage `json:"storage,omitempty"`
@@ -365,18 +354,6 @@ type BoundAPIResourceStorage struct {
 	//
 	// +optional
 	Key string `json:"key,omitempty"`
-
-	// pendingKeys lists other prefixes under which instances of this resource
-	// may exist: the target of an in-progress re-keying before serving has
-	// flipped to it, and the drained-from prefixes after the flip until they
-	// are verified empty and deleted. It mirrors storageVersions for storage
-	// re-keying and is normally empty.
-	//
-	// Keys may not be removed while instances exist under them in storage.
-	//
-	// +optional
-	// +listType=set
-	PendingKeys []string `json:"pendingKeys,omitempty"`
 }
 
 // StorageKey returns the etcd prefix segment currently serving the bound

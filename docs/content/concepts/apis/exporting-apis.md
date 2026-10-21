@@ -222,9 +222,7 @@ spec:
 An adopted resource is served with the source export's `APIResourceSchema`; `schema` is left empty (or must name the
 source's schema). The new export's `status.resources` reports the schema in effect and `status.storage` the prefix
 its bindings use, and both exports carry the `StorageShared` condition while the handover lasts. A consumer replaces
-its `APIBinding` of the old export with one of the new export and its objects keep their UIDs. Once the old export is
-gone, the new export can move the data onto its own prefix with a
-[storage re-keying](storage-rekeying.md). While storage is shared, both providers see each other's consumers'
+its `APIBinding` of the old export with one of the new export and its objects keep their UIDs. While storage is shared, both providers see each other's consumers'
 instances of that resource through their virtual workspaces; treat it as a handover phase, not a steady state.
 
 ### Permission Claims

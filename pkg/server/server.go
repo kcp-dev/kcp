@@ -325,15 +325,6 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		}
 	}
 
-	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.APIExportStorageRekey) {
-		if err := s.installStorageMigratorController(ctx, controllerConfig); err != nil {
-			return err
-		}
-		if err := s.installStorageRekeyController(ctx, controllerConfig); err != nil {
-			return err
-		}
-	}
-
 	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.LogicalClusterMigration) {
 		if err := s.installLogicalClusterMigrationController(ctx, controllerConfig); err != nil {
 			return err

@@ -625,10 +625,7 @@ it in the `Consistent` condition. The rules:
    restored.
 
 A shard that disagrees with the root shard reports `Consistent=False` and
-not-ready. Core identities never change. What can move is the storage of
-their bound instances, with a storage re-keying (see
-[APIExport Storage Re-keying](../apis/storage-rekeying.md)); the identity
-stays what it is while the data moves.
+not-ready. Core identities never change.
 
 ### `--root-identities-file`: development only
 

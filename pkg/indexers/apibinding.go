@@ -115,9 +115,7 @@ func ListAPIBindingsByAcceptedClaimedGroupResource(indexer cache.Indexer, gr sch
 // APIBindingByBoundResourceUID is the indexer name for retrieving APIBindings
 // by the names of the bound CRDs their bound resources are served from. The
 // name is the schema UID for a resource stored under the export's identity,
-// and a per-storage-key variant otherwise (see BoundCRDNamesFor); every
-// storage key the resource may still have instances under is indexed, so a
-// bound CRD stays referenced while a drain is in progress.
+// and a per-storage-key variant otherwise (see BoundCRDNameFor).
 const APIBindingByBoundResourceUID = "byBoundResourceUID"
 
 func IndexAPIBindingByBoundResourceUID(obj interface{}) ([]string, error) {
@@ -128,7 +126,7 @@ func IndexAPIBindingByBoundResourceUID(obj interface{}) ([]string, error) {
 
 	ret := make([]string, 0, len(apiBinding.Status.BoundResources))
 	for _, r := range apiBinding.Status.BoundResources {
-		ret = append(ret, BoundCRDNamesFor(r)...)
+		ret = append(ret, BoundCRDNameFor(r))
 	}
 
 	return ret, nil
@@ -138,7 +136,7 @@ func IndexAPIBindingByBoundResourceUID(obj interface{}) ([]string, error) {
 // that serves a resource of the given schema from the given storage key. A
 // resource stored under its export's identity, the steady state, uses the
 // schema UID as it always has. A resource on any other prefix (adopted
-// storage, or a prefix it is being re-keyed onto) uses a per-key variant, so
+// storage) uses a per-key variant, so
 // that every storage key gets a bound CRD object of its own and therefore its
 // own serving storage on a shard: the apiextensions server caches the etcd
 // prefix per CRD object.
@@ -154,19 +152,6 @@ func BoundCRDNameForKey(schemaUID, identityHash, storageKey string) string {
 // currently served from.
 func BoundCRDNameFor(r apisv1alpha2.BoundAPIResource) string {
 	return BoundCRDNameForKey(r.Schema.UID, r.Schema.IdentityHash, r.StorageKey())
-}
-
-// BoundCRDNamesFor returns the names of every bound CRD a bound resource may
-// be served from: the one for its current storage key and one for every
-// pending key.
-func BoundCRDNamesFor(r apisv1alpha2.BoundAPIResource) []string {
-	names := []string{BoundCRDNameFor(r)}
-	for _, key := range r.Storage.PendingKeys {
-		if name := BoundCRDNameForKey(r.Schema.UID, r.Schema.IdentityHash, key); name != names[0] {
-			names = append(names, name)
-		}
-	}
-	return names
 }
 
 // APIBindingByAcceptedClaimIdentityAndGR is the indexer name for retrieving APIBindings by
@@ -201,12 +186,11 @@ func IndexAPIBindingByAcceptedClaimIdentityAndGR(obj interface{}) ([]string, err
 }
 
 // APIBindingByStorageKey is the indexer name for retrieving APIBindings by
-// the storage prefixes their bound resources store under (current and
-// pending keys).
+// the storage prefixes their bound resources store under.
 const APIBindingByStorageKey = "byStorageKey"
 
 // IndexAPIBindingByStorageKey indexes an APIBinding by every storage prefix
-// one of its bound resources stores or may still store under.
+// one of its bound resources stores under.
 func IndexAPIBindingByStorageKey(obj interface{}) ([]string, error) {
 	apiBinding, ok := obj.(*apisv1alpha2.APIBinding)
 	if !ok {
@@ -215,9 +199,6 @@ func IndexAPIBindingByStorageKey(obj interface{}) ([]string, error) {
 	keys := map[string]struct{}{}
 	for _, r := range apiBinding.Status.BoundResources {
 		if key := r.StorageKey(); key != "" {
-			keys[key] = struct{}{}
-		}
-		for _, key := range r.Storage.PendingKeys {
 			keys[key] = struct{}{}
 		}
 	}

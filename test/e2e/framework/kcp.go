@@ -29,7 +29,7 @@ var DefaultTokenAuthFile string
 
 // TestFeatureGates are the feature gates the e2e servers run with: the
 // shared server, private servers and private sharded servers alike.
-const TestFeatureGates = "WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true,APIExportStorageRekey=true,APIIdentityDecoupling=true"
+const TestFeatureGates = "WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true,APIIdentityDecoupling=true"
 
 func init() {
 	repo, err := kcptestinghelpers.RepositoryDir()

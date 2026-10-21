@@ -69,14 +69,6 @@ const (
 
 	// owner: @mjudeikis
 	// alpha: v0.1
-	// Enables re-keying the storage of APIExport resources via
-	// APIExportStorageRekey objects: the re-keying controller marks the
-	// export with the target storage key, and the per-shard storage migrator
-	// drains bound resource instances onto it. Identities never change.
-	APIExportStorageRekey featuregate.Feature = "APIExportStorageRekey"
-
-	// owner: @mjudeikis
-	// alpha: v0.1
 	// Decouples APIExport identities from identity secrets (enhancements
 	// KEP 0008): new APIExports and ClusterCachedResources get an opaque,
 	// owner-prefixed identity assigned directly to status and no identity
@@ -178,9 +170,6 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	LogicalClusterMigration: {
-		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
-	},
-	APIExportStorageRekey: {
 		{Version: version.MustParse("1.32"), Default: false, PreRelease: featuregate.Alpha},
 	},
 	APIIdentityDecoupling: {

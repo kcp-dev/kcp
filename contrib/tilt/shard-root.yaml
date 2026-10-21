@@ -25,7 +25,7 @@ spec:
     # shard's keyspace with a distinct prefix so it does not collide with other
     # shards. The embedded cache uses its own fixed /cache prefix.
     - --etcd-prefix=/shard/root
-    - --feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true,APIExportStorageRekey=true,APIIdentityDecoupling=true
+    - --feature-gates=WorkspaceMounts=true,CacheAPIs=true,WorkspaceAuthentication=true,LogicalClusterMigration=true,APIIdentityDecoupling=true
   auth:
     serviceAccount:
       enabled: true

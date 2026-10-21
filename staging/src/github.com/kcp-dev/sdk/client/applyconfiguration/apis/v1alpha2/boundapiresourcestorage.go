@@ -31,14 +31,6 @@ type BoundAPIResourceStorageApplyConfiguration struct {
 	// Empty means schema.identityHash (bindings created before storage keys
 	// were tracked); use StorageKey() to resolve it.
 	Key *string `json:"key,omitempty"`
-	// pendingKeys lists other prefixes under which instances of this resource
-	// may exist: the target of an in-progress re-keying before serving has
-	// flipped to it, and the drained-from prefixes after the flip until they
-	// are verified empty and deleted. It mirrors storageVersions for storage
-	// re-keying and is normally empty.
-	//
-	// Keys may not be removed while instances exist under them in storage.
-	PendingKeys []string `json:"pendingKeys,omitempty"`
 }
 
 // BoundAPIResourceStorageApplyConfiguration constructs a declarative configuration of the BoundAPIResourceStorage type for use with
@@ -52,15 +44,5 @@ func BoundAPIResourceStorage() *BoundAPIResourceStorageApplyConfiguration {
 // If called multiple times, the Key field is set to the value of the last call.
 func (b *BoundAPIResourceStorageApplyConfiguration) WithKey(value string) *BoundAPIResourceStorageApplyConfiguration {
 	b.Key = &value
-	return b
-}
-
-// WithPendingKeys adds the given value to the PendingKeys field in the declarative configuration
-// and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the PendingKeys field.
-func (b *BoundAPIResourceStorageApplyConfiguration) WithPendingKeys(values ...string) *BoundAPIResourceStorageApplyConfiguration {
-	for i := range values {
-		b.PendingKeys = append(b.PendingKeys, values[i])
-	}
 	return b
 }

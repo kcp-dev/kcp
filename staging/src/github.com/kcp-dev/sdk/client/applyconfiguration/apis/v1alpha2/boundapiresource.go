@@ -41,9 +41,8 @@ type BoundAPIResourceApplyConfiguration struct {
 	StorageVersions []string `json:"storageVersions,omitempty"`
 	// storage records the etcd prefix the bound instances of this resource
 	// live under. The prefix is independent of the export's identity: it is
-	// the identity by default, it differs while the export serves this
-	// resource out of another export's prefix (adopted storage), and it
-	// changes during a storage re-keying.
+	// the identity by default and differs while the export serves this
+	// resource out of another export's prefix (adopted storage).
 	Storage *BoundAPIResourceStorageApplyConfiguration `json:"storage,omitempty"`
 }
 

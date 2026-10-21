@@ -301,8 +301,7 @@ type ResourceSchemaStorage struct {
 	// export takes over serving a resource from another (zero-copy adoption).
 	// The source must serve the same resource with crd storage and list this
 	// export in its crd.sharedWith. The resource is served with the source's
-	// schema. The adopter may later move onto its own prefix with an
-	// APIExportStorageRekey.
+	// schema.
 	//
 	// +optional
 	Adopted *ResourceSchemaStorageAdopted `json:"adopted,omitempty"`

@@ -992,9 +992,8 @@ spec:
                       description: |-
                         storage records the etcd prefix the bound instances of this resource
                         live under. The prefix is independent of the export's identity: it is
-                        the identity by default, it differs while the export serves this
-                        resource out of another export's prefix (adopted storage), and it
-                        changes during a storage re-keying.
+                        the identity by default and differs while the export serves this
+                        resource out of another export's prefix (adopted storage).
                       properties:
                         key:
                           description: "key is the etcd prefix segment currently serving
@@ -1002,19 +1001,6 @@ spec:
                             means schema.identityHash (bindings created before storage
                             keys\nwere tracked); use StorageKey() to resolve it."
                           type: string
-                        pendingKeys:
-                          description: |-
-                            pendingKeys lists other prefixes under which instances of this resource
-                            may exist: the target of an in-progress re-keying before serving has
-                            flipped to it, and the drained-from prefixes after the flip until they
-                            are verified empty and deleted. It mirrors storageVersions for storage
-                            re-keying and is normally empty.
-
-                            Keys may not be removed while instances exist under them in storage.
-                          items:
-                            type: string
-                          type: array
-                          x-kubernetes-list-type: set
                       type: object
                     storageVersions:
                       description: |-

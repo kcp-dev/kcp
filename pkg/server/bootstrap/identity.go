@@ -56,7 +56,6 @@ var (
 	KcpRootGroupResourceExportNames = map[schema.GroupResource]string{
 		{Group: "core.kcp.io", Resource: "shards"}:                        "shards.core.kcp.io",
 		{Group: "migration.kcp.io", Resource: "logicalclustermigrations"}: "migration.kcp.io",
-		{Group: "migration.kcp.io", Resource: "apiexportstoragerekeys"}:   "migration.kcp.io",
 	}
 )
 
