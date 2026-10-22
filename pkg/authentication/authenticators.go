@@ -27,7 +27,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/index"
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
+	"github.com/kcp-dev/kcp/pkg/server/proxy"
 )
 
 func NewStandaloneWorkspaceAuthenticator(clusterIndex *index.State, authIndex AuthenticatorIndex) authenticator.Request {
@@ -91,7 +91,7 @@ func withClusterScope(delegate authenticator.Request) authenticator.Request {
 		//
 		// To handle both front-proxy and shards both .ClusterNameFrom
 		// functions are checked.
-		cluster := lookup.ClusterNameFrom(req.Context())
+		cluster := proxy.ClusterNameFrom(req.Context())
 		if cluster.Empty() {
 			var err error
 			cluster, err = request.ClusterNameFrom(req.Context())

@@ -23,7 +23,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/group"
 
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
+	"github.com/kcp-dev/kcp/pkg/server/proxy"
 )
 
 // WithWorkspaceAuthResolver looks up the target cluster in the given auth index
@@ -32,7 +32,7 @@ import (
 // options.
 func WithWorkspaceAuthResolver(handler http.Handler, authIndex AuthenticatorIndex) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		wsType := lookup.WorkspaceTypeFrom(req.Context())
+		wsType := proxy.WorkspaceTypeFrom(req.Context())
 		if wsType.Empty() {
 			handler.ServeHTTP(w, req)
 			return
