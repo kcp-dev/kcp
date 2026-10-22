@@ -528,6 +528,13 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 				return Result{}, false
 			}
 			cluster = logicalcluster.Name(s)
+			// A logical cluster addressed by name carries the error code of
+			// its workspace, like it would when reached through the path.
+			parent := c.shardClusterParentCluster[shard][cluster]
+			name := c.shardClusterWorkspaceName[shard][cluster]
+			if ec, found := c.shardClusterWorkspaceNameErrorCode[shard][parent][name]; found {
+				errorCode = ec
+			}
 			continue
 		}
 
