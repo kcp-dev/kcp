@@ -46,7 +46,6 @@ const defaultMigrationGracePeriod = 90 * time.Second
 // Index implements a mapping from logical cluster to (shard) URL.
 type Index interface {
 	Lookup(path logicalcluster.Path) (Result, bool)
-	LookupURL(logicalCluster logicalcluster.Path) (Result, bool)
 	// BaseURL returns the base URL of the named shard.
 	BaseURL(shardName string) (string, bool)
 	// RecentlyMigrated returns true if the given cluster was recently migrated.
@@ -576,46 +575,6 @@ func (c *State) Lookup(path logicalcluster.Path) (Result, bool) {
 		Cluster:   cluster,
 		Type:      wsType,
 		ErrorCode: errorCode,
-	}, true
-}
-
-func (c *State) LookupURL(path logicalcluster.Path) (Result, bool) {
-	result, found := c.Lookup(path)
-	if !found {
-		return Result{}, false
-	}
-	if result.ErrorCode != 0 {
-		return result, true
-	}
-
-	baseURL, found := c.shardBaseURLs[result.Shard]
-	if !found {
-		return Result{}, false
-	}
-
-	if result.IsMount() {
-		// The path is a mounted workspace. Mount traffic is not forwarded to the
-		// mount target from here: it goes to the shard hosting the parent
-		// workspace, whose handler chain authenticates, audits and flow-controls
-		// the request before its mount proxy forwards it to the target. The
-		// shard's local index resolves paths relative to logical clusters it
-		// hosts, so the request is addressed as <parent cluster>:<mount name>.
-		parentPath, name := path.Split()
-		parent, found := c.Lookup(parentPath)
-		if !found || parent.Cluster.Empty() {
-			return Result{}, false
-		}
-		return Result{
-			Shard: result.Shard,
-			URL:   strings.TrimSuffix(baseURL, "/") + parent.Cluster.Path().Join(name).RequestPath(),
-		}, true
-	}
-
-	return Result{
-		Shard:   result.Shard,
-		Cluster: result.Cluster,
-		Type:    result.Type,
-		URL:     strings.TrimSuffix(baseURL, "/") + result.Cluster.Path().RequestPath(),
 	}, true
 }
 
