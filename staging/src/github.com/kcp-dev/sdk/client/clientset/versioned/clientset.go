@@ -26,6 +26,7 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
+	adminv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/admin/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/cache/v1alpha1"
@@ -37,6 +38,7 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	AdminV1alpha1() adminv1alpha1.AdminV1alpha1Interface
 	ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface
 	ApisV1alpha2() apisv1alpha2.ApisV1alpha2Interface
 	CacheV1alpha1() cachev1alpha1.CacheV1alpha1Interface
@@ -49,6 +51,7 @@ type Interface interface {
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
+	adminV1alpha1     *adminv1alpha1.AdminV1alpha1Client
 	apisV1alpha1      *apisv1alpha1.ApisV1alpha1Client
 	apisV1alpha2      *apisv1alpha2.ApisV1alpha2Client
 	cacheV1alpha1     *cachev1alpha1.CacheV1alpha1Client
@@ -56,6 +59,11 @@ type Clientset struct {
 	migrationV1alpha1 *migrationv1alpha1.MigrationV1alpha1Client
 	tenancyV1alpha1   *tenancyv1alpha1.TenancyV1alpha1Client
 	topologyV1alpha1  *topologyv1alpha1.TopologyV1alpha1Client
+}
+
+// AdminV1alpha1 retrieves the AdminV1alpha1Client
+func (c *Clientset) AdminV1alpha1() adminv1alpha1.AdminV1alpha1Interface {
+	return c.adminV1alpha1
 }
 
 // ApisV1alpha1 retrieves the ApisV1alpha1Client
@@ -137,6 +145,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
+	cs.adminV1alpha1, err = adminv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.apisV1alpha1, err = apisv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -186,6 +198,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.adminV1alpha1 = adminv1alpha1.New(c)
 	cs.apisV1alpha1 = apisv1alpha1.New(c)
 	cs.apisV1alpha2 = apisv1alpha2.New(c)
 	cs.cacheV1alpha1 = cachev1alpha1.New(c)

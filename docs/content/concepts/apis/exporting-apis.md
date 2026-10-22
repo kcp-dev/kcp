@@ -226,6 +226,62 @@ defined in the `APIExport` and the verbs accepted in the appropriate `APIBinding
 
 For more details, see the section on [APIBindings](#apibinding).
 
+### Identity-Agnostic Permission Claims
+
+Naming an `identityHash` works when you claim one specific, known provider. It
+does not work for a family of APIs, where the same group and resource may be
+served by different providers in different consumer workspaces, or by two
+identities at once while a provider rotates its identity.
+
+For those cases an installation administrator can create a `PermissionClaimPolicy`,
+which lets designated APIExports claim designated API groups **without** an
+`identityHash`. Such a claim resolves, in each consumer workspace, to whatever
+that workspace's `APIBinding` for the claimed resource points at. Nobody needs
+to know an identity hash.
+
+Policies are installation-wide and live in the [Admin workspace](../workspaces/system-workspaces.md):
+
+```shell
+kubectl ws use :admin
+kubectl apply -f - <<'EOF'
+apiVersion: admin.kcp.io/v1alpha1
+kind: PermissionClaimPolicy
+metadata:
+  name: railgrid
+spec:
+  providers: # (1)
+  - kind: Group
+    name: railgrid-providers
+  claims:
+  - claimer: infrastructure.railgrid.ai # (2)
+    groups: # (3)
+    - ai.railgrid.ai
+    - edges.railgrid.ai
+EOF
+```
+
+1. Only these subjects may create an `APIExport` that exports any group this policy names. This reservation is what makes a binding of those groups trustworthy, and it is required for the feature to be safe.
+2. The claimer is identified by an API group it exports, not by name or workspace. Claimers and providers may live anywhere in the installation.
+3. The exact groups the claimer may claim without an `identityHash`. There are no wildcards; adding a group to the family means editing the policy.
+
+An `APIExport` that exports a resource in `infrastructure.railgrid.ai` may then
+write:
+
+```yaml
+  permissionClaims:
+  - group: ai.railgrid.ai
+    resource: models
+    verbs: ["get", "list", "watch"] # no identityHash
+```
+
+Consumers accept such a claim exactly as they accept any other. The provider's
+[maximal permission policy](#maximal-permission-policy) still applies, evaluated
+against whichever provider the consumer actually bound.
+
+Without a matching policy, a claim on a non-built-in group still requires an
+`identityHash`, and an installation that creates no `PermissionClaimPolicy`
+behaves exactly as before.
+
 ### Maximal Permission Policy
 
 If you want to set an upper bound on what is allowed for a consumer of your exported APIs. you can set a "maximal
