@@ -32,7 +32,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
+	"github.com/kcp-dev/kcp/pkg/server/proxy"
 )
 
 // TLS error type constants for categorization.
@@ -161,7 +161,7 @@ func NewProxyErrorHandler() func(http.ResponseWriter, *http.Request, error) {
 		}
 
 		if isTLSError(err) {
-			shardName := lookup.ShardNameFrom(r.Context())
+			shardName := proxy.ShardNameFrom(r.Context())
 			if shardName == "" {
 				shardName = "unknown"
 			}
@@ -221,7 +221,7 @@ func WithBodyTracking(delegate http.Handler) http.Handler {
 		// Store a holder in context that inner handlers can update with the shard name.
 		// This is necessary because inner handlers may create new request objects
 		// with WithContext(), and we need to access the shard name after they return.
-		ctx, holder := lookup.WithShardNameHolder(r.Context())
+		ctx, holder := proxy.WithShardNameHolder(r.Context())
 		r = r.WithContext(ctx)
 
 		delegate.ServeHTTP(wrappedWriter, r)
