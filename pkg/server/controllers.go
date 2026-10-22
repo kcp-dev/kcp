@@ -43,6 +43,7 @@ import (
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/cache"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
 	"k8s.io/klog/v2"
@@ -59,11 +60,13 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
+	configshard "github.com/kcp-dev/kcp/config/shard"
 	configuniversal "github.com/kcp-dev/kcp/config/universal"
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
@@ -71,6 +74,8 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/objectcount"
 	permissionclaimlabler "github.com/kcp-dev/kcp/pkg/permissionclaim"
+	"github.com/kcp-dev/kcp/pkg/reconciler/admin/apiidentity"
+	"github.com/kcp-dev/kcp/pkg/reconciler/admin/coreidentityset"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
@@ -1347,6 +1352,8 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 	c, err := apiexport.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.DeepSARClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		kubeClusterClient,
@@ -1821,6 +1828,103 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	})
 }
 
+// installAPIIdentityController maintains the APIIdentity registry entries of
+// the identities whose owning APIExport is hosted on this shard (enhancements
+// KEP 0008), runs the legacy shared-identity conversion and retires aliases.
+func (s *Server) installAPIIdentityController(_ context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, apiidentity.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	localExports := s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports()
+	globalExports := s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports()
+	localBindings := s.KcpSharedInformerFactory.Apis().V1alpha2().APIBindings()
+	localIdentities := s.KcpSharedInformerFactory.Admin().V1alpha1().APIIdentities()
+
+	c, err := apiidentity.NewController(kcpClusterClient, localExports, globalExports, localBindings, localIdentities)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: apiidentity.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return localExports.Informer().HasSynced() && globalExports.Informer().HasSynced() &&
+					localBindings.Informer().HasSynced() && localIdentities.Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+// installCoreIdentitySetController keeps the shard's CoreIdentitySet up to
+// date (leader-elected, it writes), and on every replica follows the local
+// object to keep the core-identities readiness check current.
+func (s *Server) installCoreIdentitySetController(_ context.Context, config *rest.Config) error {
+	config = rest.CopyConfig(config)
+	config = rest.AddUserAgent(config, coreidentityset.ControllerName)
+	kcpClusterClient, err := kcpclientset.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	localSets := s.KcpSharedInformerFactory.Admin().V1alpha1().CoreIdentitySets()
+	globalSets := s.CacheKcpSharedInformerFactory.Admin().V1alpha1().CoreIdentitySets()
+	globalExports := s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports()
+
+	c, err := coreidentityset.NewController(
+		coreidentityset.Config{
+			ShardName:  s.Options.Extra.ShardName,
+			Key:        s.CoreIdentities.Key,
+			Identities: s.CoreIdentities.Identities,
+			Health:     s.CoreIdentities.Health,
+			Conflict:   s.CoreIdentities.Conflict,
+		},
+		kcpClusterClient,
+		localSets,
+		globalSets,
+		globalExports,
+	)
+	if err != nil {
+		return err
+	}
+
+	// readiness follows the published object on every replica, not only on
+	// the leader that writes it.
+	follow := func(obj interface{}) {
+		if tombstone, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+			obj = tombstone.Obj
+		}
+		set, ok := obj.(*adminv1alpha1.CoreIdentitySet)
+		if !ok || set.Name != s.Options.Extra.ShardName || logicalcluster.From(set) != configshard.SystemShardCluster {
+			return
+		}
+		s.CoreIdentities.Health.Update(set)
+	}
+	_, _ = localSets.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    follow,
+		UpdateFunc: func(_, obj interface{}) { follow(obj) },
+	})
+
+	return s.registerController(&controllerWrapper{
+		Name: coreidentityset.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return localSets.Informer().HasSynced() && globalSets.Informer().HasSynced() && globalExports.Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 1)
+		},
+	})
+}
+
 // installShardRepresentationController mirrors the cache server's Shard
 // objects into the root workspace as read-only representations, so
 // `kubectl get shards` keeps working in root. It only runs on the shard
@@ -2216,7 +2320,9 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 	)
 	apiexport.InstallIndexers(
-		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports())
+		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+	)
 	apiexportendpointslice.InstallIndexers(
 		s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),

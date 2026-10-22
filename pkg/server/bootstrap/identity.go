@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 
@@ -35,16 +36,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
-
-	configshard "github.com/kcp-dev/kcp/config/shard"
-	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 
 	_ "net/http/pprof"
 )
@@ -63,31 +59,61 @@ var (
 	}
 )
 
-type identities struct {
+// ResolvedIdentity is the identity of one core APIExport together with where
+// it came from.
+type ResolvedIdentity struct {
+	// Hash is the identity hash as it appears in request URLs.
+	Hash string
+	// Source says where the identity came from.
+	Source adminv1alpha1.CoreIdentitySource
+	// KeyID and Derivation record which key and derivation produced the
+	// identity. Empty unless Source is Key.
+	KeyID      string
+	Derivation string
+}
+
+// Classifier can refine the source of a resolved identity, e.g. recognize a
+// legacy-looking hash as one that was in fact derived from the key.
+type Classifier func(exportName string, id ResolvedIdentity) ResolvedIdentity
+
+// Identities holds the identities of the core APIExports, filled in by
+// Resolve and injected into wildcard request URLs by the round tripper.
+// Resolve never replaces an identity; the APIExportHandler does, when the
+// APIExport's identity was rotated.
+type Identities struct {
 	lock sync.RWMutex
 
-	// groupExportNames and groupResourceExportNames name the APIExport in
-	// the root workspace that serves each group or group resource.
 	groupExportNames         map[string]string
 	groupResourceExportNames map[schema.GroupResource]string
 
 	groupIdentities         map[string]string
 	groupResourceIdentities map[schema.GroupResource]string
+	byExport                map[string]ResolvedIdentity
+
+	classifier Classifier
 
 	// watches are the open watch responses that were sent with an injected
-	// identity, by that identity. When the identity changes (e.g. after an
-	// APIExport identity rotation) they are expired, so their informers
+	// identity, by that identity. When the identity is replaced (e.g. after
+	// an APIExport identity rotation) they are expired, so their informers
 	// relist with the new identity.
 	watchesLock sync.Mutex
 	watches     map[string]map[*expirableWatchBody]struct{}
+
+	// listeners are called after an identity was replaced.
+	listenersLock sync.Mutex
+	listeners     []func()
 }
 
-func newIdentities(groupExportNames map[string]string, groupResourceExportNames map[schema.GroupResource]string) *identities {
-	ids := &identities{
+// NewIdentities creates an empty Identities for the given exports. Each
+// group or group resource is served by one APIExport in the root workspace,
+// whose name is the map value.
+func NewIdentities(groupExportNames map[string]string, groupResourceExportNames map[schema.GroupResource]string) *Identities {
+	ids := &Identities{
 		groupExportNames:         groupExportNames,
 		groupResourceExportNames: groupResourceExportNames,
 		groupIdentities:          map[string]string{},
 		groupResourceIdentities:  map[schema.GroupResource]string{},
+		byExport:                 map[string]ResolvedIdentity{},
 		watches:                  map[string]map[*expirableWatchBody]struct{}{},
 	}
 	for group := range groupExportNames {
@@ -99,52 +125,181 @@ func newIdentities(groupExportNames map[string]string, groupResourceExportNames 
 	return ids
 }
 
-// set makes hash the identity of every group and group resource served by
-// the named APIExport. When that replaces an identity that was in use, the
-// open watches sent with the old identity are expired, so their informers
-// relist with the new one.
-func (ids *identities) set(exportName, hash string) {
-	replaced := sets.New[string]()
-	changed := false
-
+// SetClassifier installs a Classifier applied to every identity on
+// resolution.
+func (ids *Identities) SetClassifier(c Classifier) {
 	ids.lock.Lock()
+	defer ids.lock.Unlock()
+	ids.classifier = c
+}
+
+// ExportNames returns the sorted, de-duplicated names of the APIExports
+// these identities are for.
+func (ids *Identities) ExportNames() []string {
+	names := map[string]struct{}{}
+	for _, name := range ids.groupExportNames {
+		names[name] = struct{}{}
+	}
+	for _, name := range ids.groupResourceExportNames {
+		names[name] = struct{}{}
+	}
+	result := make([]string, 0, len(names))
+	for name := range names {
+		result = append(result, name)
+	}
+	sort.Strings(result)
+	return result
+}
+
+// Snapshot returns the identities resolved so far, by APIExport name.
+func (ids *Identities) Snapshot() map[string]ResolvedIdentity {
+	ids.lock.RLock()
+	defer ids.lock.RUnlock()
+	result := make(map[string]ResolvedIdentity, len(ids.byExport))
+	for name, id := range ids.byExport {
+		result[name] = id
+	}
+	return result
+}
+
+// Resolved reports whether every export has an identity.
+func (ids *Identities) Resolved() bool {
+	ids.lock.RLock()
+	defer ids.lock.RUnlock()
+	for _, name := range ids.ExportNames() {
+		if _, ok := ids.byExport[name]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func (ids *Identities) grIdentity(gr schema.GroupResource) (string, bool) {
+	ids.lock.RLock()
+	defer ids.lock.RUnlock()
+
+	if id, found := ids.groupResourceIdentities[gr]; found {
+		return id, true
+	}
+	if id, found := ids.groupIdentities[gr.Group]; found {
+		return id, true
+	}
+	return "", false
+}
+
+// Resolve fills in every identity that is still missing using the provider.
+// It returns an aggregate error when at least one identity is still
+// unknown afterwards; identities that were found are kept, so calling it
+// again only asks for the rest.
+func (ids *Identities) Resolve(ctx context.Context, provider Provider) error {
+	logger := klog.FromContext(ctx)
+	var errs []error
+
+	resolve := func(exportName string) (ResolvedIdentity, bool) {
+		ids.lock.RLock()
+		id, found := ids.byExport[exportName]
+		classifier := ids.classifier
+		ids.lock.RUnlock()
+		if found {
+			return id, true
+		}
+
+		id, err := provider(ctx, exportName)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("APIExport %s: %w", exportName, err))
+			return ResolvedIdentity{}, false
+		}
+		if id.Hash == "" {
+			errs = append(errs, fmt.Errorf("APIExport %s is not ready", exportName))
+			return ResolvedIdentity{}, false
+		}
+		if classifier != nil {
+			id = classifier(exportName, id)
+		}
+
+		ids.lock.Lock()
+		defer ids.lock.Unlock()
+		if existing, found := ids.byExport[exportName]; found {
+			return existing, true
+		}
+		ids.byExport[exportName] = id
+		logger.V(4).Info("APIExport has identity", "export", exportName, "identity", id.Hash, "source", id.Source)
+		return id, true
+	}
+
 	for group, name := range ids.groupExportNames {
-		if name != exportName || ids.groupIdentities[group] == hash {
-			continue
+		if id, ok := resolve(name); ok {
+			ids.lock.Lock()
+			ids.groupIdentities[group] = id.Hash
+			ids.lock.Unlock()
 		}
-		if old := ids.groupIdentities[group]; old != "" {
-			replaced.Insert(old)
-		}
-		ids.groupIdentities[group] = hash
-		changed = true
 	}
 	for gr, name := range ids.groupResourceExportNames {
-		if name != exportName || ids.groupResourceIdentities[gr] == hash {
-			continue
+		if id, ok := resolve(name); ok {
+			ids.lock.Lock()
+			ids.groupResourceIdentities[gr] = id.Hash
+			ids.lock.Unlock()
 		}
-		if old := ids.groupResourceIdentities[gr]; old != "" {
-			replaced.Insert(old)
+	}
+	return utilerrors.NewAggregate(errs)
+}
+
+// AddChangeListener registers a function that is called after an identity
+// was replaced.
+func (ids *Identities) AddChangeListener(fn func()) {
+	ids.listenersLock.Lock()
+	defer ids.listenersLock.Unlock()
+	ids.listeners = append(ids.listeners, fn)
+}
+
+// set makes hash the identity of the named APIExport and of every group and
+// group resource it serves, e.g. after the export's identity was rotated.
+// When that replaces an identity that was in use, the open watches sent with
+// the old identity are expired, so their informers relist with the new one,
+// and the change listeners are called.
+func (ids *Identities) set(exportName, hash string) {
+	ids.lock.Lock()
+	old, found := ids.byExport[exportName]
+	if found && old.Hash == hash {
+		ids.lock.Unlock()
+		return
+	}
+	id := legacy(hash)
+	if ids.classifier != nil {
+		id = ids.classifier(exportName, id)
+	}
+	ids.byExport[exportName] = id
+	for group, name := range ids.groupExportNames {
+		if name == exportName {
+			ids.groupIdentities[group] = hash
 		}
-		ids.groupResourceIdentities[gr] = hash
-		changed = true
+	}
+	for gr, name := range ids.groupResourceExportNames {
+		if name == exportName {
+			ids.groupResourceIdentities[gr] = hash
+		}
 	}
 	ids.lock.Unlock()
 
-	if !changed {
-		return
-	}
-	logger := klog.Background().WithValues("apiExport", exportName, "identity", hash)
-	if replaced.Len() == 0 {
+	logger := klog.Background().WithValues("apiExport", exportName, "identity", hash, "source", id.Source)
+	if !found {
 		logger.V(2).Info("APIExport has identity")
 		return
 	}
-	logger.Info("APIExport identity changed, replacing it", "oldIdentities", sets.List(replaced))
-	n := ids.expireWatches(sets.List(replaced)...)
+	logger.Info("APIExport identity changed, replacing it", "oldIdentity", old.Hash)
+	n := ids.expireWatches(old.Hash)
 	logger.Info("expired watches using the replaced APIExport identity", "count", n)
+
+	ids.listenersLock.Lock()
+	listeners := append([]func(){}, ids.listeners...)
+	ids.listenersLock.Unlock()
+	for _, fn := range listeners {
+		fn()
+	}
 }
 
 // trackWatch registers an open watch response sent with the given identity.
-func (ids *identities) trackWatch(identity string, body *expirableWatchBody) {
+func (ids *Identities) trackWatch(identity string, body *expirableWatchBody) {
 	ids.watchesLock.Lock()
 	defer ids.watchesLock.Unlock()
 	if ids.watches[identity] == nil {
@@ -153,7 +308,7 @@ func (ids *identities) trackWatch(identity string, body *expirableWatchBody) {
 	ids.watches[identity][body] = struct{}{}
 }
 
-func (ids *identities) untrackWatch(identity string, body *expirableWatchBody) {
+func (ids *Identities) untrackWatch(identity string, body *expirableWatchBody) {
 	ids.watchesLock.Lock()
 	defer ids.watchesLock.Unlock()
 	delete(ids.watches[identity], body)
@@ -164,7 +319,7 @@ func (ids *identities) untrackWatch(identity string, body *expirableWatchBody) {
 
 // expireWatches expires every open watch that was sent with one of the given
 // identities.
-func (ids *identities) expireWatches(identities ...string) int {
+func (ids *Identities) expireWatches(identities ...string) int {
 	ids.watchesLock.Lock()
 	var bodies []*expirableWatchBody
 	for _, identity := range identities {
@@ -180,64 +335,7 @@ func (ids *identities) expireWatches(identities ...string) int {
 	return len(bodies)
 }
 
-func (ids *identities) grIdentity(gr schema.GroupResource) (string, bool) {
-	ids.lock.RLock()
-	defer ids.lock.RUnlock()
-
-	if id, found := ids.groupResourceIdentities[gr]; found {
-		return id, true
-	}
-	if id, found := ids.groupIdentities[gr.Group]; found {
-		return id, true
-	}
-	return "", false
-}
-
-// NewConfigWithWildcardIdentities creates a rest.Config with injected resource identities for
-// individual group or group resources. Each group or resource is coming from one APIExport whose
-// names are passed in as a map.
-//
-// The returned resolve function will get the APIExports and extract the identities.
-// The resolve func might return an error if the APIExport is not found or for other reason. Only
-// after it succeeds a client using the returned rest.Config can use the group and group resources
-// with identities.
-//
-// The returned event handler keeps the identities up to date after that. Register it on an
-// informer of the APIExports in the root workspace; see APIExportHandler.
-func NewConfigWithWildcardIdentities(config *rest.Config,
-	groupExportNames map[string]string,
-	groupResourceExportNames map[schema.GroupResource]string,
-	localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) (identityConfig *rest.Config, resolve func(ctx context.Context) error, handler cache.ResourceEventHandler) {
-	identityRoundTripper, identityResolver, handler := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, groupResourceExportNames, config, localShardKubeClusterClient)
-	identityConfig = rest.CopyConfig(config)
-	identityConfig.Wrap(identityRoundTripper)
-	return identityConfig, identityResolver, handler
-}
-
-// NewWildcardIdentitiesWrappingRoundTripper creates an HTTP RoundTripper
-// that injects resource identities for individual groups or group resources.
-// Each group or resource is coming from one APIExport whose names are passed in as a map.
-// The RoundTripper is exposed as a function that allows wrapping the RoundTripper
-//
-// The method also returns the resolve function that gets the APIExports and extract the identities.
-// The resolve func might return an error if the APIExport is not found or for other reason. Only
-// after it succeeds a client using the returned RoundTripper can use the group and group resources
-// with identities.
-//
-// The returned event handler keeps the identities up to date after that. Register it on an
-// informer of the APIExports in the root workspace; see APIExportHandler.
-func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]string,
-	groupResourceExportNames map[schema.GroupResource]string,
-	config *rest.Config,
-	localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) (wrap func(rt http.RoundTripper) http.RoundTripper, resolve func(ctx context.Context) error, handler cache.ResourceEventHandler) {
-	ids := newIdentities(groupExportNames, groupResourceExportNames)
-	provider := apiExportIdentityProvider(config, localShardKubeClusterClient)
-	return injectKcpIdentities(ids),
-		wildcardIdentitiesResolver(ids, groupExportNames, groupResourceExportNames, provider),
-		apiExportHandler(ids)
-}
-
-// apiExportHandler returns an informer event handler that keeps the
+// APIExportHandler returns an informer event handler that keeps the
 // identities in sync with status.identityHash of the APIExports in the root
 // workspace. An identity rotation flips that hash; the handler swaps the
 // injected identity the moment the change arrives and expires the open
@@ -247,17 +345,12 @@ func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]strin
 // exports are ignored: an identity in use is only ever replaced by a new one.
 //
 // The handler works with any informer that sees the root workspace's
-// APIExports: the shard's local one, one against the cache server, or a
-// scoped one on the root workspace.
-func apiExportHandler(ids *identities) cache.ResourceEventHandler {
-	exportNames := sets.New[string]()
-	for _, name := range ids.groupExportNames {
-		exportNames.Insert(name)
-	}
-	for _, name := range ids.groupResourceExportNames {
-		exportNames.Insert(name)
-	}
-
+// APIExports: one against the cache server, or a scoped one on the root
+// workspace. Feed it from one source only: a replicated copy lags behind a
+// local one, and a handler fed from both briefly falls back to the old
+// identity when the stale copy arrives.
+func (ids *Identities) APIExportHandler() cache.ResourceEventHandler {
+	exportNames := sets.New(ids.ExportNames()...)
 	update := func(obj interface{}) {
 		export, ok := obj.(*apisv1alpha2.APIExport)
 		if !ok {
@@ -277,107 +370,50 @@ func apiExportHandler(ids *identities) cache.ResourceEventHandler {
 	}
 }
 
-func wildcardIdentitiesResolver(ids *identities,
-	groupExportNames map[string]string,
-	groupResourceExportNames map[schema.GroupResource]string,
-	apiExportIdentityProviderFn func(ctx context.Context, apiExportName string) (string, error)) func(ctx context.Context) error {
-	return func(ctx context.Context) error {
-		logger := klog.FromContext(ctx)
-		var errs []error
-		for group, name := range groupExportNames {
-			logger := logging.WithObject(logger, &apisv1alpha2.APIExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        name,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
-				},
-			}).WithValues("group", group)
-			ids.lock.RLock()
-			id := ids.groupIdentities[group]
-			ids.lock.RUnlock()
-
-			if id != "" {
-				continue
-			}
-
-			apiExportIdentity, err := apiExportIdentityProviderFn(ctx, name)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			if apiExportIdentity == "" {
-				errs = append(errs, fmt.Errorf("APIExport %s is not ready", name))
-				continue
-			}
-			logger = logger.WithValues("identity", apiExportIdentity)
-
-			ids.lock.Lock()
-			ids.groupIdentities[group] = apiExportIdentity
-			ids.lock.Unlock()
-
-			logger.V(4).Info("APIExport has identity")
-		}
-		for gr, name := range groupResourceExportNames {
-			logger := logging.WithObject(logger, &apisv1alpha2.APIExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        name,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
-				},
-			}).WithValues("gr", gr.String())
-			ids.lock.RLock()
-			id := ids.groupResourceIdentities[gr]
-			ids.lock.RUnlock()
-
-			if id != "" {
-				continue
-			}
-
-			apiExportIdentity, err := apiExportIdentityProviderFn(ctx, name)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			if apiExportIdentity == "" {
-				errs = append(errs, fmt.Errorf("APIExport %s is not ready", name))
-				continue
-			}
-			logger = logger.WithValues("identity", apiExportIdentity)
-
-			ids.lock.Lock()
-			ids.groupResourceIdentities[gr] = apiExportIdentity
-			ids.lock.Unlock()
-
-			logger.V(4).Info("APIExport has identity")
-		}
-		return utilerrors.NewAggregate(errs)
-	}
+// WrapRoundTripper returns a wrapper that injects the resolved identities
+// into wildcard request URLs.
+func (ids *Identities) WrapRoundTripper() func(rt http.RoundTripper) http.RoundTripper {
+	return injectKcpIdentities(ids)
 }
 
-func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) func(ctx context.Context, apiExportName string) (string, error) {
-	return func(ctx context.Context, apiExportName string) (string, error) {
-		rootShardKcpClient, err := kcpclientset.NewForConfig(config)
-		if err != nil {
-			return "", err
-		}
+// NewConfigWithWildcardIdentities creates a rest.Config with injected resource identities for
+// individual group or group resources. Each group or resource is coming from one APIExport whose
+// names are passed in as a map.
+//
+// The returned resolve function asks the provider for the identities. It
+// might return an error if an identity is not (yet) known. Only after it
+// succeeds a client using the returned rest.Config can use the group and
+// group resources with identities. The returned Identities give access to
+// what was resolved and where it came from, and their APIExportHandler keeps
+// them up to date, e.g. across an APIExport identity rotation.
+func NewConfigWithWildcardIdentities(config *rest.Config,
+	groupExportNames map[string]string,
+	groupResourceExportNames map[schema.GroupResource]string,
+	provider Provider) (identityConfig *rest.Config, resolve func(ctx context.Context) error, ids *Identities) {
+	identityRoundTripper, identityResolver, ids := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, groupResourceExportNames, provider)
+	identityConfig = rest.CopyConfig(config)
+	identityConfig.Wrap(identityRoundTripper)
+	return identityConfig, identityResolver, ids
+}
 
-		if localShardKubeClusterClient != nil {
-			apiExportIdentitiesConfigMap, err := localShardKubeClusterClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1().ConfigMaps("default").Get(ctx, identitycache.ConfigMapName, metav1.GetOptions{})
-			if err == nil {
-				apiExportIdentity, found := apiExportIdentitiesConfigMap.Data[apiExportName]
-				if found {
-					return apiExportIdentity, nil
-				}
-			}
-			// fall back when:
-			// - this is not the root shard (localShardKubeClusterClient == nil)
-			// - the cm wasn't found
-			// - an entry in the cm wasn't found
-		}
-		apiExport, err := rootShardKcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha2().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
-		if err != nil {
-			return "", err
-		}
-		return apiExport.Status.IdentityHash, nil
+// NewWildcardIdentitiesWrappingRoundTripper creates an HTTP RoundTripper
+// that injects resource identities for individual groups or group resources.
+// Each group or resource is coming from one APIExport whose names are passed in as a map.
+// The RoundTripper is exposed as a function that allows wrapping the RoundTripper
+//
+// The method also returns the resolve function that asks the provider for
+// the identities. It might return an error if an identity is not (yet)
+// known. Only after it succeeds a client using the returned RoundTripper can
+// use the group and group resources with identities.
+func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]string,
+	groupResourceExportNames map[schema.GroupResource]string,
+	provider Provider) (func(rt http.RoundTripper) http.RoundTripper, func(ctx context.Context) error, *Identities) {
+	ids := NewIdentities(groupExportNames, groupResourceExportNames)
+	wrap := ids.WrapRoundTripper()
+	resolve := func(ctx context.Context) error {
+		return ids.Resolve(ctx, provider)
 	}
+	return wrap, resolve, ids
 }
 
 type roundTripperFunc struct {
@@ -396,7 +432,7 @@ func (rt roundTripperFunc) WrappedRoundTripper() http.RoundTripper {
 }
 
 // injectKcpIdentities injects the kcp identities into the request URLs.
-func injectKcpIdentities(ids *identities) func(rt http.RoundTripper) http.RoundTripper {
+func injectKcpIdentities(ids *Identities) func(rt http.RoundTripper) http.RoundTripper {
 	return func(rt http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc{
 			delegate: rt,
@@ -444,7 +480,7 @@ func injectKcpIdentities(ids *identities) func(rt http.RoundTripper) http.RoundT
 //	/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:<identity>/root
 //
 // It also returns the identity of the path, empty for paths without one.
-func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *identities) (string, string, error) {
+func decorateWildcardPathsWithResourceIdentities(urlPath string, ids *Identities) (string, string, error) {
 	// Check for: /clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces/root
 	if !strings.HasPrefix(urlPath, "/clusters/*/apis/") {
 		return urlPath, "", nil

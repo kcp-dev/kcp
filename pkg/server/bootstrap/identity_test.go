@@ -57,8 +57,8 @@ type fakeProvider struct {
 	hashes map[string]string
 }
 
-func (p *fakeProvider) get(_ context.Context, name string) (string, error) {
-	return p.hashes[name], nil
+func (p *fakeProvider) get(_ context.Context, name string) (ResolvedIdentity, error) {
+	return legacy(p.hashes[name]), nil
 }
 
 // export is an APIExport of the given workspace with the given identity.
@@ -69,16 +69,16 @@ func export(cluster, name, hash string) *apisv1alpha2.APIExport {
 	}
 }
 
-func resolvedIdentities(t *testing.T, provider *fakeProvider) *identities {
+func resolvedIdentities(t *testing.T, provider *fakeProvider) *Identities {
 	t.Helper()
-	ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
-	if err := wildcardIdentitiesResolver(ids, testGroupExportNames, testGroupResourceExportNames, provider.get)(context.Background()); err != nil {
+	ids := NewIdentities(testGroupExportNames, testGroupResourceExportNames)
+	if err := ids.Resolve(context.Background(), provider.get); err != nil {
 		t.Fatalf("failed to resolve identities: %v", err)
 	}
 	return ids
 }
 
-func decorate(t *testing.T, ids *identities, urlPath string) string {
+func decorate(t *testing.T, ids *Identities, urlPath string) string {
 	t.Helper()
 	got, _, err := decorateWildcardPathsWithResourceIdentities(urlPath, ids)
 	if err != nil {
@@ -110,7 +110,7 @@ func TestAPIExportHandler(t *testing.T) {
 			watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
 			ids.trackWatch(oldHash, watch)
 
-			handler := apiExportHandler(ids)
+			handler := ids.APIExportHandler()
 			handler.OnAdd(scenario.obj, false)
 			handler.OnUpdate(scenario.obj, scenario.obj)
 
@@ -129,7 +129,7 @@ func TestAPIExportHandler(t *testing.T) {
 		watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
 		ids.trackWatch(oldHash, watch)
 
-		apiExportHandler(ids).OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
+		ids.APIExportHandler().OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
 
 		if got, want := decorate(t, ids, tenancyPath), tenancyPath+":"+newHash; got != want {
 			t.Errorf("expected %q, got %q", want, got)
@@ -144,11 +144,11 @@ func TestAPIExportHandler(t *testing.T) {
 
 	t.Run("sets an identity that is not resolved yet without expiring anything", func(t *testing.T) {
 		t.Parallel()
-		ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
+		ids := NewIdentities(testGroupExportNames, testGroupResourceExportNames)
 		watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
 		ids.trackWatch(oldHash, watch)
 
-		apiExportHandler(ids).OnAdd(export("root", "shards.core.kcp.io", newHash), true)
+		ids.APIExportHandler().OnAdd(export("root", "shards.core.kcp.io", newHash), true)
 
 		if got, want := decorate(t, ids, shardsPath), shardsPath+":"+newHash; got != want {
 			t.Errorf("expected %q, got %q", want, got)
@@ -204,7 +204,7 @@ func TestWatchExpiresOnIdentityChange(t *testing.T) {
 		t.Fatalf("expected an ADDED event, got %s", event.Type)
 	}
 
-	apiExportHandler(ids).OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
+	ids.APIExportHandler().OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
 
 	event := next(ctx, t, w)
 	if event.Type != watch.Error {
@@ -246,7 +246,7 @@ func TestWatchExpiresWhenIdentityChangesMidRequest(t *testing.T) {
 		if got, want := req.URL.Path, "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:"+oldHash; got != want {
 			t.Errorf("expected the request to be sent to %q, got %q", want, got)
 		}
-		apiExportHandler(ids).OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
+		ids.APIExportHandler().OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     http.Header{"Content-Type": []string{"application/json"}},

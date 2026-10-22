@@ -27,6 +27,8 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+
+	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
 // byUID implements sort.Interface based on the UID field of CustomResourceDefinition.
@@ -70,7 +72,7 @@ func newConflictChecker(clusterName logicalcluster.Name,
 	}
 	for _, b := range bindings {
 		for _, br := range b.Status.BoundResources {
-			crd, err := ncc.getCRD(SystemBoundCRDsClusterName, br.Schema.UID)
+			crd, err := ncc.getCRD(SystemBoundCRDsClusterName, indexers.BoundCRDNameFor(br))
 			if apierrors.IsNotFound(err) {
 				// The bound CRD is gone, but the APIBinding still references it in its
 				// status. This is expected and transient while a binding is being

@@ -18,9 +18,16 @@ package options
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	cryptorand "crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,7 +37,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	genericapiserveroptions "k8s.io/apiserver/pkg/server/options"
+	"k8s.io/client-go/util/keyutil"
 	cliflag "k8s.io/component-base/cli/flag"
+	"k8s.io/klog/v2"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver/options"
 
 	etcdoptions "github.com/kcp-dev/embeddedetcd/options"
@@ -85,8 +94,15 @@ type ExtraOptions struct {
 	LogicalClusterAdminKubeconfig         string
 	ExternalLogicalClusterAdminKubeconfig string
 	ConversionCELTransformationTimeout    time.Duration
-	RootIdentitiesFile                    string
-	BatteriesIncluded                     []string
+	// RootIdentitiesFile bootstraps APIExport identities in the root workspace
+	// from a plain-text YAML file. DEVELOPMENT ONLY; deprecated in favor of
+	// CoreIdentitiesKeyFile.
+	RootIdentitiesFile string
+	// CoreIdentitiesKeyFile is the path to a PEM-encoded private key shared by
+	// all shards from which the identities of the core APIExports are derived
+	// for core APIs that do not have an identity yet.
+	CoreIdentitiesKeyFile string
+	BatteriesIncluded     []string
 	// DEVELOPMENT ONLY. AdditionalMappingsFile is the path to a file that contains additional mappings
 	// for the mini-front-proxy to use. The file should be in the format of the
 	// --miniproxy-mapping-file flag of the front-proxy. Do NOT expose this flag to users via main server options.
@@ -204,7 +220,8 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs.StringVar(&o.Extra.MountProxyServerCAFile, "mount-proxy-server-ca-file", o.Extra.MountProxyServerCAFile, "Path to a CA bundle that is trusted in addition to the system roots when the local proxy connects to the target of a mounted workspace. Mount targets must serve https with a certificate that chains to the system roots or this bundle.")
 	fs.StringVar(&o.Extra.LogicalClusterAdminKubeconfig, "logical-cluster-admin-kubeconfig", o.Extra.LogicalClusterAdminKubeconfig, "Kubeconfig holding system:kcp:logical-cluster-admin credentials for connecting to other shards. Defaults to the loopback client")
 	fs.StringVar(&o.Extra.ExternalLogicalClusterAdminKubeconfig, "external-logical-cluster-admin-kubeconfig", o.Extra.ExternalLogicalClusterAdminKubeconfig, "Kubeconfig holding system:kcp:external-logical-cluster-admin credentials for connecting to the external address (e.g. the front-proxy). Defaults to the loopback client")
-	fs.StringVar(&o.Extra.RootIdentitiesFile, "root-identities-file", "", "Path to a YAML file used to bootstrap APIExport identities inside the root workspace. The YAML file must be structured as {\"identities\": [ {\"export\": \"<APIExport name>\", \"identity\": \"<APIExport identity>\"}, ... ]}. If a secret with matching APIExport name already exists inside kcp-system namespace, it will be left unchanged. Defaults to empty, i.e. no identities are bootstrapped.")
+	fs.StringVar(&o.Extra.RootIdentitiesFile, "root-identities-file", "", "DEVELOPMENT ONLY. Path to a YAML file used to bootstrap APIExport identities inside the root workspace. The YAML file must be structured as {\"identities\": [ {\"export\": \"<APIExport name>\", \"identity\": \"<APIExport identity>\"}, ... ]}. If a secret with matching APIExport name already exists inside kcp-system namespace, it will be left unchanged; an entry that disagrees with an existing identity makes the root shard report not-ready. Defaults to empty, i.e. no identities are bootstrapped. Deprecated: stores identity secrets in plain text; use --core-identities-key-file.")
+	fs.StringVar(&o.Extra.CoreIdentitiesKeyFile, "core-identities-key-file", o.Extra.CoreIdentitiesKeyFile, "Path to a PEM-encoded private key (ECDSA, Ed25519 or RSA >= 2048 bits, e.g. the tls.key of a cert-manager Certificate with privateKey.rotationPolicy=Never) that is shared by all shards. If unset, core-identities.key in --root-directory is used and generated if it does not exist; deployments with several shards must pass the same key to all of them. The identities of the core APIExports (tenancy.kcp.io, topology.kcp.io, shards.core.kcp.io, migration.kcp.io, cache.kcp.io) are derived from it, so shards, the front-proxy and virtual-workspaces can start without the root shard. The key never replaces an identity that already exists; it only fills in missing ones, e.g. on a fresh install or for core APIs added by an upgrade. A changed key is detected and reported in the shard's CoreIdentitySet (kubectl ws use :admin; kubectl get coreidentitysets) and blocks new core APIs until the previous key is restored.")
 
 	fs.BoolVar(&o.Extra.ExperimentalBindFreePort, "experimental-bind-free-port", o.Extra.ExperimentalBindFreePort, "Bind to a free port. --secure-port must be 0. Use the admin.kubeconfig to extract the chosen port.")
 	fs.MarkHidden("experimental-bind-free-port") //nolint:errcheck
@@ -321,6 +338,30 @@ func (o *Options) Complete(ctx context.Context, rootDir string) (*CompletedOptio
 	}
 	if !filepath.IsAbs(o.AdminAuthentication.KubeConfigPath) {
 		o.AdminAuthentication.KubeConfigPath, err = filepath.Abs(o.AdminAuthentication.KubeConfigPath)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(o.Extra.CoreIdentitiesKeyFile) > 0 && !filepath.IsAbs(o.Extra.CoreIdentitiesKeyFile) {
+		o.Extra.CoreIdentitiesKeyFile, err = filepath.Abs(o.Extra.CoreIdentitiesKeyFile)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(o.Extra.CoreIdentitiesKeyFile) == 0 {
+		if rootDir == "" {
+			return nil, errors.New("no core identities key file loaded and no root directory set")
+		}
+		// use core-identities.key and auto-generate if not existing, like
+		// sa.key. Deployments with several shards or replicas pass the
+		// installation's key explicitly: every shard must use the same one.
+		o.Extra.CoreIdentitiesKeyFile, err = ensureCoreIdentitiesKey(filepath.Join(rootDir, "core-identities.key"))
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(o.Extra.RootIdentitiesFile) > 0 && !filepath.IsAbs(o.Extra.RootIdentitiesFile) {
+		o.Extra.RootIdentitiesFile, err = filepath.Abs(o.Extra.RootIdentitiesFile)
 		if err != nil {
 			return nil, err
 		}
@@ -479,4 +520,27 @@ func filter(name string, fs *pflag.FlagSet, allowed sets.Set[string]) *pflag.Fla
 		}
 	})
 	return filtered
+}
+
+// ensureCoreIdentitiesKey generates an ECDSA P-256 core identities key at
+// path unless one exists, and returns the path.
+func ensureCoreIdentitiesKey(path string) (string, error) {
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("error checking core identities key file %q: %w", path, err)
+	}
+	klog.Background().WithValues("file", path).Info("generating core identities key file")
+	key, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
+	if err != nil {
+		return "", fmt.Errorf("error generating core identities key: %w", err)
+	}
+	der, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return "", fmt.Errorf("error marshaling core identities key: %w", err)
+	}
+	if err := keyutil.WriteKey(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})); err != nil {
+		return "", fmt.Errorf("error writing core identities key file %q: %w", path, err)
+	}
+	return path, nil
 }

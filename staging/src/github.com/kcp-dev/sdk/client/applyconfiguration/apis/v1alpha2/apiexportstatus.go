@@ -27,9 +27,30 @@ import (
 //
 // APIExportStatus defines the observed state of APIExport.
 type APIExportStatusApplyConfiguration struct {
-	// identityHash is the hash of the API identity key of this APIExport. This value
-	// is immutable as soon as it is set.
+	// identityHash is the identity of this APIExport: an opaque, unique
+	// identifier that is also the default etcd storage prefix of its bound
+	// instances. It is assigned once by kcp and immutable afterwards.
 	IdentityHash *string `json:"identityHash,omitempty"`
+	// identityAliasHashes lists previous identity hashes of this APIExport
+	// that are still honored as equivalents of the current identityHash for
+	// the resources this export serves. Permission claims and wildcard
+	// consumers referencing an alias hash keep resolving to this export until
+	// the alias is retired. Set by the one-time conversion of an identity that
+	// was shared by several exports; managed by kcp.
+	IdentityAliasHashes []string `json:"identityAliasHashes,omitempty"`
+	// identity describes where the identity came from.
+	Identity *IdentityStatusApplyConfiguration `json:"identity,omitempty"`
+	// storage reports, per resource of this export, the storage prefixes its
+	// bindings are expected to use: the export's own identity in the steady
+	// state, the source's identity for adopted resources.
+	Storage *StorageStatusApplyConfiguration `json:"storage,omitempty"`
+	// resources reports, per resource of this export, the schema in effect.
+	// It differs from spec only for adopted resources, which are served with
+	// the source export's schema.
+	Resources []ResourceStatusApplyConfiguration `json:"resources,omitempty"`
+	// permissionClaims records how every permission claim of spec that does
+	// not name an identity resolved: to which identity and by which means.
+	PermissionClaims []ResolvedPermissionClaimApplyConfiguration `json:"permissionClaims,omitempty"`
 	// conditions is a list of conditions that apply to the APIExport.
 	Conditions *v1alpha1.Conditions `json:"conditions,omitempty"`
 	// virtualWorkspaces contains all APIExport virtual workspace URLs.
@@ -52,6 +73,58 @@ func APIExportStatus() *APIExportStatusApplyConfiguration {
 // If called multiple times, the IdentityHash field is set to the value of the last call.
 func (b *APIExportStatusApplyConfiguration) WithIdentityHash(value string) *APIExportStatusApplyConfiguration {
 	b.IdentityHash = &value
+	return b
+}
+
+// WithIdentityAliasHashes adds the given value to the IdentityAliasHashes field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the IdentityAliasHashes field.
+func (b *APIExportStatusApplyConfiguration) WithIdentityAliasHashes(values ...string) *APIExportStatusApplyConfiguration {
+	for i := range values {
+		b.IdentityAliasHashes = append(b.IdentityAliasHashes, values[i])
+	}
+	return b
+}
+
+// WithIdentity sets the Identity field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Identity field is set to the value of the last call.
+func (b *APIExportStatusApplyConfiguration) WithIdentity(value *IdentityStatusApplyConfiguration) *APIExportStatusApplyConfiguration {
+	b.Identity = value
+	return b
+}
+
+// WithStorage sets the Storage field in the declarative configuration to the given value
+// and returns the receiver, so that objects can be built by chaining "With" function invocations.
+// If called multiple times, the Storage field is set to the value of the last call.
+func (b *APIExportStatusApplyConfiguration) WithStorage(value *StorageStatusApplyConfiguration) *APIExportStatusApplyConfiguration {
+	b.Storage = value
+	return b
+}
+
+// WithResources adds the given value to the Resources field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the Resources field.
+func (b *APIExportStatusApplyConfiguration) WithResources(values ...*ResourceStatusApplyConfiguration) *APIExportStatusApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithResources")
+		}
+		b.Resources = append(b.Resources, *values[i])
+	}
+	return b
+}
+
+// WithPermissionClaims adds the given value to the PermissionClaims field in the declarative configuration
+// and returns the receiver, so that objects can be build by chaining "With" function invocations.
+// If called multiple times, values provided by each call will be appended to the PermissionClaims field.
+func (b *APIExportStatusApplyConfiguration) WithPermissionClaims(values ...*ResolvedPermissionClaimApplyConfiguration) *APIExportStatusApplyConfiguration {
+	for i := range values {
+		if values[i] == nil {
+			panic("nil value passed to WithPermissionClaims")
+		}
+		b.PermissionClaims = append(b.PermissionClaims, *values[i])
+	}
 	return b
 }
 

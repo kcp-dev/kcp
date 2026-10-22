@@ -18,6 +18,11 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"flag"
 	"fmt"
 	"net"
@@ -187,6 +192,12 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// create server CA to be used to sign shard serving certs
+	// one core identities key shared by all shards: the identities of the
+	// core APIs are derived from it, so no shard depends on the root shard.
+	if err := ensureCoreIdentitiesKey(filepath.Join(workDirPath, ".kcp", "core-identities.key")); err != nil {
+		return err
+	}
+
 	servingCA, _, err := crypto.EnsureCA(
 		filepath.Join(workDirPath, ".kcp", "serving-ca.crt"),
 		filepath.Join(workDirPath, ".kcp", "serving-ca.key"),
@@ -428,4 +439,26 @@ var regions = []string{
 	"me-south-1",
 	"me-central-1",
 	"sa-east-1",
+}
+
+// ensureCoreIdentitiesKey writes a fresh ECDSA P-256 private key to path
+// unless one exists already.
+func ensureCoreIdentitiesKey(path string) error {
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return fmt.Errorf("failed to generate core identities key: %w", err)
+	}
+	der, err := x509.MarshalPKCS8PrivateKey(priv)
+	if err != nil {
+		return fmt.Errorf("failed to marshal core identities key: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), 0o600)
 }

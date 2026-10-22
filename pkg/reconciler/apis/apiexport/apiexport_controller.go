@@ -29,6 +29,7 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -37,6 +38,7 @@ import (
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/kcp-dev/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -46,12 +48,14 @@ import (
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 
+	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
 	kcpmetrics "github.com/kcp-dev/kcp/pkg/server/metrics"
 	"github.com/kcp-dev/kcp/pkg/tombstone"
+	builtinapiexport "github.com/kcp-dev/kcp/pkg/virtual/apiexport/schemas/builtin"
 )
 
 const (
@@ -64,6 +68,8 @@ const (
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	deepSARClient kcpkubernetesclientset.ClusterInterface,
 	apiExportEndpointSliceInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
 	globalShardInformer corev1alpha1informers.ShardClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
@@ -97,6 +103,39 @@ func NewController(
 		getAPIExport: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIExport, error) {
 			return apiExportInformer.Lister().Cluster(clusterName).Get(name)
 		},
+		getAPIExportByPath: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+		},
+		getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha2.APIExport, error) {
+			return indexers.ByIndexWithFallback[*apisv1alpha2.APIExport](apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), indexers.APIExportByIdentity, identityHash)
+		},
+		listAPIExportsByClaimGrant: func(key string) ([]*apisv1alpha2.APIExport, error) {
+			// local and global views are merged: an export is in both when
+			// it is hosted here and replicated.
+			local, err := indexers.ByIndex[*apisv1alpha2.APIExport](apiExportInformer.Informer().GetIndexer(), indexers.APIExportByClaimGrant, key)
+			if err != nil {
+				return nil, err
+			}
+			global, err := indexers.ByIndex[*apisv1alpha2.APIExport](globalAPIExportInformer.Informer().GetIndexer(), indexers.APIExportByClaimGrant, key)
+			if err != nil {
+				return nil, err
+			}
+			seen := map[string]bool{}
+			merged := make([]*apisv1alpha2.APIExport, 0, len(local)+len(global))
+			for _, export := range append(local, global...) {
+				k := logicalcluster.From(export).String() + "|" + export.Name
+				if seen[k] {
+					continue
+				}
+				seen[k] = true
+				merged = append(merged, export)
+			}
+			return merged, nil
+		},
+		canonicalIdentityHash: func(hash, group, resource string) string {
+			return indexers.CanonicalIdentityHashForGR(globalAPIExportInformer.Informer().GetIndexer(), hash, group, resource)
+		},
+		isBuiltIn: builtinapiexport.IsBuiltInAPI,
 		getAPIExportEndpointSlice: func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExportEndpointSlice, error) {
 			return apiExportEndpointSliceInformer.Lister().Cluster(clusterName).Get(name)
 		},
@@ -142,6 +181,11 @@ func NewController(
 		countedAPIExportConditions: make(map[string]map[string]string),
 		readyAPIExports:            make(map[string]struct{}),
 	}
+	if deepSARClient != nil {
+		c.newDeepSARAuthorizer = func(clusterName logicalcluster.Name) (authorizer.Authorizer, error) {
+			return delegated.NewDelegatedAuthorizer(clusterName, deepSARClient, delegated.Options{})
+		}
+	}
 
 	_, _ = apiExportInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -163,6 +207,14 @@ func NewController(
 			c.handleReadyDurationMetricOnDelete(export)
 		},
 	})
+
+	// grants, sources of adopted storage and claimed exports may live on other
+	// shards: re-evaluate every local export when the global view changes.
+	_, _ = globalAPIExportInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueAllAPIExportsFor(obj) },
+		UpdateFunc: func(_, newObj interface{}) { c.enqueueAllAPIExportsFor(newObj) },
+		DeleteFunc: func(obj interface{}) { c.enqueueAllAPIExportsFor(obj) },
+	}))
 
 	_, _ = secretInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -217,6 +269,15 @@ type controller struct {
 	listAPIExports          func() ([]*apisv1alpha2.APIExport, error)
 	listAPIExportsForSecret func(secret *corev1.Secret) ([]*apisv1alpha2.APIExport, error)
 	getAPIExport            func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIExport, error)
+
+	// decoupling (enhancements KEP 0008): adopted storage, claim grants,
+	// identity pins and alias detection need the installation-wide view.
+	getAPIExportByPath         func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	getAPIExportsByIdentity    func(identityHash string) ([]*apisv1alpha2.APIExport, error)
+	listAPIExportsByClaimGrant func(key string) ([]*apisv1alpha2.APIExport, error)
+	canonicalIdentityHash      func(hash, group, resource string) string
+	isBuiltIn                  func(apis.GroupResource) bool
+	newDeepSARAuthorizer       func(clusterName logicalcluster.Name) (authorizer.Authorizer, error)
 
 	getAPIExportEndpointSlice    func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExportEndpointSlice, error)
 	createAPIExportEndpointSlice func(ctx context.Context, clusterName logicalcluster.Path, apiExportEndpointSlice *apisv1alpha1.APIExportEndpointSlice) error
@@ -395,14 +456,42 @@ func (c *controller) process(ctx context.Context, key string) error {
 }
 
 // InstallIndexers adds the additional indexers that this controller requires to the informers.
-func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInformer) {
+func InstallIndexers(apiExportInformer, globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer) {
 	indexers.AddIfNotPresentOrDie(
 		apiExportInformer.Informer().GetIndexer(),
 		cache.Indexers{
-			indexers.APIExportByIdentity: indexers.IndexAPIExportByIdentity,
-			indexers.APIExportBySecret:   indexers.IndexAPIExportBySecret,
+			indexers.APIExportByIdentity:   indexers.IndexAPIExportByIdentity,
+			indexers.APIExportBySecret:     indexers.IndexAPIExportBySecret,
+			indexers.APIExportByClaimGrant: indexers.IndexAPIExportByClaimGrant,
 		},
 	)
+	indexers.AddIfNotPresentOrDie(
+		globalAPIExportInformer.Informer().GetIndexer(),
+		cache.Indexers{
+			indexers.APIExportByIdentity:   indexers.IndexAPIExportByIdentity,
+			indexers.APIExportByClaimGrant: indexers.IndexAPIExportByClaimGrant,
+		},
+	)
+}
+
+// enqueueAllAPIExportsFor re-enqueues every local export because an export
+// elsewhere changed. Cheap enough: exports are few and the reconcile is
+// index-driven.
+func (c *controller) enqueueAllAPIExportsFor(obj interface{}) {
+	if _, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		obj = obj.(cache.DeletedFinalStateUnknown).Obj
+	}
+	if _, ok := obj.(*apisv1alpha2.APIExport); !ok {
+		return
+	}
+	list, err := c.listAPIExports()
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	for _, export := range list {
+		c.enqueueAPIExport(export)
+	}
 }
 
 func (c *controller) handleConditionMetricsOnAdd(export *apisv1alpha2.APIExport) {

@@ -41,6 +41,15 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 			r.TypeMeta = metav1.TypeMeta{}
 			r.Kind = ""
 			r.APIVersion = ""
+			// v1alpha1 has none of these; they are derived state (status) or
+			// only matter until the identity is assigned (identity.value).
+			if r.Spec.Identity != nil {
+				r.Spec.Identity.Value = ""
+			}
+			r.Status.Identity = nil
+			r.Status.Storage = nil
+			r.Status.Resources = nil
+			r.Status.PermissionClaims = nil
 		},
 		func(r *v1alpha1.APIExport, c randfill.Continue) {
 			c.FillNoCustom(r)

@@ -332,6 +332,38 @@ type BoundAPIResource struct {
 	// +optional
 	// +listType=set
 	StorageVersions []string `json:"storageVersions,omitempty"`
+
+	// storage records the etcd prefix the bound instances of this resource
+	// live under. The prefix is independent of the export's identity: it is
+	// the identity by default and differs while the export serves this
+	// resource out of another export's prefix (adopted storage).
+	//
+	// +optional
+	Storage BoundAPIResourceStorage `json:"storage,omitempty"`
+}
+
+// BoundAPIResourceStorage describes where the bound instances of a resource
+// are stored.
+type BoundAPIResourceStorage struct {
+	// key is the etcd prefix segment currently serving this resource:
+	//
+	//	/registry/<group>/<resource>/<key>/<cluster>/...
+	//
+	// Empty means schema.identityHash (bindings created before storage keys
+	// were tracked); use StorageKey() to resolve it.
+	//
+	// +optional
+	Key string `json:"key,omitempty"`
+}
+
+// StorageKey returns the etcd prefix segment currently serving the bound
+// resource: storage.key, or schema.identityHash for bindings created before
+// storage keys were tracked.
+func (b BoundAPIResource) StorageKey() string {
+	if b.Storage.Key != "" {
+		return b.Storage.Key
+	}
+	return b.Schema.IdentityHash
 }
 
 // BoundAPIResourceSchema is a reference to an APIResourceSchema.

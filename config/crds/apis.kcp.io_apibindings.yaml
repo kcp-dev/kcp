@@ -571,6 +571,25 @@ spec:
                           type: object
                       type: object
                       x-kubernetes-map-type: atomic
+                    export:
+                      description: |-
+                        export names the APIExport whose resource is claimed, as an alternative
+                        to identityHash. kcp resolves it to the export's identity. At most one
+                        of export and identityHash is set.
+                      properties:
+                        name:
+                          description: name is the name of the APIExport that describes
+                            the API.
+                          type: string
+                        path:
+                          description: |-
+                            path is a logical cluster path where the APIExport is defined.
+                            If the path is unset, the logical cluster of the APIBinding is used.
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
                     group:
                       default: ""
                       description: |-
@@ -585,6 +604,11 @@ spec:
                         The hash can be found on APIExport and APIResourceSchema's status.
                         It will be empty for core types.
                         Note that one must look this up for a particular kcp instance.
+
+                        It may be left empty for a resource of another export when export names
+                        that export, or when the claimed export grants this export the claim
+                        through claimableBy; kcp then resolves the identity and records it in
+                        status.permissionClaims.
                       type: string
                     resource:
                       description: |-
@@ -789,6 +813,25 @@ spec:
                           type: object
                       type: object
                       x-kubernetes-map-type: atomic
+                    export:
+                      description: |-
+                        export names the APIExport whose resource is claimed, as an alternative
+                        to identityHash. kcp resolves it to the export's identity. At most one
+                        of export and identityHash is set.
+                      properties:
+                        name:
+                          description: name is the name of the APIExport that describes
+                            the API.
+                          type: string
+                        path:
+                          description: |-
+                            path is a logical cluster path where the APIExport is defined.
+                            If the path is unset, the logical cluster of the APIBinding is used.
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
                     group:
                       default: ""
                       description: |-
@@ -803,6 +846,11 @@ spec:
                         The hash can be found on APIExport and APIResourceSchema's status.
                         It will be empty for core types.
                         Note that one must look this up for a particular kcp instance.
+
+                        It may be left empty for a resource of another export when export names
+                        that export, or when the claimed export grants this export the claim
+                        through claimableBy; kcp then resolves the identity and records it in
+                        status.permissionClaims.
                       type: string
                     resource:
                       description: |-
@@ -939,6 +987,20 @@ spec:
                       - UID
                       - identityHash
                       - name
+                      type: object
+                    storage:
+                      description: |-
+                        storage records the etcd prefix the bound instances of this resource
+                        live under. The prefix is independent of the export's identity: it is
+                        the identity by default and differs while the export serves this
+                        resource out of another export's prefix (adopted storage).
+                      properties:
+                        key:
+                          description: "key is the etcd prefix segment currently serving
+                            this resource:\n\n\t/registry/<group>/<resource>/<key>/<cluster>/...\n\nEmpty
+                            means schema.identityHash (bindings created before storage
+                            keys\nwere tracked); use StorageKey() to resolve it."
+                          type: string
                       type: object
                     storageVersions:
                       description: |-
@@ -1077,6 +1139,25 @@ spec:
                           type: object
                       type: object
                       x-kubernetes-map-type: atomic
+                    export:
+                      description: |-
+                        export names the APIExport whose resource is claimed, as an alternative
+                        to identityHash. kcp resolves it to the export's identity. At most one
+                        of export and identityHash is set.
+                      properties:
+                        name:
+                          description: name is the name of the APIExport that describes
+                            the API.
+                          type: string
+                        path:
+                          description: |-
+                            path is a logical cluster path where the APIExport is defined.
+                            If the path is unset, the logical cluster of the APIBinding is used.
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(:[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
                     group:
                       default: ""
                       description: |-
@@ -1091,6 +1172,11 @@ spec:
                         The hash can be found on APIExport and APIResourceSchema's status.
                         It will be empty for core types.
                         Note that one must look this up for a particular kcp instance.
+
+                        It may be left empty for a resource of another export when export names
+                        that export, or when the claimed export grants this export the claim
+                        through claimableBy; kcp then resolves the identity and records it in
+                        status.permissionClaims.
                       type: string
                     resource:
                       description: |-

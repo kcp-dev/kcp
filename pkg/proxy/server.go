@@ -18,9 +18,11 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
+	"sync"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,11 +70,37 @@ type Server struct {
 	// on the root shard. Their identities are injected into wildcard
 	// requests and follow an identity rotation through this informer.
 	RootAPIExportInformerFactory kcpinformers.SharedScopedInformerFactory
+
+	// identitiesReady is the readiness check that fails until the
+	// identities of the core APIs are resolved. The proxy serves (and is
+	// live) before that, but is not ready.
+	identitiesReady *identitiesHealth
+}
+
+// identitiesHealth is a readiness check gated on identity resolution.
+type identitiesHealth struct {
+	mu  sync.RWMutex
+	err error
+}
+
+func (h *identitiesHealth) Name() string { return "core-identities" }
+
+func (h *identitiesHealth) Check(_ *http.Request) error {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.err
+}
+
+func (h *identitiesHealth) set(err error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.err = err
 }
 
 func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s := &Server{
 		CompletedConfig: c,
+		identitiesReady: &identitiesHealth{err: errors.New("the identities of the core APIs are not resolved yet")},
 	}
 
 	// load the configured path mappings
@@ -209,7 +237,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	handler = genericfilters.WithCORS(handler, c.Options.CorsAllowedOriginList, nil, nil, nil, "true")
 
 	mux := http.NewServeMux()
-	healthz.InstallReadyzHandler(mux, healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory))
+	healthz.InstallReadyzHandler(mux, healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory), s.identitiesReady)
 	healthz.InstallLivezHandler(mux, healthz.PingHealthz)
 
 	// /metrics is served locally by the front proxy (it is not proxied to a
@@ -268,11 +296,20 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 func (s preparedServer) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "proxy")
 
+	// serve right away: the proxy is live from the start and becomes ready
+	// once the identities of the core APIs are known, which no longer
+	// requires the root shard to be up.
+	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
+	if err != nil {
+		return err
+	}
+
 	var identityErr error
 	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 		if err := s.CompletedConfig.ResolveIdentities(ctx); err != nil {
 			logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
 			identityErr = err
+			s.identitiesReady.set(fmt.Errorf("the identities of the core APIs are not resolved yet: %w", err))
 			return false, nil
 		}
 		return true, nil
@@ -283,6 +320,8 @@ func (s preparedServer) Run(ctx context.Context) error {
 		}
 		return err
 	}
+	s.identitiesReady.set(nil)
+
 	// start indexes
 	go s.IndexController.Start(ctx, 2)
 
@@ -295,11 +334,6 @@ func (s preparedServer) Run(ctx context.Context) error {
 	// not waited for: the identities are resolved already, and the proxy
 	// must not depend on the root shard to become ready.
 	s.RootAPIExportInformerFactory.Start(ctx.Done())
-
-	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
-	if err != nil {
-		return err
-	}
 
 	<-doneCh
 	return nil

@@ -19,6 +19,7 @@ package crdcleanup
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -140,6 +141,10 @@ func NewController(
 		deleteCRD: func(ctx context.Context, name string) error {
 			return crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(apibinding.SystemBoundCRDsClusterName.Path()).Delete(ctx, name, metav1.DeleteOptions{})
 		},
+		updateCRD: func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) error {
+			_, err := crdClusterClient.ApiextensionsV1().CustomResourceDefinitions().Cluster(apibinding.SystemBoundCRDsClusterName.Path()).Update(ctx, crd, metav1.UpdateOptions{})
+			return err
+		},
 	}
 
 	logger := logging.WithReconciler(klog.Background(), ControllerName)
@@ -193,6 +198,7 @@ type controller struct {
 	getAPIBindingsByBoundResourceUID func(name string) ([]*apisv1alpha2.APIBinding, error)
 	getAPIBindingsClaimingCRD        func(crd *apiextensionsv1.CustomResourceDefinition) ([]*apisv1alpha2.APIBinding, error)
 	deleteCRD                        func(ctx context.Context, name string) error
+	updateCRD                        func(ctx context.Context, crd *apiextensionsv1.CustomResourceDefinition) error
 }
 
 // enqueueCRD enqueues a CRD.
@@ -219,12 +225,12 @@ func (c *controller) enqueueFromAPIBinding(oldBinding, newBinding *apisv1alpha2.
 
 	if oldBinding != nil {
 		for _, boundResource := range oldBinding.Status.BoundResources {
-			uidSet.Insert(boundResource.Schema.UID)
+			uidSet.Insert(indexers.BoundCRDNameFor(boundResource))
 		}
 	}
 
 	for _, boundResource := range newBinding.Status.BoundResources {
-		uidSet.Insert(boundResource.Schema.UID)
+		uidSet.Insert(indexers.BoundCRDNameFor(boundResource))
 	}
 
 	for uid := range uidSet {
@@ -333,6 +339,26 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	logger := logging.WithObject(klog.FromContext(ctx), obj)
 	ctx = klog.NewContext(ctx, logger)
+
+	if !obj.DeletionTimestamp.IsZero() {
+		// The apiextensions cleanup finalizer would list and delete the
+		// CRD's instances. For a bound CRD it never does: the kcp CRD lister
+		// hands the finalizer a placeholder identity, so it only ever scans
+		// an empty prefix, and it races the handler's storage teardown on
+		// its own status writes, which can keep the CRD Terminating
+		// indefinitely. Bound instances are owned by APIBindings and
+		// cleaned up with them, never through the CRD. Strip the finalizer
+		// so the deleted CRD goes away.
+		if idx := slices.Index(obj.Finalizers, apiextensionsv1.CustomResourceCleanupFinalizer); idx >= 0 {
+			updated := obj.DeepCopy()
+			updated.Finalizers = slices.Delete(updated.Finalizers, idx, idx+1)
+			if err := c.updateCRD(ctx, updated); err != nil && !errors.IsNotFound(err) && !errors.IsConflict(err) {
+				return fmt.Errorf("failed to strip the cleanup finalizer from bound CRD %s: %w", obj.Name, err)
+			}
+			logger.V(2).Info("stripped the cleanup finalizer from deleted bound CRD")
+		}
+		return nil
+	}
 
 	result, err := c.getAPIBindingsByBoundResourceUID(obj.Name)
 	if err != nil {

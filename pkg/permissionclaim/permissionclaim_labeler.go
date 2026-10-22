@@ -55,6 +55,8 @@ type Labeler struct {
 	listAPIBindingsAcceptingClaimedGroupResource func(clusterName logicalcluster.Name, groupResource schema.GroupResource) ([]*apisv1alpha2.APIBinding, error)
 	getAPIBinding                                func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error)
 	getAPIExport                                 func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error)
+	listAPIBindings                              func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
+	canonicalIdentityHash                        func(hash, group, resource string) string
 }
 
 // NewLabeler returns a new Labeler.
@@ -71,8 +73,14 @@ func NewLabeler(
 		getAPIBinding: func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIBinding, error) {
 			return apiBindingInformer.Lister().Cluster(clusterName).Get(name)
 		},
+		listAPIBindings: func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error) {
+			return apiBindingInformer.Lister().Cluster(clusterName).List(klabels.Everything())
+		},
 		getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
 			return indexers.ByPathAndNameWithFallback[*apisv1alpha2.APIExport](apisv1alpha2.Resource("apiexports"), apiExportInformer.Informer().GetIndexer(), globalAPIExportInformer.Informer().GetIndexer(), path, name)
+		},
+		canonicalIdentityHash: func(hash, group, resource string) string {
+			return indexers.CanonicalIdentityHashForGR(globalAPIExportInformer.Informer().GetIndexer(), hash, group, resource)
 		},
 	}
 }
@@ -144,7 +152,17 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 				}
 			}
 
-			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, claim.PermissionClaim)
+			// the accepted claim may omit the identity when the export's claim
+			// resolved through an export reference or a grant; take it from
+			// the export's resolved claim. Then normalize an identity alias
+			// to the canonical hash before hashing, so claims on either side
+			// of a conversion produce identical labels.
+			normalizedClaim := claim.PermissionClaim
+			if exportClaim, ok := apisv1alpha2.MatchClaim(normalizedClaim, export.ResolvedPermissionClaims()); ok {
+				normalizedClaim.IdentityHash = exportClaim.IdentityHash
+			}
+			normalizedClaim.IdentityHash = l.canonicalIdentityHash(normalizedClaim.IdentityHash, normalizedClaim.Group, normalizedClaim.Resource)
+			k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, normalizedClaim)
 			if err != nil {
 				// extremely unlikely to get an error here - it means the json marshaling failed
 				logger.Error(err, "error calculating permission claim label key and value",
@@ -152,6 +170,38 @@ func (l *Labeler) LabelsFor(ctx context.Context, cluster logicalcluster.Name, gr
 				continue
 			}
 			labels[k] = v
+		}
+	}
+
+	// delegated grants: a claim the claimed export delegated to the claiming
+	// export needs no acceptance from a consumer bound to both exports.
+	if all, err := l.listAPIBindings(cluster); err == nil {
+		for _, binding := range all {
+			if !binding.DeletionTimestamp.IsZero() || binding.Spec.Reference.Export == nil {
+				continue
+			}
+			path := logicalcluster.NewPath(binding.Spec.Reference.Export.Path)
+			if path.Empty() {
+				path = logicalcluster.From(binding).Path()
+			}
+			export, err := l.getAPIExport(path, binding.Spec.Reference.Export.Name)
+			if err != nil {
+				continue
+			}
+			for _, resolved := range export.Status.PermissionClaims {
+				if !resolved.Delegated || resolved.IdentityHash == "" || resolved.Group != normalizedGR.Group || resolved.Resource != normalizedGR.Resource {
+					continue
+				}
+				if !boundToIdentity(all, resolved.IdentityHash) {
+					continue
+				}
+				delegatedClaim := apisv1alpha2.PermissionClaim{GroupResource: resolved.GroupResource, IdentityHash: resolved.IdentityHash}
+				k, v, err := permissionclaims.ToLabelKeyAndValue(logicalcluster.From(export), export.Name, delegatedClaim)
+				if err != nil {
+					continue
+				}
+				labels[k] = v
+			}
 		}
 	}
 
@@ -186,4 +236,17 @@ func InstallIndexers(apiExportInformer apisv1alpha2informers.APIExportClusterInf
 	indexers.AddIfNotPresentOrDie(apiExportInformer.Informer().GetIndexer(), cache.Indexers{
 		indexers.ByLogicalClusterPathAndName: indexers.IndexByLogicalClusterPathAndName,
 	})
+}
+
+// boundToIdentity reports whether any of the bindings serves a resource of
+// the export with the given identity, i.e. the workspace bound that export.
+func boundToIdentity(bindings []*apisv1alpha2.APIBinding, identityHash string) bool {
+	for _, binding := range bindings {
+		for _, br := range binding.Status.BoundResources {
+			if br.Schema.IdentityHash == identityHash {
+				return true
+			}
+		}
+	}
+	return false
 }

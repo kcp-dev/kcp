@@ -73,12 +73,14 @@ or multiple per region or cloud provider.
 
 Every shard serves the *Admin workspace* at `/services/admin`: an
 installation-wide administrative view, reachable identically through any
-shard. Its first resource is an aggregated view of all `Shard` objects. The
-view is backed by the cache server, where every shard's `Shard` object is
-replicated, so all shards serve an identical view in a single
-`resourceVersion` space: consumers can fail over between shards and resume
-watches with the same resource version. Over time the Admin workspace is the
-home for further installation-wide admin surfaces.
+shard. Its resources are aggregated views of shard-owned objects: all
+`Shard` objects, and all `CoreIdentitySet` objects (see
+[Core API identities](#core-api-identities)). The views are backed by the
+cache server, where every shard's objects are replicated, so all shards
+serve an identical view in a single `resourceVersion` space: consumers can
+fail over between shards and resume watches with the same resource version.
+Over time the Admin workspace is the home for further installation-wide
+admin surfaces.
 
 The view is writable for exactly one purpose: the allow-listed operational
 fields, currently the `experimental.core.kcp.io/unschedulable` annotation
@@ -106,6 +108,10 @@ $ kubectl get shards
 NAME      REGION      URL                      ...
 root      us-east-2   https://127.0.0.1:6444   ...
 shard-1   us-east-1   https://127.0.0.1:6445   ...
+$ kubectl get coreidentitysets
+NAME      KEYID      OBSERVED   CONSISTENT   KEYCHANGED   AGE
+root      5c3e...    5c3e...    True         False        3d
+shard-1   5c3e...    5c3e...    True         False        3d
 ```
 
 Access requires membership in the `system:kcp:admin` group; the serving
@@ -415,11 +421,217 @@ workspaces, API bindings and more). These will need a number of standard
 informers both watching objects locally on that shard through wildcard informers
 and watching the corresponding cache server.
 
-Wildcard informers require the `APIExport` identity. This identity varies by
-installation as it is cryptographically created during creation of the `APIExport`.
+Wildcard informers require the `APIExport` identity. The core APIs
+(`tenancy.kcp.io`, `topology.kcp.io`, `shards.core.kcp.io`,
+`migration.kcp.io`, `cache.kcp.io`) have their `APIExport` in the root
+logical cluster, so every shard, the front-proxy and the virtual-workspaces
+server need these identities before they can do any work. How they get them
+is described next; after retrieving them the informers can be started.
 
-The core and tenancy APIs have their `APIExport` in the root logical cluster.
-A new shard will connect to that root logical cluster in order to extract the
-identities for these APIs. It will cache these for later use in case of a network
-partition or unavailability of the root shard. After retrieving these identities
-the informers can be started.
+## Core API identities
+
+An identity hash is part of every cross-workspace request for a core API,
+e.g. `/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:<hash>`.
+Historically the root shard created the identities randomly on its first
+boot and every other component asked the root shard for them, so nothing
+could start while the root shard was down.
+
+### The core identities key
+
+The shard flag `--core-identities-key-file` points to a PEM-encoded private
+key (ECDSA, Ed25519 or RSA with at least 2048 bits) that is shared by **all
+shards**. Each core API's identity is derived from the key and the API's
+name, so every shard computes the same identities from the same key and no
+shard has to ask the root shard. The format of the key file (PKCS#1, PKCS#8,
+SEC1) does not matter, only the key itself.
+
+If the flag is not set, `core-identities.key` in the root directory
+(`.kcp`) is used and generated on first start, like the serving certificate
+and `sa.key`, so a plain `kcp start` uses derived identities. A key generated
+per shard derives different identities on every shard, so a deployment with
+several shards or replicas passes the installation's key to all of them
+explicitly, as it already does for the other key material.
+
+In a real installation the key is usually the `tls.key` of a cert-manager
+`Certificate`, mounted into every shard. Only the private key matters; the certificate is just a
+convenient way to create and store the key. cert-manager creates a new key on
+renewal by default, so set `rotationPolicy: Never`: changing the key means
+changing identities.
+
+```yaml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kcp-core-identities
+spec:
+  secretName: kcp-core-identities
+  commonName: kcp-core-identities
+  issuerRef: {name: kcp-ca, kind: Issuer}   # any CA
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Never   # changing the key means changing identities
+```
+
+The key must be dedicated to this purpose. It must not be a shard's serving
+or client key, because those differ per shard and change over time. A leaked
+key lets an attacker forge core identities; it is as sensitive as the
+identity secrets in the `root` workspace.
+
+### Existing identities never change
+
+The key **never replaces an identity that already exists**. It only fills in
+missing ones: all of them on a fresh install, and the ones of core APIs added
+by a kcp upgrade. Existing installations keep exactly the same identities
+after adding a key, with no required action.
+
+Where each component gets its identities, in order of preference:
+
+| Component | Sources |
+|---|---|
+| root shard | identity secrets already stored in `root` (seeded from `--root-identities-file` (dev only) and from the key before the APIExports are created) |
+| other shards | the identities they already use (their `CoreIdentitySet`) → the deprecated `apiexport-identity-cache` ConfigMap → the cache server (the root workspace's APIExports and the other shards' `CoreIdentitySet`s) → the key → the root shard via `--root-shard-kubeconfig-file` (legacy) |
+| virtual-workspaces | its shard's `CoreIdentitySet` → the ConfigMap → the cache server → the root workspace |
+| front-proxy | the `CoreIdentitySet`s in `:admin` → the root shard via `--root-kubeconfig` (legacy) |
+
+- Only shards get the key.
+- An existing shard always has its own identities, so it restarts without
+  the root shard or the cache server.
+- A new shard gets identities from the cache server. If the cache server is
+  down, it derives them from the key and stays not-ready (readiness check
+  `core-identities`) until another shard confirms them.
+- The front-proxy starts and reports itself live right away. It only becomes
+  ready once it has the identities.
+
+### `CoreIdentitySet`
+
+Every shard publishes what it uses in a `CoreIdentitySet` named after the
+shard, in its shard-local `system:shard` logical cluster. Only that shard
+writes it, it has no `spec`, and it is readable before the shard has resolved
+its identities. It is replicated to the cache server and all shards' objects
+are visible together in the Admin workspace:
+
+```sh
+$ kubectl ws use :admin
+$ kubectl get coreidentitysets
+NAME      KEYID      OBSERVED   CONSISTENT   KEYCHANGED   AGE
+root      5c3e...    5c3e...    True         False        3d
+shard-1   5c3e...    5c3e...    True         False        3d
+shard-2   5c3e...    9d10...    True         True         3d
+```
+
+```yaml
+apiVersion: admin.kcp.io/v1alpha1
+kind: CoreIdentitySet
+metadata:
+  name: shard-1
+status:
+  shard: shard-1
+  keyID: 5c3e...                # the active key: the first key the shard saw
+  observedKeyID: 5c3e...        # the key currently mounted
+  exports:
+  - name: tenancy.kcp.io
+    identityHash: 0e2fc432...   # what this shard uses
+    source: Legacy              # Legacy | Key | DevFile
+  - name: cache.kcp.io          # added by an upgrade, filled in from the key
+    identityHash: c71d0a9e...
+    source: Key
+    keyID: 5c3e...
+    derivation: hkdf-sha256/v1
+  conditions:
+  - type: Consistent            # matches the root shard (or, without it, the other shards)
+    status: "True"
+  - type: KeyChanged            # the mounted key differs from the active key
+    status: "False"
+```
+
+`keyID` and `derivation` record, per export, which key and which derivation
+produced the identity. This metadata lives next to the identity, not inside
+the hash: the hash stays a plain SHA-256 hex, the same format as every other
+APIExport identity, because it is part of request URLs, storage keys and
+labels.
+
+The `CoreIdentitySet` replaces the `apiexport-identity-cache` ConfigMap,
+which is deprecated and kept for one more release for older
+virtual-workspaces servers. Direct writes to `CoreIdentitySet` objects by
+non-system users are denied by admission.
+
+### `APIIdentity`
+
+Every APIExport identity in the installation, core or not, is listed as an
+`APIIdentity` named after the identity value. The shard hosting the owning
+export derives it into its `system:shard` logical cluster; all shards' objects
+are replicated to the cache server and shown together in the Admin workspace:
+
+```sh
+$ kubectl ws use :admin
+$ kubectl get apiidentities
+NAME                          OWNER              CLUSTER   CORE    SHARED   LEGACY   AGE
+system-tenancy.kcp.io         tenancy.kcp.io     root      true                      3d
+2v9w7bq1rt2mdzn6-5f1c...      networking         2v9w...   false   True              2d
+```
+
+```yaml
+apiVersion: admin.kcp.io/v1alpha1
+kind: APIIdentity
+metadata:
+  name: 2v9w7bq1rt2mdzn6-5f1c...
+spec: {}                            # operator knobs of the legacy conversion only
+status:
+  owner: {cluster: 2v9w7bq1rt2mdzn6, export: networking}
+  groupResources:
+  - {group: networking.io, resource: vnets}
+  storageSharedWith:                # exports whose bindings sit on this prefix
+  - export: {cluster: 1k3f..., export: compute}
+    resources: [{group: networking.io, resource: vnets}]
+  conditions:
+  - type: StorageShared
+    status: "True"
+```
+
+The object outlives its export: when the owner is deleted it stays with
+`Orphaned: "True"` until no binding on the shard stores under the identity
+any more, so that no other export can pin the identity while consumers' data
+may still sit under it.
+
+Identities that several exports hold, which was possible by copying an
+identity secret, are reported with `LegacyShared: "True"` and
+`status.legacyHolders`. With the `APIIdentityDecoupling` feature gate enabled
+kcp converts them once: the owner (`spec.owner`, by default the oldest holder)
+keeps the identity, every other holder gets a fresh one and keeps the shared
+one as an alias in its `status.identityAliasHashes`, so permission claims and
+wildcard requests naming the old identity keep resolving for the resources
+that holder serves. `status.aliases[].references` counts the claims still
+naming an alias; an alias is retired once no claim references it for a week,
+or at once with `spec.retireAliases: true`. `spec.convert: false` holds a
+conversion. Only `spec` may be written through the Admin workspace; everything
+else is derived.
+
+### Identities do not change
+
+kcp continuously checks that every shard agrees with the root shard (or,
+when the root shard's view is not visible, with the other shards) and reports
+it in the `Consistent` condition. The rules:
+
+1. An identity that is already in use never changes.
+2. Identities for new core APIs (added by a kcp upgrade) can be added.
+3. A `--root-identities-file` entry that disagrees with an existing identity
+   is an error: the root shard keeps the existing identity, reports
+   `Consistent=False` and not-ready until the configuration is fixed.
+4. **The key changed** (for example, the certificate was re-keyed). Not
+   fatal: the shard only needs the identities it already has. The shard
+   keeps using its current identities, reports `KeyChanged=True`, and does
+   not derive identities for new core APIs until the previous key is
+   restored.
+
+A shard that disagrees with the root shard reports `Consistent=False` and
+not-ready. Core identities never change.
+
+### `--root-identities-file`: development only
+
+`--root-identities-file` bootstraps the identity secrets in `root` from a
+plain-text YAML file. It works as before, but is meant for development and
+tests only: it stores identity secrets in plain text in a config file. It is
+deprecated and kept for one more release in favor of
+`--core-identities-key-file`. Entries of the file win over the key; using
+both logs a warning.

@@ -1,0 +1,346 @@
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: v261020-1f104ff6b.apiidentities.admin.kcp.io
+spec:
+  group: admin.kcp.io
+  names:
+    categories:
+    - kcp
+    kind: APIIdentity
+    listKind: APIIdentityList
+    plural: apiidentities
+    singular: apiidentity
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - description: The owning export
+      jsonPath: .status.owner.export
+      name: Owner
+      type: string
+    - description: The owning export's logical cluster
+      jsonPath: .status.owner.cluster
+      name: Cluster
+      type: string
+    - jsonPath: .status.core
+      name: Core
+      type: boolean
+    - jsonPath: .status.conditions[?(@.type=="StorageShared")].status
+      name: Shared
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="LegacyShared")].status
+      name: Legacy
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      description: |-
+        APIIdentity is the installation-wide record of one APIExport or
+        ClusterCachedResource identity: who owns it, what is served under it, who
+        else stores on its prefix, and, for identities that were shared by several
+        exports before identities became unique, how the conversion is going.
+
+        The object is named after the identity value. It is derived from the
+        APIExports by the shard that hosts the owning export, written into that
+        shard's shard-local system:shard logical cluster, replicated to the cache
+        server and visible for the whole installation in the Admin workspace
+        (kubectl ws use :admin). It outlives its owner: when the owner is deleted
+        the object stays, Orphaned, until no binding stores under the identity
+        any more, so that no other export can take the identity over while
+        consumers' data still sits under it.
+
+        Everything but spec is derived. spec holds the few operator knobs of the
+        legacy conversion.
+      properties:
+        apiVersion:
+          description: |-
+            APIVersion defines the versioned schema of this representation of an object.
+            Servers should convert recognized schemas to the latest internal value, and
+            may reject unrecognized values.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+          type: string
+        kind:
+          description: |-
+            Kind is a string value representing the REST resource this object represents.
+            Servers may infer this from the endpoint the client submits requests to.
+            Cannot be updated.
+            In CamelCase.
+            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: APIIdentitySpec holds the operator knobs of the legacy conversion.
+          properties:
+            convert:
+              description: |-
+                convert holds the conversion of a legacy shared identity when false.
+                Defaults to true. A held identity stays grandfathered: every holder
+                keeps the identity and nothing changes.
+              type: boolean
+            owner:
+              description: |-
+                owner selects which holder of a legacy shared identity keeps it when
+                the identity is converted; every other holder gets a fresh identity.
+                Defaults to the oldest holder. Settable before conversion; ignored
+                afterwards.
+              properties:
+                cluster:
+                  description: cluster is the logical cluster name the export lives
+                    in.
+                  minLength: 1
+                  type: string
+                export:
+                  description: export is the name of the APIExport.
+                  minLength: 1
+                  type: string
+              required:
+              - cluster
+              - export
+              type: object
+            retireAliases:
+              description: |-
+                retireAliases retires every alias of a converted identity at once
+                instead of waiting for references to go away.
+              type: boolean
+          type: object
+        status:
+          description: APIIdentityStatus is derived from the APIExports.
+          properties:
+            aliases:
+              description: |-
+                aliases lists former identities of the owner that are still honored for
+                the owner's resources.
+              items:
+                description: IdentityAlias records a former identity still honored
+                  for some resources.
+                properties:
+                  groupResources:
+                    description: groupResources lists the resources the alias applies
+                      to.
+                    items:
+                      description: GroupResource identifies a resource.
+                      properties:
+                        group:
+                          default: ""
+                          description: |-
+                            group is the name of an API group.
+                            For core groups this is the empty string '""'.
+                          pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                          type: string
+                        resource:
+                          description: |-
+                            resource is the name of the resource.
+                            A subresource may be claimed as "resource/subresource",
+                            e.g. "serviceaccounts/token", in the style of RBAC rules.
+                            Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+                            not provided by an api export.
+                          maxLength: 127
+                          pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - resource
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  identity:
+                    description: identity is the former identity.
+                    type: string
+                  references:
+                    description: |-
+                      references counts the permission claims that still name the alias for
+                      one of the resources.
+                    format: int32
+                    type: integer
+                  since:
+                    description: since is when the alias was created.
+                    format: date-time
+                    type: string
+                required:
+                - identity
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+            conditions:
+              description: conditions is a list of conditions that apply to the APIIdentity.
+              items:
+                description: Condition defines an observation of a object operational
+                  state.
+                properties:
+                  lastTransitionTime:
+                    description: |-
+                      Last time the condition transitioned from one status to another.
+                      This should be when the underlying condition changed. If that is not known, then using the time when
+                      the API field changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: |-
+                      A human readable message indicating details about the transition.
+                      This field may be empty.
+                    type: string
+                  reason:
+                    description: |-
+                      The reason for the condition's last transition in CamelCase.
+                      The specific API may choose whether or not this field is considered a guaranteed API.
+                      This field may not be empty.
+                    type: string
+                  severity:
+                    description: |-
+                      Severity provides an explicit classification of Reason code, so the users or machines can immediately
+                      understand the current situation and act accordingly.
+                      The Severity field MUST be set only when Status=False.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                    type: string
+                  type:
+                    description: |-
+                      Type of condition in CamelCase or in foo.example.com/CamelCase.
+                      Many .condition.type values are consistent across resources like Available, but because arbitrary conditions
+                      can be useful (see .node.status.conditions), the ability to deconflict is important.
+                    type: string
+                required:
+                - lastTransitionTime
+                - status
+                - type
+                type: object
+              type: array
+            core:
+              description: |-
+                core is true for the identity of one of kcp's core exports in the root
+                workspace.
+              type: boolean
+            groupResources:
+              description: groupResources lists the resources served under this identity.
+              items:
+                description: GroupResource identifies a resource.
+                properties:
+                  group:
+                    default: ""
+                    description: |-
+                      group is the name of an API group.
+                      For core groups this is the empty string '""'.
+                    pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                    type: string
+                  resource:
+                    description: |-
+                      resource is the name of the resource.
+                      A subresource may be claimed as "resource/subresource",
+                      e.g. "serviceaccounts/token", in the style of RBAC rules.
+                      Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+                      not provided by an api export.
+                    maxLength: 127
+                    pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
+                    type: string
+                required:
+                - resource
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+            legacyHolders:
+              description: |-
+                legacyHolders lists every export holding this identity while it is
+                shared. Set only for identities shared before identities became unique.
+              items:
+                description: ExportIdentityReference names an APIExport by logical
+                  cluster and name.
+                properties:
+                  cluster:
+                    description: cluster is the logical cluster name the export lives
+                      in.
+                    minLength: 1
+                    type: string
+                  export:
+                    description: export is the name of the APIExport.
+                    minLength: 1
+                    type: string
+                required:
+                - cluster
+                - export
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+            owner:
+              description: |-
+                owner is the export holding the identity. Empty when the identity is
+                orphaned.
+              properties:
+                cluster:
+                  description: cluster is the logical cluster name the export lives
+                    in.
+                  minLength: 1
+                  type: string
+                export:
+                  description: export is the name of the APIExport.
+                  minLength: 1
+                  type: string
+              required:
+              - cluster
+              - export
+              type: object
+            storageSharedWith:
+              description: |-
+                storageSharedWith lists other exports storing on this identity's
+                prefix.
+              items:
+                description: |-
+                  StorageShare records an export whose bindings sit on this identity's
+                  prefix for some resources.
+                properties:
+                  export:
+                    description: export is the export storing on this identity's prefix.
+                    properties:
+                      cluster:
+                        description: cluster is the logical cluster name the export
+                          lives in.
+                        minLength: 1
+                        type: string
+                      export:
+                        description: export is the name of the APIExport.
+                        minLength: 1
+                        type: string
+                    required:
+                    - cluster
+                    - export
+                    type: object
+                  resources:
+                    description: resources lists the group/resources it stores there.
+                    items:
+                      description: GroupResource identifies a resource.
+                      properties:
+                        group:
+                          default: ""
+                          description: |-
+                            group is the name of an API group.
+                            For core groups this is the empty string '""'.
+                          pattern: ^(|[a-z0-9]([-a-z0-9]*[a-z0-9](\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*)?)$
+                          type: string
+                        resource:
+                          description: |-
+                            resource is the name of the resource.
+                            A subresource may be claimed as "resource/subresource",
+                            e.g. "serviceaccounts/token", in the style of RBAC rules.
+                            Note: it is worth noting that you can not ask for permissions for resource provided by a CRD
+                            not provided by an api export.
+                          maxLength: 127
+                          pattern: ^[a-z][-a-z0-9]*[a-z0-9](/[a-z][-a-z0-9]*[a-z0-9])?$
+                          type: string
+                      required:
+                      - resource
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - export
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+          type: object
+      type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

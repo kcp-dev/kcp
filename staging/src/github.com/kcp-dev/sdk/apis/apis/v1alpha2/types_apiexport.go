@@ -38,6 +38,46 @@ const (
 	IdentityVerificationFailedReason = "IdentityVerificationFailed"
 	IdentityGenerationFailedReason   = "IdentityGenerationFailed"
 
+	// IdentityShared is an informational condition set when this export's
+	// identity secret is referenced by more than one APIExport, listing the
+	// co-owners in the message.
+	IdentityShared conditionsv1alpha1.ConditionType = "IdentityShared"
+
+	// ClaimIdentityAliased is an informational condition set on a claiming
+	// APIExport whose permission claims reference an alias identity hash of
+	// another export; the message names the canonical hash to migrate to.
+	// Aliases are retired after a deprecation window, so the reference has
+	// to be updated.
+	ClaimIdentityAliased conditionsv1alpha1.ConditionType = "ClaimIdentityAliased"
+
+	// ClaimsResolved is True when every permission claim of the export that
+	// names no identity could be resolved to exactly one export, by export
+	// reference or by grant. It is False with reason ClaimUnresolvedReason or
+	// ClaimAmbiguousReason otherwise; unresolved claims are inert.
+	ClaimsResolved conditionsv1alpha1.ConditionType = "ClaimsResolved"
+
+	ClaimUnresolvedReason = "ClaimUnresolved"
+	ClaimAmbiguousReason  = "ClaimAmbiguous"
+
+	// StorageShared is True when some resource of this export is stored on a
+	// prefix that is not this export's identity (adopted storage), or when
+	// another export's bindings sit on this export's prefix (sharedWith).
+	StorageShared conditionsv1alpha1.ConditionType = "StorageShared"
+
+	// IdentityLegacyShared is True while this export shares its identity with
+	// other exports, which was possible by sharing an identity secret. Such
+	// identities are converted once: every holder but the owner gets a fresh
+	// identity, with the old one kept as an alias for a deprecation window.
+	IdentityLegacyShared conditionsv1alpha1.ConditionType = "IdentityLegacyShared"
+
+	// ResourcesValid is True when every resource of the export could be
+	// resolved: adopted resources found their source, its consent and its
+	// schema.
+	ResourcesValid conditionsv1alpha1.ConditionType = "ResourcesValid"
+
+	StorageNotSharedReason     = "StorageNotShared"
+	StorageSourceInvalidReason = "StorageSourceInvalid"
+
 	APIExportVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
 
 	ErrorGeneratingURLsReason = "ErrorGeneratingURLs"
@@ -156,6 +196,8 @@ type APIExportSpec struct {
 }
 
 // ResourceSchema defines the resource schemas that are exposed with this APIExport.
+//
+// +kubebuilder:validation:XValidation:rule="has(self.schema) || (has(self.storage) && has(self.storage.adopted))",message="schema is required unless storage.adopted is set"
 type ResourceSchema struct {
 	// Name is the name of the resource.
 	Name string `json:"name"`
@@ -163,17 +205,78 @@ type ResourceSchema struct {
 	Group string `json:"group"`
 	// Schema is the name of the referenced APIResourceSchema. This must be of the format
 	// "<version>.<name>.<group>".
-	Schema string `json:"schema"`
+	//
+	// It is optional for a resource with adopted storage: such a resource is
+	// served with the schema the source export references for it, which kcp
+	// resolves and records in status.resources. If set on an adopted resource it
+	// must name the same APIResourceSchema the source uses.
+	//
+	// +optional
+	Schema string `json:"schema,omitempty"`
 	// Storage defines how the resource is stored.
 	//
 	// +kubebuilder:default={crd:{}}
 	// +optional
 	Storage ResourceSchemaStorage `json:"storage"`
+
+	// claimableBy grants other APIExports the right to claim this resource
+	// without naming this export's identity in their permission claim: a claim
+	// for this group/resource on a granted export resolves to this export, and
+	// the claimed export's maximal permission policy is satisfied by the grant.
+	// Consumers still accept the claim on their APIBinding unless the grant is
+	// delegated. A grant is never required: any export may claim this resource
+	// by identity or by export reference, subject to consumer acceptance and the
+	// maximal permission policy.
+	//
+	// +optional
+	// +listType=atomic
+	ClaimableBy []ClaimGrant `json:"claimableBy,omitempty"`
 }
 
-// ResourceSchemaStorage defines how the resource is stored.
-//
-// +kubebuilder:validation:XValidation:rule="has(self.crd) != has(self.virtual)",message="Exactly one of crd or virtual must be set"
+// ClaimGrant names exports that may claim a resource. Exactly one of export,
+// exportSelector or rbac is set (enforced by a oneOf in the CRD schema patch
+// and by admission).
+type ClaimGrant struct {
+	// export names one APIExport that may claim the resource.
+	//
+	// +optional
+	Export *ExportBindingReference `json:"export,omitempty"`
+
+	// exportSelector grants every APIExport whose labels match the selector.
+	//
+	// +optional
+	ExportSelector *metav1.LabelSelector `json:"exportSelector,omitempty"`
+
+	// rbac grants every APIExport whose owner is allowed the verb "claim" on
+	// this APIExport, evaluated through RBAC in this export's workspace with
+	// the same "apis.kcp.io:binding:" prefixing the maximal permission policy
+	// uses.
+	//
+	// +optional
+	RBAC *ClaimGrantRBAC `json:"rbac,omitempty"`
+
+	// verbs caps the verbs a granted claim may use. Empty means no cap beyond
+	// the claim's own verbs.
+	//
+	// +optional
+	// +listType=set
+	Verbs []string `json:"verbs,omitempty"`
+
+	// delegated lets this export extend its own access to the grantee:
+	// consumers bound to both exports are treated as having accepted the
+	// grantee's claim, because this export already had that access and is
+	// answerable for it. Default false: each consumer accepts the claim.
+	//
+	// +optional
+	Delegated bool `json:"delegated,omitempty"`
+}
+
+// ClaimGrantRBAC grants claims through RBAC in the exporting workspace.
+type ClaimGrantRBAC struct{}
+
+// ResourceSchemaStorage defines how the resource is stored. Exactly one of
+// crd, virtual or adopted is set (enforced by a oneOf in the CRD schema patch
+// and by admission).
 type ResourceSchemaStorage struct {
 	// CRD storage defines that this APIResourceSchema is exposed as
 	// CustomResourceDefinitions inside the workspaces that bind to the APIExport.
@@ -189,9 +292,41 @@ type ResourceSchemaStorage struct {
 	//
 	// +optional
 	Virtual *ResourceSchemaStorageVirtual `json:"virtual,omitempty"`
+
+	// Adopted storage defines that this resource is exposed as
+	// CustomResourceDefinitions like crd storage, but stored on another
+	// export's storage prefix: bindings of this export start on the prefix
+	// the source export's bindings use for the same resource, so the objects
+	// the source's consumers created are served in place. This is how one
+	// export takes over serving a resource from another (zero-copy adoption).
+	// The source must serve the same resource with crd storage and list this
+	// export in its crd.sharedWith. The resource is served with the source's
+	// schema.
+	//
+	// +optional
+	Adopted *ResourceSchemaStorageAdopted `json:"adopted,omitempty"`
 }
 
-type ResourceSchemaStorageCRD struct{}
+// ResourceSchemaStorageCRD configures crd storage.
+type ResourceSchemaStorageCRD struct {
+	// sharedWith lists exports whose bindings for this resource may sit on
+	// this export's storage prefix (adopted storage on their side). This is
+	// the owner's half of a storage handover; it is not how other exports
+	// get access to the resource, that is a permission claim. Edited only by
+	// this export's owner.
+	//
+	// +optional
+	// +listType=atomic
+	SharedWith []ExportBindingReference `json:"sharedWith,omitempty"`
+}
+
+// ResourceSchemaStorageAdopted configures adopted storage.
+type ResourceSchemaStorageAdopted struct {
+	// from is the export whose storage prefix for this resource is adopted.
+	//
+	// +required
+	From ExportBindingReference `json:"from"`
+}
 
 // ResourceSchemaStorageVirtual refers to an endpoint slice object
 // from which the virtual resource is served.
@@ -204,13 +339,32 @@ type ResourceSchemaStorageVirtual struct {
 	// We are not sure if it belongs here.
 }
 
-// Identity defines the identity of an APIExport, i.e. determines the etcd prefix
-// data of this APIExport are stored under.
+// Identity configures the identity of an APIExport: an opaque, unique,
+// immutable identifier that is also the default etcd prefix of the export's
+// bound instances. It is assigned by kcp and recorded in status.identityHash.
 type Identity struct {
 	// secretRef is a reference to a secret that contains the API identity in the 'key' file.
 	//
+	// Deprecated: identities carry no secret. The field is honored once, for
+	// an export that has no identity yet, so flows that pre-create a secret to
+	// pin an identity keep landing on it; it is never created by kcp when the
+	// APIIdentityDecoupling feature gate is enabled, and it will be removed.
+	// Use value to pin an identity.
+	//
 	// +optional
 	SecretRef *corev1.SecretReference `json:"secretRef,omitempty"`
+
+	// value pins the identity of this export instead of letting kcp generate
+	// one. It is honored only while status.identityHash is empty. The value
+	// must be prefixed with the export's own logical cluster name followed by
+	// "-", so that ownership is checkable without a lookup, and must not be
+	// held by another export. Used to keep an identity across a
+	// delete-and-recreate of the export, e.g. by GitOps.
+	//
+	// +optional
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^([a-z0-9][a-z0-9.-]*)?$`
+	Value string `json:"value,omitempty"`
 }
 
 // MaximalPermissionPolicy is a wrapper type around the multiple options that would be allowed.
@@ -249,9 +403,21 @@ type PermissionClaim struct {
 	// It will be empty for core types.
 	// Note that one must look this up for a particular kcp instance.
 	//
+	// It may be left empty for a resource of another export when export names
+	// that export, or when the claimed export grants this export the claim
+	// through claimableBy; kcp then resolves the identity and records it in
+	// status.permissionClaims.
+	//
 	// +kubebuilder:default:=""
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
+
+	// export names the APIExport whose resource is claimed, as an alternative
+	// to identityHash. kcp resolves it to the export's identity. At most one
+	// of export and identityHash is set.
+	//
+	// +optional
+	Export *ExportBindingReference `json:"export,omitempty"`
 
 	// defaultSelector is the default selector to use when creating APIBindings
 	// via WorkspaceType's defaultAPIBindings. If not set, the APIBinding will
@@ -343,11 +509,54 @@ func (p GroupResource) GetResource() string {
 
 // APIExportStatus defines the observed state of APIExport.
 type APIExportStatus struct {
-	// identityHash is the hash of the API identity key of this APIExport. This value
-	// is immutable as soon as it is set.
+	// identityHash is the identity of this APIExport: an opaque, unique
+	// identifier that is also the default etcd storage prefix of its bound
+	// instances. It is assigned once by kcp and immutable afterwards.
 	//
 	// +optional
 	IdentityHash string `json:"identityHash,omitempty"`
+
+	// identityAliasHashes lists previous identity hashes of this APIExport
+	// that are still honored as equivalents of the current identityHash for
+	// the resources this export serves. Permission claims and wildcard
+	// consumers referencing an alias hash keep resolving to this export until
+	// the alias is retired. Set by the one-time conversion of an identity that
+	// was shared by several exports; managed by kcp.
+	//
+	// +optional
+	// +listType=set
+	IdentityAliasHashes []string `json:"identityAliasHashes,omitempty"`
+
+	// identity describes where the identity came from.
+	//
+	// +optional
+	Identity *IdentityStatus `json:"identity,omitempty"`
+
+	// storage reports, per resource of this export, the storage prefixes its
+	// bindings are expected to use: the export's own identity in the steady
+	// state, the source's identity for adopted resources.
+	//
+	// +optional
+	Storage *StorageStatus `json:"storage,omitempty"`
+
+	// resources reports, per resource of this export, the schema in effect.
+	// It differs from spec only for adopted resources, which are served with
+	// the source export's schema.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=resource
+	Resources []ResourceStatus `json:"resources,omitempty"`
+
+	// permissionClaims records how every permission claim of spec that does
+	// not name an identity resolved: to which identity and by which means.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=resource
+	PermissionClaims []ResolvedPermissionClaim `json:"permissionClaims,omitempty"`
 
 	// conditions is a list of conditions that apply to the APIExport.
 	//
@@ -372,6 +581,187 @@ type VirtualWorkspace struct {
 	// +kubebuilder:format:URL
 	// +required
 	URL string `json:"url"`
+}
+
+// IdentitySource says where an export's identity came from.
+type IdentitySource string
+
+const (
+	// IdentitySourceGenerated marks an identity generated by kcp.
+	IdentitySourceGenerated IdentitySource = "Generated"
+	// IdentitySourcePinned marks an identity pinned through spec.identity.value.
+	IdentitySourcePinned IdentitySource = "Pinned"
+	// IdentitySourceLegacy marks an identity derived from an identity secret.
+	IdentitySourceLegacy IdentitySource = "Legacy"
+	// IdentitySourceWellKnown marks the well-known identity of a core export.
+	IdentitySourceWellKnown IdentitySource = "WellKnown"
+	// IdentitySourceConverted marks an identity assigned by the one-time
+	// conversion of an identity that was shared by several exports.
+	IdentitySourceConverted IdentitySource = "Converted"
+)
+
+// IdentityStatus describes an export's identity.
+type IdentityStatus struct {
+	// source says where the identity came from.
+	//
+	// +optional
+	// +kubebuilder:validation:Enum=Generated;Pinned;Legacy;WellKnown;Converted
+	Source IdentitySource `json:"source,omitempty"`
+}
+
+// StorageStatus reports the storage prefixes of an export's resources.
+type StorageStatus struct {
+	// resources lists, per resource, the storage prefixes its bindings use.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=group
+	// +listMapKey=resource
+	Resources []ResourceStorageStatus `json:"resources,omitempty"`
+}
+
+// ResourceStorageStatus reports the storage prefixes of one resource.
+type ResourceStorageStatus struct {
+	GroupResource `json:",inline"`
+
+	// keys lists the storage prefixes bindings of this resource use: the
+	// export's identity, or the source's identity for an adopted resource.
+	//
+	// +optional
+	// +listType=set
+	Keys []string `json:"keys,omitempty"`
+}
+
+// ResourceStatus reports the schema in effect for one resource.
+type ResourceStatus struct {
+	GroupResource `json:",inline"`
+
+	// schema is the name of the APIResourceSchema in effect.
+	//
+	// +optional
+	Schema string `json:"schema,omitempty"`
+
+	// schemaCluster is the logical cluster the schema lives in: this export's
+	// cluster, or the source export's cluster for an adopted resource.
+	//
+	// +optional
+	SchemaCluster string `json:"schemaCluster,omitempty"`
+}
+
+// ClaimResolution says how a permission claim resolved to an identity.
+type ClaimResolution string
+
+const (
+	// ClaimResolvedByIdentityHash: the claim named the identity itself.
+	ClaimResolvedByIdentityHash ClaimResolution = "IdentityHash"
+	// ClaimResolvedByExport: the claim named the export.
+	ClaimResolvedByExport ClaimResolution = "Export"
+	// ClaimResolvedByGrant: the claimed export grants this export the claim.
+	ClaimResolvedByGrant ClaimResolution = "Grant"
+	// ClaimResolvedBuiltIn: the claim is for a built-in or apis.kcp.io
+	// resource and has no identity.
+	ClaimResolvedBuiltIn ClaimResolution = "BuiltIn"
+)
+
+// ResolvedPermissionClaim records the resolution of one permission claim.
+type ResolvedPermissionClaim struct {
+	GroupResource `json:",inline"`
+
+	// identityHash is the resolved identity of the claimed export.
+	//
+	// +optional
+	IdentityHash string `json:"identityHash,omitempty"`
+
+	// resolvedBy says how the identity was resolved.
+	//
+	// +optional
+	// +kubebuilder:validation:Enum=IdentityHash;Export;Grant;BuiltIn
+	ResolvedBy ClaimResolution `json:"resolvedBy,omitempty"`
+
+	// delegated is true when the resolving grant delegates the claimed
+	// export's access: consumers bound to both exports need not accept.
+	//
+	// +optional
+	Delegated bool `json:"delegated,omitempty"`
+
+	// verbs is the effective verb set of the claim: the claim's verbs capped
+	// by the resolving grant's verbs, if the grant caps them. Empty means the
+	// claim's own verbs apply.
+	//
+	// +optional
+	// +listType=set
+	Verbs []string `json:"verbs,omitempty"`
+}
+
+// ResolvedPermissionClaims returns the export's permission claims with the
+// identity hash filled in from status.permissionClaims where the spec left it
+// empty and kcp resolved it. Everything that matches claims against an
+// export's claims must use this instead of spec.permissionClaims.
+func (in *APIExport) ResolvedPermissionClaims() []PermissionClaim {
+	if in == nil {
+		return nil
+	}
+	claims := make([]PermissionClaim, len(in.Spec.PermissionClaims))
+	copy(claims, in.Spec.PermissionClaims)
+	if len(in.Status.PermissionClaims) == 0 {
+		return claims
+	}
+	for i := range claims {
+		if claims[i].IdentityHash != "" {
+			continue
+		}
+		for _, resolved := range in.Status.PermissionClaims {
+			if resolved.Group == claims[i].Group && resolved.Resource == claims[i].Resource {
+				claims[i].IdentityHash = resolved.IdentityHash
+				if len(resolved.Verbs) > 0 {
+					claims[i].Verbs = append([]string(nil), resolved.Verbs...)
+				}
+				break
+			}
+		}
+	}
+	return claims
+}
+
+// DelegatedClaim reports whether the export's claim for the group/resource
+// resolved through a delegated grant.
+func (in *APIExport) DelegatedClaim(group, resource string) bool {
+	if in == nil {
+		return false
+	}
+	for _, resolved := range in.Status.PermissionClaims {
+		if resolved.Group == group && resolved.Resource == resource {
+			return resolved.Delegated
+		}
+	}
+	return false
+}
+
+// MatchClaim finds the export claim an accepted claim refers to: an exact
+// group/resource/identity match, or, when the accepted claim names no
+// identity, the single export claim for that group/resource. The returned
+// claim carries the resolved identity.
+func MatchClaim(accepted PermissionClaim, exportClaims []PermissionClaim) (PermissionClaim, bool) {
+	for _, c := range exportClaims {
+		if c.EqualGRI(accepted) {
+			return c, true
+		}
+	}
+	if accepted.IdentityHash != "" {
+		return PermissionClaim{}, false
+	}
+	var match PermissionClaim
+	found := 0
+	for _, c := range exportClaims {
+		if c.Group == accepted.Group && c.Resource == accepted.Resource {
+			match = c
+			found++
+		}
+	}
+	if found == 1 {
+		return match, true
+	}
+	return PermissionClaim{}, false
 }
 
 // APIExportList is a list of APIExport resources

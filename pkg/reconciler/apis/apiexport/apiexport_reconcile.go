@@ -42,7 +42,9 @@ import (
 	apiexportbuilder "github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 )
 
-func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIExport) error {
+// reconcileIdentityAndSlice ensures the export has an identity and an
+// APIExportEndpointSlice.
+func (c *controller) reconcileIdentityAndSlice(ctx context.Context, apiExport *apisv1alpha2.APIExport) error {
 	identity := apiExport.Spec.Identity
 	if identity == nil {
 		identity = &apisv1alpha2.Identity{}
@@ -51,7 +53,14 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIE
 	clusterName := logicalcluster.From(apiExport)
 	clusterPath := apiExport.Annotations[core.LogicalClusterPathAnnotationKey]
 
-	if identity.SecretRef == nil {
+	if kcpfeatures.DefaultFeatureGate.Enabled(kcpfeatures.APIIdentityDecoupling) {
+		if err := c.reconcileDecoupledIdentity(ctx, clusterName, apiExport); err != nil {
+			return err
+		}
+		return c.reconcileEndpointSlice(ctx, clusterName, clusterPath, apiExport)
+	}
+
+	if identity.SecretRef == nil { //nolint:staticcheck // secretRef is honored during its deprecation window
 		c.ensureSecretNamespaceExists(ctx, clusterName)
 
 		// See if the generated secret already exists (for whatever reason)
@@ -78,7 +87,7 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIE
 			}
 		}
 
-		identity.SecretRef = &corev1.SecretReference{
+		identity.SecretRef = &corev1.SecretReference{ //nolint:staticcheck // secretRef is honored during its deprecation window
 			Namespace: c.secretNamespace,
 			Name:      apiExport.Name,
 		}
@@ -101,6 +110,12 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIE
 		)
 	}
 
+	return c.reconcileEndpointSlice(ctx, clusterName, clusterPath, apiExport)
+}
+
+// reconcileEndpointSlice ensures the APIExportEndpointSlice of the export
+// exists and maintains the deprecated virtual workspace URLs.
+func (c *controller) reconcileEndpointSlice(ctx context.Context, clusterName logicalcluster.Name, clusterPath string, apiExport *apisv1alpha2.APIExport) error {
 	// Ensure the APIExportEndpointSlice exists
 	if _, ok := apiExport.Annotations[apisv1alpha2.APIExportEndpointSliceSkipAnnotation]; !ok {
 		_, err := c.getAPIExportEndpointSlice(clusterName, apiExport.Name)
@@ -190,7 +205,7 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 }
 
 func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, apiExport *apisv1alpha2.APIExport) error {
-	secret, err := c.getSecret(ctx, clusterName, apiExport.Spec.Identity.SecretRef.Namespace, apiExport.Spec.Identity.SecretRef.Name)
+	secret, err := c.getSecret(ctx, clusterName, apiExport.Spec.Identity.SecretRef.Namespace, apiExport.Spec.Identity.SecretRef.Name) //nolint:staticcheck // secretRef is honored during its deprecation window
 	if err != nil {
 		return err
 	}
