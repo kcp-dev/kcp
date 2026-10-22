@@ -385,6 +385,23 @@ func TestLookupUnavailableByClusterName(t *testing.T) {
 	}
 }
 
+func TestLookupSegmentBelowMount(t *testing.T) {
+	t.Parallel()
+	target := New(nil)
+	target.UpsertShard("root", "https://root.io")
+	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
+	target.UpsertWorkspace("root", withURL(newWorkspaceWithMount("mnt", "root", "", tenancyv1alpha1.ObjectReference{Kind: "Thing", Name: "x"}), "https://mount.example.com"))
+
+	r, found := target.Lookup(logicalcluster.NewPath("root:mnt"))
+	if !found || !r.IsMount() {
+		t.Fatalf("root:mnt: expected a mount, got found=%v %+v", found, r)
+	}
+
+	if _, found := target.Lookup(logicalcluster.NewPath("root:mnt:sub")); found {
+		t.Fatal("root:mnt:sub: expected not to be found")
+	}
+}
+
 func TestDeleteShard(t *testing.T) {
 	t.Parallel()
 	target := New(nil)
