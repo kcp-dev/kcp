@@ -107,3 +107,13 @@ func (c *cachingAuthorizer) Get(clusterName logicalcluster.Name) (authorizer.Aut
 func (c *cachingAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
 	return c.auth(ctx, c, attr)
 }
+
+// ConditionsAwareAuthorize. This authorizer is not conditions-aware and therefore returns unconditional Authorize decision.
+func (c *cachingAuthorizer) ConditionsAwareAuthorize(ctx context.Context, attrs authorizer.Attributes) authorizer.ConditionsAwareDecision {
+	return authorizer.ConditionsAwareDecisionFromParts(c.Authorize(ctx, attrs))
+}
+
+// EvaluateConditions fails closed because this authorizer is not conditions-aware.
+func (c *cachingAuthorizer) EvaluateConditions(_ context.Context, _ authorizer.ConditionsAwareDecision, _ authorizer.ConditionsData) (authorizer.Decision, string, error) {
+	return authorizer.DecisionDeny, "", authorizer.ErrorConditionEvaluationNotSupported
+}

@@ -88,3 +88,13 @@ func (a *apiExportsContentAuthorizer) Authorize(ctx context.Context, attr author
 	return dec, fmt.Sprintf("API export: %q, workspace: %q RBAC decision: %v",
 		apiExportName, apiExportCluster, reason), nil
 }
+
+// ConditionsAwareAuthorize. This authorizer is not conditions-aware and therefore returns unconditional Authorize decision.
+func (a *apiExportsContentAuthorizer) ConditionsAwareAuthorize(ctx context.Context, attrs authorizer.Attributes) authorizer.ConditionsAwareDecision {
+	return authorizer.ConditionsAwareDecisionFromParts(a.Authorize(ctx, attrs))
+}
+
+// EvaluateConditions fails closed because this authorizer is not conditions-aware.
+func (a *apiExportsContentAuthorizer) EvaluateConditions(_ context.Context, _ authorizer.ConditionsAwareDecision, _ authorizer.ConditionsData) (authorizer.Decision, string, error) {
+	return authorizer.DecisionDeny, "", authorizer.ErrorConditionEvaluationNotSupported
+}

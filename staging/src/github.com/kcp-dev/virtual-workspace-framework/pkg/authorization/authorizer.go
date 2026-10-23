@@ -54,3 +54,13 @@ func (a *virtualWorkspaceAuthorizer) Authorize(ctx context.Context, attrs author
 	// ResolveRootPath method of one of the virtual workspaces.
 	return authorizer.DecisionNoOpinion, "", fmt.Errorf("virtual Workspace %q not found", virtualWorkspaceName)
 }
+
+// ConditionsAwareAuthorize. This authorizer is not conditions-aware and therefore returns unconditional Authorize decision.
+func (a *virtualWorkspaceAuthorizer) ConditionsAwareAuthorize(ctx context.Context, attrs authorizer.Attributes) authorizer.ConditionsAwareDecision {
+	return authorizer.ConditionsAwareDecisionFromParts(a.Authorize(ctx, attrs))
+}
+
+// EvaluateConditions fails closed because this authorizer is not conditions-aware.
+func (a *virtualWorkspaceAuthorizer) EvaluateConditions(_ context.Context, _ authorizer.ConditionsAwareDecision, _ authorizer.ConditionsData) (authorizer.Decision, string, error) {
+	return authorizer.DecisionDeny, "", authorizer.ErrorConditionEvaluationNotSupported
+}

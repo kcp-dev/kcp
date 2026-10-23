@@ -341,7 +341,7 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 					cn,
 				)
 			},
-			func(authz authorizer.Authorizer, m *matching.Matcher, _ kubernetes.Interface) generic.Dispatcher[mutating.PolicyHook] {
+			func(authz authorizer.UnconditionalAuthorizer, m *matching.Matcher, _ kubernetes.Interface) generic.Dispatcher[mutating.PolicyHook] {
 				return mutating.NewDispatcher(authz, m, tcm)
 			},
 		),
@@ -365,7 +365,7 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 
 	plugin.SetDynamicClient(k.dynamicClusterClient.Cluster(policyClusterName.Path()))
 	plugin.SetDrainedNotification(ctx.Done())
-	plugin.SetAuthorizer(k.authorizer)
+	plugin.SetUnconditionalAuthorizer(k.authorizer)
 	plugin.SetClusterName(policyClusterName)
 
 	if err := plugin.ValidateInitialization(); err != nil {
