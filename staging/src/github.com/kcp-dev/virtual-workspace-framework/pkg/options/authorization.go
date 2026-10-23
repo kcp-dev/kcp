@@ -20,7 +20,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	"k8s.io/apiserver/pkg/authorization/path"
 	"k8s.io/apiserver/pkg/authorization/union"
@@ -81,11 +80,11 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (s *Authorization) ApplyTo(config *genericapiserver.Config, virtualWorkspaces func() []rootapiserver.NamedVirtualWorkspace) error {
-	var authorizers []authorizer.Authorizer
+	var authorizers []union.NamedAuthorizer
 
 	// group authorizer
 	if len(s.AlwaysAllowGroups) > 0 {
-		authorizers = append(authorizers, authorizerfactory.NewPrivilegedGroups(s.AlwaysAllowGroups...))
+		authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: "AlwaysAllowGroups", Authorizer: authorizerfactory.NewPrivilegedGroups(s.AlwaysAllowGroups...)})
 	}
 
 	// path authorizer
@@ -94,11 +93,15 @@ func (s *Authorization) ApplyTo(config *genericapiserver.Config, virtualWorkspac
 		if err != nil {
 			return err
 		}
-		authorizers = append(authorizers, a)
+		authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: "AlwaysAllowPaths", Authorizer: a})
 	}
 
-	authorizers = append(authorizers, authorization.NewVirtualWorkspaceAuthorizer(virtualWorkspaces))
+	authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: "VirtualWorkspace", Authorizer: authorization.NewVirtualWorkspaceAuthorizer(virtualWorkspaces)})
 
-	config.Authorization.Authorizer = union.New(authorizers...)
+	unioned, err := union.New(authorizers...)
+	if err != nil {
+		return err
+	}
+	config.Authorization.Authorizer = unioned
 	return nil
 }

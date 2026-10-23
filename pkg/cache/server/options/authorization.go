@@ -20,7 +20,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	"k8s.io/apiserver/pkg/authorization/path"
 	"k8s.io/apiserver/pkg/authorization/union"
@@ -49,10 +48,10 @@ func (o *Authorization) Validate() []error {
 }
 
 func (o *Authorization) ApplyTo(config *genericapiserver.Config) error {
-	var authorizers []authorizer.Authorizer
+	var authorizers []union.NamedAuthorizer
 
 	if len(o.AlwaysAllowGroups) > 0 {
-		authorizers = append(authorizers, authorizerfactory.NewPrivilegedGroups(o.AlwaysAllowGroups...))
+		authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: "AlwaysAllowGroups", Authorizer: authorizerfactory.NewPrivilegedGroups(o.AlwaysAllowGroups...)})
 	}
 
 	if len(o.AlwaysAllowPaths) > 0 {
@@ -60,9 +59,13 @@ func (o *Authorization) ApplyTo(config *genericapiserver.Config) error {
 		if err != nil {
 			return err
 		}
-		authorizers = append(authorizers, a)
+		authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: "AlwaysAllowPaths", Authorizer: a})
 	}
 
-	config.Authorization.Authorizer = union.New(authorizers...)
+	unioned, err := union.New(authorizers...)
+	if err != nil {
+		return err
+	}
+	config.Authorization.Authorizer = unioned
 	return nil
 }
