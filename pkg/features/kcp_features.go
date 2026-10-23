@@ -225,12 +225,6 @@ func disableFeatures() error {
 		// cannot be handled due to the version not being known by the
 		// apiserver.
 		genericfeatures.UnknownVersionInteroperabilityProxy: false,
-
-		// WatchCacheInitializationPostStartHook blocks /readyz until
-		// all built-in APIs report ready. This isn't a problem for kcp
-		// but causes the e2e home workspace tests to fail.
-		// Disabling the feature gate for now and fixing the tests later.
-		genericfeatures.WatchCacheInitializationPostStartHook: false,
 	}
 	for f, v := range toDisable {
 		err := utilfeature.DefaultMutableFeatureGate.Set(fmt.Sprintf("%s=%v", f, v))
