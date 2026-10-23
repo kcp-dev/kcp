@@ -27,18 +27,8 @@ import (
 // APIExport owns the identity and which other APIExports hold it. There is
 // exactly one entry per identity in an installation, named after the
 // identity value, living on the cache server where every shard can read it
-// and served read-only through the Admin workspace.
-//
-// Entries are written by kcp only. The owner is recorded when the identity
-// is first claimed, which is the atomic create of the entry; holders record
-// themselves when they get the identity. When the owner's APIExport is
-// deleted the identity passes to the oldest holder. Nothing that could be
-// used to obtain the identity is recorded here, only who has it.
-//
-// The object has a status field but no status subresource: it lives on the
-// cache server, whose status subresource does not honor shard scopes, and it
-// is written by kcp only, so spec and status are written together in one
-// update of the whole object.
+// and served read-only through the Admin workspace. Entries are written by
+// kcp only.
 //
 // +crd
 // +genclient
@@ -103,7 +93,8 @@ type APIIdentityStatus struct {
 	// owner is the APIExport that holds the identity authoritatively: the
 	// first one to use it. It is written by kcp when the identity is claimed
 	// and changed by kcp only when the owner is deleted and a holder
-	// succeeds it, or an orphaned identity is reclaimed.
+	// succeeds it. An entry whose owner is gone and that has no holder left
+	// is removed.
 	//
 	// +required
 	Owner ExportReference `json:"owner"`
@@ -135,19 +126,10 @@ const (
 	// APIIdentityShared is True while holders is non-empty.
 	APIIdentityShared conditionsv1alpha1.ConditionType = "Shared"
 
-	// APIIdentityOrphaned is True while the owner APIExport is gone and no
-	// holder could succeed it. An orphaned identity can be reclaimed only
-	// with the secret it was created from.
-	APIIdentityOrphaned conditionsv1alpha1.ConditionType = "Orphaned"
-
 	// APIIdentityOwnerMissing is True while the owner APIExport is not in
 	// the cache server. Its transition time starts the grace period after
 	// which the owner is taken as gone and the identity passes on.
 	APIIdentityOwnerMissing conditionsv1alpha1.ConditionType = "OwnerMissing"
-
-	// APIIdentityOwnerSucceededReason is set on the Orphaned condition
-	// (False) after the identity passed to a holder.
-	APIIdentityOwnerSucceededReason = "OwnerSucceeded"
 )
 
 func (in *APIIdentity) SetConditions(c conditionsv1alpha1.Conditions) {

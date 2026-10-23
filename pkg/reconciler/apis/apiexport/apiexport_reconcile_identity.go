@@ -93,8 +93,7 @@ func (c *controller) reconcileIdentity(ctx context.Context, apiExport *apisv1alp
 		}
 	}
 
-	switch {
-	case entry.Status.Owner.Equal(me):
+	if entry.Status.Owner.Equal(me) {
 		// the owner, possibly recreated under the same name (GitOps): keep
 		// the registry's UID current.
 		if entry.Status.Owner.UID != me.UID {
@@ -102,16 +101,6 @@ func (c *controller) reconcileIdentity(ctx context.Context, apiExport *apisv1alp
 				return c.identityClaimFailed(apiExport, err)
 			}
 		}
-		c.setIdentity(apiExport, hash)
-		return nil
-
-	case conditions.IsTrue(entry, adminv1alpha1.APIIdentityOrphaned):
-		// nobody owns it and nobody holds it; whoever has the key may take it
-		// over, and we do, since we produced the identity from the key.
-		if err := c.setAPIIdentityOwner(ctx, entry.Name, me); err != nil {
-			return c.identityClaimFailed(apiExport, err)
-		}
-		logger.V(2).Info("reclaimed orphaned identity", "identity", hash)
 		c.setIdentity(apiExport, hash)
 		return nil
 	}

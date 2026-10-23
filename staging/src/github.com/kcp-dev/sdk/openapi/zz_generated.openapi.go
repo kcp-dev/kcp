@@ -239,7 +239,7 @@ func schema_sdk_apis_admin_v1alpha1_APIIdentity(ref common.ReferenceCallback) co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "APIIdentity is the registry entry of one API identity: the record of which APIExport owns the identity and which other APIExports hold it. There is exactly one entry per identity in an installation, named after the identity value, living on the cache server where every shard can read it and served read-only through the Admin workspace.\n\nEntries are written by kcp only. The owner is recorded when the identity is first claimed, which is the atomic create of the entry; holders record themselves when they get the identity. When the owner's APIExport is deleted the identity passes to the oldest holder. Nothing that could be used to obtain the identity is recorded here, only who has it.\n\nThe object has a status field but no status subresource: it lives on the cache server, whose status subresource does not honor shard scopes, and it is written by kcp only, so spec and status are written together in one update of the whole object.",
+				Description: "APIIdentity is the registry entry of one API identity: the record of which APIExport owns the identity and which other APIExports hold it. There is exactly one entry per identity in an installation, named after the identity value, living on the cache server where every shard can read it and served read-only through the Admin workspace. Entries are written by kcp only.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -334,7 +334,7 @@ func schema_sdk_apis_admin_v1alpha1_APIIdentityStatus(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"owner": {
 						SchemaProps: spec.SchemaProps{
-							Description: "owner is the APIExport that holds the identity authoritatively: the first one to use it. It is written by kcp when the identity is claimed and changed by kcp only when the owner is deleted and a holder succeeds it, or an orphaned identity is reclaimed.",
+							Description: "owner is the APIExport that holds the identity authoritatively: the first one to use it. It is written by kcp when the identity is claimed and changed by kcp only when the owner is deleted and a holder succeeds it. An entry whose owner is gone and that has no holder left is removed.",
 							Default:     map[string]interface{}{},
 							Ref:         ref(v1alpha1.ExportReference{}.OpenAPIModelName()),
 						},

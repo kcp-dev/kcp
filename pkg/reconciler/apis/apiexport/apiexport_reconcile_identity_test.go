@@ -163,22 +163,6 @@ func TestReconcileIdentity(t *testing.T) {
 		require.Len(t, f.registry[identity].Status.Holders, 1, "recorded once")
 	})
 
-	t.Run("an orphaned identity is reclaimed by whoever holds the key", func(t *testing.T) {
-		t.Parallel()
-		f := newIdentityFixture()
-		f.secret(holderCluster, "networking-v2", key)
-		entry := &adminv1alpha1.APIIdentity{ObjectMeta: metav1.ObjectMeta{Name: identity}, Status: adminv1alpha1.APIIdentityStatus{Owner: adminv1alpha1.ExportReference{Cluster: ownerCluster, Name: "networking"}}}
-		conditions.MarkTrue(entry, adminv1alpha1.APIIdentityOrphaned)
-		f.registry[identity] = entry
-		c := f.controller()
-
-		ae := export(holderCluster, "networking-v2", "h")
-		require.NoError(t, c.reconcileIdentity(ctx, ae))
-
-		require.Equal(t, identity, ae.Status.IdentityHash)
-		require.Equal(t, holderCluster, f.registry[identity].Status.Owner.Cluster)
-	})
-
 	t.Run("a secret edited in place fails verification", func(t *testing.T) {
 		t.Parallel()
 		f := newIdentityFixture()

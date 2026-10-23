@@ -54,8 +54,9 @@ import (
 // TestAPIExportIdentityRegistry exercises the identity registry: the first
 // APIExport to use an identity owns it, another APIExport with a copy of the
 // key shares the identity and is recorded as a holder, the oldest holder
-// inherits the identity when the owner is deleted, and an identity nobody
-// serves any more is orphaned and reclaimed by the next export with the key.
+// inherits the identity when the owner is deleted, the entry is gone once
+// the last export is deleted, and the next export with the key registers
+// the identity anew.
 func TestAPIExportIdentityRegistry(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
@@ -184,27 +185,28 @@ func TestAPIExportIdentityRegistry(t *testing.T) {
 		if !entry.Status.Owner.Equal(exportRef(holderWS, holder)) {
 			return false, fmt.Sprintf("owner=%v", entry.Status.Owner)
 		}
-		return len(entry.Status.Holders) == 0 && !conditions.IsTrue(entry, adminv1alpha1.APIIdentityOrphaned),
-			fmt.Sprintf("holders=%v orphaned=%v", entry.Status.Holders, conditions.Get(entry, adminv1alpha1.APIIdentityOrphaned))
+		return len(entry.Status.Holders) == 0 && conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing) == nil,
+			fmt.Sprintf("holders=%v ownerMissing=%v", entry.Status.Holders, conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing))
 	})
 	holder, err = getExport(holderPath)
 	require.NoError(t, err)
 	require.Equal(t, identity, holder.Status.IdentityHash, "the identity does not change hands' value")
 	require.True(t, conditions.IsTrue(holder, apisv1alpha2.APIExportIdentityValid))
 
-	t.Logf("Delete the last export: the identity is orphaned")
+	t.Logf("Delete the last export: the identity is gone from the registry")
+	copyKey(holderPath, newcomerPath) // keep the key around for the newcomer
 	require.NoError(t, kcpClusterClient.Cluster(holderPath).ApisV1alpha2().APIExports().Delete(t.Context(), "wildwest", metav1.DeleteOptions{}))
-	waitForEntry(identity, afterGrace, func(entry *adminv1alpha1.APIIdentity) (bool, string) {
-		return conditions.IsTrue(entry, adminv1alpha1.APIIdentityOrphaned), fmt.Sprintf("orphaned=%v", conditions.Get(entry, adminv1alpha1.APIIdentityOrphaned))
-	})
+	kcptestinghelpers.Eventually(t, func() (bool, string) {
+		_, err := adminClient.AdminV1alpha1().APIIdentities().Get(t.Context(), identity, metav1.GetOptions{})
+		return apierrors.IsNotFound(err), fmt.Sprintf("get: %v", err)
+	}, afterGrace, 250*time.Millisecond)
 
-	t.Logf("A newcomer with the key reclaims the orphaned identity")
-	copyKey(holderPath, newcomerPath)
+	t.Logf("A newcomer with the key registers the identity anew")
 	createWithKey(newcomerPath)
 	newcomer := waitForIdentity(newcomerPath)
-	require.Equal(t, identity, newcomer.Status.IdentityHash)
+	require.Equal(t, identity, newcomer.Status.IdentityHash, "same key, same identity")
 	waitForEntry(identity, wait.ForeverTestTimeout, func(entry *adminv1alpha1.APIIdentity) (bool, string) {
-		return entry.Status.Owner == exportRef(newcomerWS, newcomer) && conditions.Get(entry, adminv1alpha1.APIIdentityOrphaned) == nil,
-			fmt.Sprintf("owner=%v orphaned=%v", entry.Status.Owner, conditions.Get(entry, adminv1alpha1.APIIdentityOrphaned))
+		return entry.Status.Owner == exportRef(newcomerWS, newcomer) && len(entry.Status.Holders) == 0,
+			fmt.Sprintf("owner=%v holders=%v", entry.Status.Owner, entry.Status.Holders)
 	})
 }

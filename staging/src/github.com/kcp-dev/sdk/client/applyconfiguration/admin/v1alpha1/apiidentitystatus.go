@@ -31,7 +31,8 @@ type APIIdentityStatusApplyConfiguration struct {
 	// owner is the APIExport that holds the identity authoritatively: the
 	// first one to use it. It is written by kcp when the identity is claimed
 	// and changed by kcp only when the owner is deleted and a holder
-	// succeeds it, or an orphaned identity is reclaimed.
+	// succeeds it. An entry whose owner is gone and that has no holder left
+	// is removed.
 	Owner *ExportReferenceApplyConfiguration `json:"owner,omitempty"`
 	// holders lists the APIExports, other than the owner, that serve the
 	// identity: those whose identity secret carries the same key. A holder

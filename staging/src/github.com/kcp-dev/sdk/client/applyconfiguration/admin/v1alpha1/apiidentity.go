@@ -32,18 +32,8 @@ import (
 // APIExport owns the identity and which other APIExports hold it. There is
 // exactly one entry per identity in an installation, named after the
 // identity value, living on the cache server where every shard can read it
-// and served read-only through the Admin workspace.
-//
-// Entries are written by kcp only. The owner is recorded when the identity
-// is first claimed, which is the atomic create of the entry; holders record
-// themselves when they get the identity. When the owner's APIExport is
-// deleted the identity passes to the oldest holder. Nothing that could be
-// used to obtain the identity is recorded here, only who has it.
-//
-// The object has a status field but no status subresource: it lives on the
-// cache server, whose status subresource does not honor shard scopes, and it
-// is written by kcp only, so spec and status are written together in one
-// update of the whole object.
+// and served read-only through the Admin workspace. Entries are written by
+// kcp only.
 type APIIdentityApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`

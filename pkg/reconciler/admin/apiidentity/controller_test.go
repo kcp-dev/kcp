@@ -53,6 +53,16 @@ func (r *fakeRegistry) Get(_ context.Context, name string, _ metav1.GetOptions) 
 	return entry.DeepCopy(), nil
 }
 
+func (r *fakeRegistry) Delete(_ context.Context, name string, _ metav1.DeleteOptions) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.entries[name]; !ok {
+		return apierrors.NewNotFound(adminv1alpha1.Resource("apiidentities"), name)
+	}
+	delete(r.entries, name)
+	return nil
+}
+
 func (r *fakeRegistry) Update(_ context.Context, entry *adminv1alpha1.APIIdentity, _ metav1.UpdateOptions) (*adminv1alpha1.APIIdentity, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -179,14 +189,12 @@ func TestHostedOwnerIsMaintained(t *testing.T) {
 	f.host(owner)
 	f.elsewhere(holder)
 	e := f.entry(owner, holder)
-	conditions.MarkTrue(e, adminv1alpha1.APIIdentityOrphaned)
 	conditions.MarkTrue(e, adminv1alpha1.APIIdentityOwnerMissing)
 
 	entry := f.reconcile()
 	require.True(t, entry.Status.Core)
 	require.Len(t, entry.Status.Holders, 1)
 	require.True(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityShared))
-	require.Nil(t, conditions.Get(entry, adminv1alpha1.APIIdentityOrphaned), "an owner in the cache is not orphaned")
 	require.Nil(t, conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing))
 	require.Empty(t, f.requeued)
 }
@@ -246,8 +254,6 @@ func TestGoneOwnerPassesToOldestHolderHostedHere(t *testing.T) {
 	require.Len(t, entry.Status.Holders, 1)
 	require.Equal(t, ref(newer), entry.Status.Holders[0].ExportReference)
 	require.True(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityShared))
-	require.False(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityOrphaned))
-	require.Equal(t, adminv1alpha1.APIIdentityOwnerSucceededReason, conditions.GetReason(entry, adminv1alpha1.APIIdentityOrphaned))
 	require.Nil(t, conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing))
 	require.Empty(t, f.requeued)
 }
@@ -283,7 +289,7 @@ func TestSuccessorHostedElsewhereIsLeftToItsShard(t *testing.T) {
 	require.True(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityOwnerMissing))
 }
 
-func TestGoneOwnerWithoutHoldersIsOrphaned(t *testing.T) {
+func TestGoneOwnerWithoutHoldersIsRemoved(t *testing.T) {
 	t.Parallel()
 	f := newFixture(t)
 
@@ -292,16 +298,13 @@ func TestGoneOwnerWithoutHoldersIsOrphaned(t *testing.T) {
 	f.entry(owner, dead) // neither is in the cache
 	f.ownerMissingFor(MissingGracePeriod)
 
-	entry := f.reconcile()
-	require.True(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityOrphaned))
-	require.Empty(t, entry.Status.Holders)
-	require.Nil(t, conditions.Get(entry, adminv1alpha1.APIIdentityShared))
-	require.Nil(t, conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing))
-
-	// an orphaned entry is left alone until somebody reclaims it
-	entry = f.reconcile()
-	require.True(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityOrphaned))
+	require.NoError(t, f.c.reconcile(context.Background(), identity))
+	_, err := f.registry.Get(context.Background(), identity, metav1.GetOptions{})
+	require.True(t, apierrors.IsNotFound(err), "the entry must be gone, got %v", err)
 	require.Empty(t, f.requeued)
+
+	// a gone entry is nothing to reconcile
+	require.NoError(t, f.c.reconcile(context.Background(), identity))
 }
 
 func TestRecreatedOwnerIsNotGone(t *testing.T) {
@@ -324,7 +327,6 @@ func TestRecreatedOwnerIsNotGone(t *testing.T) {
 	require.Equal(t, "new-uid", entry.Status.Owner.UID)
 	require.Len(t, entry.Status.Holders, 1)
 	require.Nil(t, conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing))
-	require.False(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityOrphaned))
 }
 
 func TestMaintainDropsHoldersGoneFromTheCache(t *testing.T) {

@@ -22,8 +22,8 @@ limitations under the License.
 // which is the installation-wide view: the shard hosting the owner keeps the
 // derived status current; an owner missing from the cache for longer than
 // the grace period is gone, and the shard hosting the oldest remaining
-// holder takes the identity over, or the identity is orphaned when no holder
-// is left.
+// holder takes the identity over, or the entry is removed when no holder is
+// left.
 package apiidentity
 
 import (
@@ -223,21 +223,16 @@ func (c *Controller) maintain(ctx context.Context, entry *adminv1alpha1.APIIdent
 		entry.Status.Core = c.isCore(owner)
 		// an owner that succeeded from holder is not a holder any more
 		dropHolders(entry, append(c.goneHolders(entry), ref(owner)))
-		conditions.Delete(entry, adminv1alpha1.APIIdentityOrphaned)
 	})
 }
 
 // ownerMissing handles an entry whose owner is not in the cache. The first
 // look records when it went missing; after the grace period the owner is
 // gone and the identity passes to the oldest holder still in the cache, or
-// is orphaned.
+// the entry is removed when there is none: the next export with the key
+// registers the identity anew.
 func (c *Controller) ownerMissing(ctx context.Context, entry *adminv1alpha1.APIIdentity) error {
 	logger := klog.FromContext(ctx)
-
-	if conditions.IsTrue(entry, adminv1alpha1.APIIdentityOrphaned) {
-		// nobody serves it; whoever has the key reclaims it
-		return nil
-	}
 
 	missing := conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing)
 	if missing == nil || missing.Status != corev1.ConditionTrue {
@@ -258,12 +253,11 @@ func (c *Controller) ownerMissing(ctx context.Context, entry *adminv1alpha1.APII
 	// the owner is gone
 	successor := c.oldestHolderInCache(entry)
 	if successor == nil {
-		logger.Info("identity has no owner and no holder left, marking it orphaned")
-		return c.updateStatus(ctx, entry.Name, func(entry *adminv1alpha1.APIIdentity) {
-			dropHolders(entry, holderRefs(entry))
-			conditions.Delete(entry, adminv1alpha1.APIIdentityOwnerMissing)
-			conditions.MarkTrue(entry, adminv1alpha1.APIIdentityOrphaned)
-		})
+		logger.Info("identity has no owner and no holder left, removing it from the registry")
+		if err := c.registry.Delete(ctx, entry.Name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+		return nil
 	}
 
 	if _, err := c.getLocalAPIExport(logicalcluster.Name(successor.Cluster), successor.Name); err != nil {
@@ -278,7 +272,6 @@ func (c *Controller) ownerMissing(ctx context.Context, entry *adminv1alpha1.APII
 		entry.Status.Owner = successor.ExportReference
 		dropHolders(entry, []adminv1alpha1.ExportReference{successor.ExportReference})
 		conditions.Delete(entry, adminv1alpha1.APIIdentityOwnerMissing)
-		conditions.MarkFalse(entry, adminv1alpha1.APIIdentityOrphaned, adminv1alpha1.APIIdentityOwnerSucceededReason, "", "")
 	})
 }
 
@@ -313,14 +306,6 @@ func (c *Controller) goneHolders(entry *adminv1alpha1.APIIdentity) []adminv1alph
 		}
 	}
 	return gone
-}
-
-func holderRefs(entry *adminv1alpha1.APIIdentity) []adminv1alpha1.ExportReference {
-	refs := make([]adminv1alpha1.ExportReference, 0, len(entry.Status.Holders))
-	for _, holder := range entry.Status.Holders {
-		refs = append(refs, holder.ExportReference)
-	}
-	return refs
 }
 
 // dropHolders removes the given holders and keeps the Shared condition in

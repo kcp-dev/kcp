@@ -32,6 +32,7 @@ import (
 type adminv1alpha1client interface {
 	Get(ctx context.Context, name string, opts metav1.GetOptions) (*adminv1alpha1.APIIdentity, error)
 	Update(ctx context.Context, entry *adminv1alpha1.APIIdentity, opts metav1.UpdateOptions) (*adminv1alpha1.APIIdentity, error)
+	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 }
 
 // registryScoped addresses the registry's shard scope on the cache server.
@@ -45,4 +46,8 @@ func (r registryScoped) Get(ctx context.Context, name string, opts metav1.GetOpt
 
 func (r registryScoped) Update(ctx context.Context, entry *adminv1alpha1.APIIdentity, opts metav1.UpdateOptions) (*adminv1alpha1.APIIdentity, error) {
 	return r.adminv1alpha1client.Update(cacheclient.WithShardInContext(ctx, shard.Registry), entry, opts)
+}
+
+func (r registryScoped) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return r.adminv1alpha1client.Delete(cacheclient.WithShardInContext(ctx, shard.Registry), name, opts)
 }
