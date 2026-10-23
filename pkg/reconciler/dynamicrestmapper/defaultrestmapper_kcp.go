@@ -81,7 +81,7 @@ func (m *DefaultRESTMapper) String() string {
 }
 
 var _ meta.RESTMapper = &DefaultRESTMapper{}
-var _ RESTMapperWithContext = &DefaultRESTMapper{}
+var _ meta.RESTMapperWithContext = &DefaultRESTMapper{}
 var _ fmt.Stringer = &DefaultRESTMapper{}
 
 // NewDefaultRESTMapper initializes a mapping between Kind and APIVersion
@@ -571,12 +571,12 @@ func MaybeResetRESTMapper(mapper meta.RESTMapper) {
 
 // MaybeResetRESTMapperWithContext calls Reset() on the mapper if it is a ResettableRESTMapper or
 // ResetWithContext() if it is a ResettableRESTMapperWithContext.
-func MaybeResetRESTMapperWithContext(ctx context.Context, mapper RESTMapperWithContext) {
+func MaybeResetRESTMapperWithContext(ctx context.Context, mapper meta.RESTMapperWithContext) {
 	maybeReset(ctx, mapper)
 }
 
 func maybeReset(ctx context.Context, mapper any) {
-	if m, ok := mapper.(ResettableRESTMapperWithContext); ok {
+	if m, ok := mapper.(meta.ResettableRESTMapperWithContext); ok {
 		m.ResetWithContext(ctx)
 		return
 	}

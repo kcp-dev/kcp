@@ -86,7 +86,9 @@ symbols_from_meta_pkg=(
     NoKindMatchError
     NoResourceMatchError
     ResettableRESTMapper
+    ResettableRESTMapperWithContext
     RESTMapper
+    RESTMapperWithContext
     RESTMapping
     RESTScope
     RESTScopeName
