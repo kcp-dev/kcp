@@ -18,15 +18,8 @@ package framework
 
 import (
 	"bytes"
-	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
@@ -45,7 +38,7 @@ func NewCli(t *testing.T) *TestCli {
 
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, tc.Server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 
-	tc.KubeconfigPath = writeKubeconfig(t, tc.Server, wsPath)
+	tc.KubeconfigPath = WriteWorkspaceKubeconfig(t, tc.Server, wsPath, t.TempDir())
 
 	return tc
 }
@@ -53,39 +46,4 @@ func NewCli(t *testing.T) *TestCli {
 func (tc *TestCli) RunPlugin(t *testing.T, plugin string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
 	t.Helper()
 	return RunKcpCliPlugin(t, tc.KubeconfigPath, plugin, args)
-}
-
-func writeKubeconfig(t *testing.T, server kcptestingserver.RunningServer, wsPath logicalcluster.Path) string {
-	t.Helper()
-
-	cfg := server.BaseConfig(t)
-	cfg.Host += "/clusters/" + wsPath.String()
-
-	kubeconfig := clientcmdapi.Config{
-		Clusters: map[string]*clientcmdapi.Cluster{
-			"kcp": {
-				Server:                   cfg.Host,
-				CertificateAuthorityData: cfg.CAData,
-				TLSServerName:            cfg.ServerName,
-			},
-		},
-		AuthInfos: map[string]*clientcmdapi.AuthInfo{
-			"kcp": {
-				ClientCertificateData: cfg.CertData,
-				ClientKeyData:         cfg.KeyData,
-				Token:                 cfg.BearerToken,
-			},
-		},
-		Contexts: map[string]*clientcmdapi.Context{
-			"kcp": {Cluster: "kcp", AuthInfo: "kcp"},
-		},
-		CurrentContext: "kcp",
-	}
-
-	tmpdir := t.TempDir()
-	kubeconfigPath := filepath.Join(tmpdir, "kubeconfig.yaml")
-	err := clientcmd.WriteToFile(kubeconfig, kubeconfigPath)
-	require.NoError(t, err)
-
-	return kubeconfigPath
 }
