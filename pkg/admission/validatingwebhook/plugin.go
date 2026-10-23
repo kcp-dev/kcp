@@ -26,13 +26,17 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/configuration"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	genericfeatures "k8s.io/apiserver/pkg/features"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/kubernetes/pkg/kubeapiserver/admission/exclusion"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -98,6 +102,15 @@ func Register(plugins *admission.Plugins) {
 	})
 }
 
+// mirror how upstream generic.Webhook passes its exclusion list to the webhook
+// but construct the sources per logicalcluster itself.
+func ExcludedResources() sets.Set[schema.GroupResource] {
+	if !utilfeature.DefaultFeatureGate.Enabled(genericfeatures.ExcludeAdmissionWebhookVirtualResources) {
+		return nil
+	}
+	return sets.New(exclusion.Excluded()...)
+}
+
 func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admission.ObjectInterfaces) error {
 	cluster, err := genericapirequest.ValidClusterFrom(ctx)
 	if err != nil {
@@ -123,6 +136,8 @@ func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 	plugin.SetExternalKubeClientSet(p.kubeClusterClient.Cluster(clusterName.Path()))
 	plugin.SetNamespaceInformer(p.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
 	plugin.SetAPISource(hookSource)
+	plugin.SetExcludedAdmissionResources(exclusion.Excluded())
+	plugin.InspectFeatureGates(utilfeature.DefaultFeatureGate)
 
 	if err := plugin.ValidateInitialization(); err != nil {
 		return fmt.Errorf("error validating ValidatingAdmissionWebhook initialization: %w", err)
@@ -148,6 +163,7 @@ func (p *Plugin) getHookSource(clusterName logicalcluster.Name, groupResource sc
 		ctx, cancel := context.WithCancel(wait.ContextForChannel(p.serverStopChannel))
 		p.managersCache[clusterNameForGroupResource] = configuration.NewValidatingWebhookConfigurationManagerForInformer(
 			p.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().ClusterWithContext(ctx, clusterNameForGroupResource),
+			ExcludedResources(),
 		)
 		p.managersCancel[clusterNameForGroupResource] = cancel
 	}
