@@ -24,12 +24,10 @@ package v1alpha2
 import (
 	unsafe "unsafe"
 
-	v1 "k8s.io/api/core/v1"
-	conversion "k8s.io/apimachinery/pkg/conversion"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-
 	v1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	conversion "k8s.io/apimachinery/pkg/conversion"
+	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 func init() {
@@ -529,9 +527,7 @@ func autoConvert_v1alpha1_APIExportSpec_To_v1alpha2_APIExportSpec(in *v1alpha1.A
 }
 
 func autoConvert_v1alpha2_APIExportStatus_To_v1alpha1_APIExportStatus(in *APIExportStatus, out *v1alpha1.APIExportStatus, s conversion.Scope) error {
-	out.IdentityHash = in.IdentityHash
-	out.Conditions = *(*conditionsv1alpha1.Conditions)(unsafe.Pointer(&in.Conditions))
-	out.VirtualWorkspaces = *(*[]v1alpha1.VirtualWorkspace)(unsafe.Pointer(&in.VirtualWorkspaces))
+	*out = *(*v1alpha1.APIExportStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -541,9 +537,7 @@ func Convert_v1alpha2_APIExportStatus_To_v1alpha1_APIExportStatus(in *APIExportS
 }
 
 func autoConvert_v1alpha1_APIExportStatus_To_v1alpha2_APIExportStatus(in *v1alpha1.APIExportStatus, out *APIExportStatus, s conversion.Scope) error {
-	out.IdentityHash = in.IdentityHash
-	out.Conditions = *(*conditionsv1alpha1.Conditions)(unsafe.Pointer(&in.Conditions))
-	out.VirtualWorkspaces = *(*[]VirtualWorkspace)(unsafe.Pointer(&in.VirtualWorkspaces))
+	*out = *(*APIExportStatus)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -565,7 +559,7 @@ func autoConvert_v1alpha1_AcceptablePermissionClaim_To_v1alpha2_AcceptablePermis
 }
 
 func autoConvert_v1alpha2_BindingReference_To_v1alpha1_BindingReference(in *BindingReference, out *v1alpha1.BindingReference, s conversion.Scope) error {
-	out.Export = (*v1alpha1.ExportBindingReference)(unsafe.Pointer(in.Export))
+	*out = *(*v1alpha1.BindingReference)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -575,7 +569,7 @@ func Convert_v1alpha2_BindingReference_To_v1alpha1_BindingReference(in *BindingR
 }
 
 func autoConvert_v1alpha1_BindingReference_To_v1alpha2_BindingReference(in *v1alpha1.BindingReference, out *BindingReference, s conversion.Scope) error {
-	out.Export = (*ExportBindingReference)(unsafe.Pointer(in.Export))
+	*out = *(*BindingReference)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -585,12 +579,7 @@ func Convert_v1alpha1_BindingReference_To_v1alpha2_BindingReference(in *v1alpha1
 }
 
 func autoConvert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(in *BoundAPIResource, out *v1alpha1.BoundAPIResource, s conversion.Scope) error {
-	out.Group = in.Group
-	out.Resource = in.Resource
-	if err := Convert_v1alpha2_BoundAPIResourceSchema_To_v1alpha1_BoundAPIResourceSchema(&in.Schema, &out.Schema, s); err != nil {
-		return err
-	}
-	out.StorageVersions = *(*[]string)(unsafe.Pointer(&in.StorageVersions))
+	*out = *(*v1alpha1.BoundAPIResource)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -600,12 +589,7 @@ func Convert_v1alpha2_BoundAPIResource_To_v1alpha1_BoundAPIResource(in *BoundAPI
 }
 
 func autoConvert_v1alpha1_BoundAPIResource_To_v1alpha2_BoundAPIResource(in *v1alpha1.BoundAPIResource, out *BoundAPIResource, s conversion.Scope) error {
-	out.Group = in.Group
-	out.Resource = in.Resource
-	if err := Convert_v1alpha1_BoundAPIResourceSchema_To_v1alpha2_BoundAPIResourceSchema(&in.Schema, &out.Schema, s); err != nil {
-		return err
-	}
-	out.StorageVersions = *(*[]string)(unsafe.Pointer(&in.StorageVersions))
+	*out = *(*BoundAPIResource)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -615,9 +599,7 @@ func Convert_v1alpha1_BoundAPIResource_To_v1alpha2_BoundAPIResource(in *v1alpha1
 }
 
 func autoConvert_v1alpha2_BoundAPIResourceSchema_To_v1alpha1_BoundAPIResourceSchema(in *BoundAPIResourceSchema, out *v1alpha1.BoundAPIResourceSchema, s conversion.Scope) error {
-	out.Name = in.Name
-	out.UID = in.UID
-	out.IdentityHash = in.IdentityHash
+	*out = *(*v1alpha1.BoundAPIResourceSchema)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -627,9 +609,7 @@ func Convert_v1alpha2_BoundAPIResourceSchema_To_v1alpha1_BoundAPIResourceSchema(
 }
 
 func autoConvert_v1alpha1_BoundAPIResourceSchema_To_v1alpha2_BoundAPIResourceSchema(in *v1alpha1.BoundAPIResourceSchema, out *BoundAPIResourceSchema, s conversion.Scope) error {
-	out.Name = in.Name
-	out.UID = in.UID
-	out.IdentityHash = in.IdentityHash
+	*out = *(*BoundAPIResourceSchema)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -639,8 +619,7 @@ func Convert_v1alpha1_BoundAPIResourceSchema_To_v1alpha2_BoundAPIResourceSchema(
 }
 
 func autoConvert_v1alpha2_ExportBindingReference_To_v1alpha1_ExportBindingReference(in *ExportBindingReference, out *v1alpha1.ExportBindingReference, s conversion.Scope) error {
-	out.Path = in.Path
-	out.Name = in.Name
+	*out = *(*v1alpha1.ExportBindingReference)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -650,8 +629,7 @@ func Convert_v1alpha2_ExportBindingReference_To_v1alpha1_ExportBindingReference(
 }
 
 func autoConvert_v1alpha1_ExportBindingReference_To_v1alpha2_ExportBindingReference(in *v1alpha1.ExportBindingReference, out *ExportBindingReference, s conversion.Scope) error {
-	out.Path = in.Path
-	out.Name = in.Name
+	*out = *(*ExportBindingReference)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -661,8 +639,7 @@ func Convert_v1alpha1_ExportBindingReference_To_v1alpha2_ExportBindingReference(
 }
 
 func autoConvert_v1alpha2_GroupResource_To_v1alpha1_GroupResource(in *GroupResource, out *v1alpha1.GroupResource, s conversion.Scope) error {
-	out.Group = in.Group
-	out.Resource = in.Resource
+	*out = *(*v1alpha1.GroupResource)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -672,8 +649,7 @@ func Convert_v1alpha2_GroupResource_To_v1alpha1_GroupResource(in *GroupResource,
 }
 
 func autoConvert_v1alpha1_GroupResource_To_v1alpha2_GroupResource(in *v1alpha1.GroupResource, out *GroupResource, s conversion.Scope) error {
-	out.Group = in.Group
-	out.Resource = in.Resource
+	*out = *(*GroupResource)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -683,7 +659,7 @@ func Convert_v1alpha1_GroupResource_To_v1alpha2_GroupResource(in *v1alpha1.Group
 }
 
 func autoConvert_v1alpha2_Identity_To_v1alpha1_Identity(in *Identity, out *v1alpha1.Identity, s conversion.Scope) error {
-	out.SecretRef = (*v1.SecretReference)(unsafe.Pointer(in.SecretRef))
+	*out = *(*v1alpha1.Identity)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -693,7 +669,7 @@ func Convert_v1alpha2_Identity_To_v1alpha1_Identity(in *Identity, out *v1alpha1.
 }
 
 func autoConvert_v1alpha1_Identity_To_v1alpha2_Identity(in *v1alpha1.Identity, out *Identity, s conversion.Scope) error {
-	out.SecretRef = (*v1.SecretReference)(unsafe.Pointer(in.SecretRef))
+	*out = *(*Identity)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -703,6 +679,7 @@ func Convert_v1alpha1_Identity_To_v1alpha2_Identity(in *v1alpha1.Identity, out *
 }
 
 func autoConvert_v1alpha2_LocalAPIExportPolicy_To_v1alpha1_LocalAPIExportPolicy(in *LocalAPIExportPolicy, out *v1alpha1.LocalAPIExportPolicy, s conversion.Scope) error {
+	*out = *(*v1alpha1.LocalAPIExportPolicy)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -712,6 +689,7 @@ func Convert_v1alpha2_LocalAPIExportPolicy_To_v1alpha1_LocalAPIExportPolicy(in *
 }
 
 func autoConvert_v1alpha1_LocalAPIExportPolicy_To_v1alpha2_LocalAPIExportPolicy(in *v1alpha1.LocalAPIExportPolicy, out *LocalAPIExportPolicy, s conversion.Scope) error {
+	*out = *(*LocalAPIExportPolicy)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -721,7 +699,7 @@ func Convert_v1alpha1_LocalAPIExportPolicy_To_v1alpha2_LocalAPIExportPolicy(in *
 }
 
 func autoConvert_v1alpha2_MaximalPermissionPolicy_To_v1alpha1_MaximalPermissionPolicy(in *MaximalPermissionPolicy, out *v1alpha1.MaximalPermissionPolicy, s conversion.Scope) error {
-	out.Local = (*v1alpha1.LocalAPIExportPolicy)(unsafe.Pointer(in.Local))
+	*out = *(*v1alpha1.MaximalPermissionPolicy)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -731,7 +709,7 @@ func Convert_v1alpha2_MaximalPermissionPolicy_To_v1alpha1_MaximalPermissionPolic
 }
 
 func autoConvert_v1alpha1_MaximalPermissionPolicy_To_v1alpha2_MaximalPermissionPolicy(in *v1alpha1.MaximalPermissionPolicy, out *MaximalPermissionPolicy, s conversion.Scope) error {
-	out.Local = (*LocalAPIExportPolicy)(unsafe.Pointer(in.Local))
+	*out = *(*MaximalPermissionPolicy)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -761,8 +739,7 @@ func autoConvert_v1alpha1_PermissionClaim_To_v1alpha2_PermissionClaim(in *v1alph
 }
 
 func autoConvert_v1alpha2_ResourceSelector_To_v1alpha1_ResourceSelector(in *ResourceSelector, out *v1alpha1.ResourceSelector, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Namespace = in.Namespace
+	*out = *(*v1alpha1.ResourceSelector)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -772,8 +749,7 @@ func Convert_v1alpha2_ResourceSelector_To_v1alpha1_ResourceSelector(in *Resource
 }
 
 func autoConvert_v1alpha1_ResourceSelector_To_v1alpha2_ResourceSelector(in *v1alpha1.ResourceSelector, out *ResourceSelector, s conversion.Scope) error {
-	out.Name = in.Name
-	out.Namespace = in.Namespace
+	*out = *(*ResourceSelector)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -783,7 +759,7 @@ func Convert_v1alpha1_ResourceSelector_To_v1alpha2_ResourceSelector(in *v1alpha1
 }
 
 func autoConvert_v1alpha2_VirtualWorkspace_To_v1alpha1_VirtualWorkspace(in *VirtualWorkspace, out *v1alpha1.VirtualWorkspace, s conversion.Scope) error {
-	out.URL = in.URL
+	*out = *(*v1alpha1.VirtualWorkspace)(unsafe.Pointer(in))
 	return nil
 }
 
@@ -793,7 +769,7 @@ func Convert_v1alpha2_VirtualWorkspace_To_v1alpha1_VirtualWorkspace(in *VirtualW
 }
 
 func autoConvert_v1alpha1_VirtualWorkspace_To_v1alpha2_VirtualWorkspace(in *v1alpha1.VirtualWorkspace, out *VirtualWorkspace, s conversion.Scope) error {
-	out.URL = in.URL
+	*out = *(*VirtualWorkspace)(unsafe.Pointer(in))
 	return nil
 }
 

@@ -19,9 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/rbac/v1"
-
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	v1 "k8s.io/api/rbac/v1"
 )
 
 // WorkspaceTypeSpecApplyConfiguration represents a declarative configuration of the WorkspaceTypeSpec type for use

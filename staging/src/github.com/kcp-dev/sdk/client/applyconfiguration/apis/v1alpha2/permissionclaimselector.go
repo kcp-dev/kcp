@@ -28,7 +28,7 @@ import (
 // PermissionClaimSelector configures scoped access to objects
 // of a claimed resource.
 type PermissionClaimSelectorApplyConfiguration struct {
-	v1.LabelSelectorApplyConfiguration `json:",inline"`
+	v1.LabelSelectorApplyConfiguration `json:""`
 	// matchAll grants access to all objects of the claimed resource.
 	MatchAll *bool `json:"matchAll,omitempty"`
 }

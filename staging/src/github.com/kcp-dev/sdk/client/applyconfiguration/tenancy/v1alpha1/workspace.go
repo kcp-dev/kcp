@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-
-	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // WorkspaceApplyConfiguration represents a declarative configuration of the Workspace type for use
@@ -40,7 +39,7 @@ import (
 // If a Mount is specified, the workspace will be mounted to the specified mount object and
 // LogicalCluster will not be created.
 type WorkspaceApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	Spec                             *WorkspaceSpecApplyConfiguration   `json:"spec,omitempty"`
 	Status                           *WorkspaceStatusApplyConfiguration `json:"status,omitempty"`

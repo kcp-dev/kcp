@@ -27,7 +27,7 @@ import (
 //
 // Holder is an APIExport, other than the owner, that serves the identity.
 type HolderApplyConfiguration struct {
-	ExportReferenceApplyConfiguration `json:",inline"`
+	ExportReferenceApplyConfiguration `json:""`
 	// since is when the holder was created.
 	Since *v1.Time `json:"since,omitempty"`
 }

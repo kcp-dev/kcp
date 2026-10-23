@@ -28,7 +28,7 @@ import (
 // ClusterCachedResourceSpec defines the desired state of ClusterCachedResource.
 type ClusterCachedResourceSpecApplyConfiguration struct {
 	// GroupVersionResource is the fully qualified name of the resource to be published.
-	GroupVersionResourceApplyConfiguration `json:",inline"`
+	GroupVersionResourceApplyConfiguration `json:""`
 	// identity points to a secret that contains the API identity in the 'key' file.
 	// The API identity allows access to ClusterCachedResource's resources via the APIExport.
 	//

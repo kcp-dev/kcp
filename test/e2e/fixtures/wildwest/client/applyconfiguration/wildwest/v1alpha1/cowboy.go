@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-
-	v1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration/meta/v1"
 )
 
 // CowboyApplyConfiguration represents a declarative configuration of the Cowboy type for use
@@ -30,7 +29,7 @@ import (
 //
 // Cowboy is part of the wild west
 type CowboyApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	Spec                             *CowboySpecApplyConfiguration   `json:"spec,omitempty"`
 	Status                           *CowboyStatusApplyConfiguration `json:"status,omitempty"`

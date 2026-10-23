@@ -19,12 +19,11 @@ limitations under the License.
 package fake
 
 import (
-	rest "k8s.io/client-go/rest"
-
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"github.com/kcp-dev/logicalcluster/v3"
 	kcpmigrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/typed/migration/v1alpha1"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1"
+	rest "k8s.io/client-go/rest"
 )
 
 var _ kcpmigrationv1alpha1.MigrationV1alpha1ClusterInterface = (*MigrationV1alpha1ClusterClient)(nil)

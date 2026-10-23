@@ -21,13 +21,12 @@ package internalinterfaces
 import (
 	time "time"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	cache "k8s.io/client-go/tools/cache"
-
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpversioned "github.com/kcp-dev/sdk/client/clientset/versioned"
 	kcpcluster "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // TweakListOptionsFunc is a function that transforms a v1.ListOptions.

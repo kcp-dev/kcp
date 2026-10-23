@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-
-	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // PartitionSetApplyConfiguration represents a declarative configuration of the PartitionSet type for use
@@ -30,7 +29,7 @@ import (
 //
 // PartitionSet defines a target domain and dimensions to divide a set of shards into 1 or more partitions.
 type PartitionSetApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// spec holds the desired state.
 	Spec *PartitionSetSpecApplyConfiguration `json:"spec,omitempty"`

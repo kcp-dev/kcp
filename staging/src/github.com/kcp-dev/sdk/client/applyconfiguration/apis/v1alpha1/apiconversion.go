@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-
-	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // APIConversionApplyConfiguration represents a declarative configuration of the APIConversion type for use
@@ -31,7 +30,7 @@ import (
 // APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match
 // the name of the APIResourceSchema for the conversions to take effect.
 type APIConversionApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// Spec holds the desired state.
 	Spec *APIConversionSpecApplyConfiguration `json:"spec,omitempty"`

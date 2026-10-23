@@ -19,9 +19,6 @@ limitations under the License.
 package fake
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/discovery"
-
 	kcpfakediscovery "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/discovery/fake"
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -53,6 +50,8 @@ import (
 	migrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/tenancy/v1alpha1"
 	topologyv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/topology/v1alpha1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -85,7 +84,7 @@ type ClusterClientset struct {
 var _ kcpclientset.ClusterInterface = (*ClusterClientset)(nil)
 
 // Discovery retrieves the DiscoveryClient
-func (c *ClusterClientset) Discovery() discovery.DiscoveryInterface {
+func (c *ClusterClientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.discovery
 }
 
@@ -183,7 +182,7 @@ var (
 	_ kcptesting.FakeScopedClient = &Clientset{}
 )
 
-func (c *Clientset) Discovery() discovery.DiscoveryInterface {
+func (c *Clientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.discovery
 }
 

@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-
-	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // ClusterCachedResourceApplyConfiguration represents a declarative configuration of the ClusterCachedResource type for use
@@ -30,7 +29,7 @@ import (
 //
 // ClusterCachedResource defines a resource that should be published to other workspaces
 type ClusterCachedResourceApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	Spec                             *ClusterCachedResourceSpecApplyConfiguration   `json:"spec,omitempty"`
 	Status                           *ClusterCachedResourceStatusApplyConfiguration `json:"status,omitempty"`

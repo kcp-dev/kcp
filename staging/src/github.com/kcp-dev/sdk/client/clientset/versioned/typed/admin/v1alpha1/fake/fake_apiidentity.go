@@ -19,11 +19,10 @@ limitations under the License.
 package fake
 
 import (
-	gentype "k8s.io/client-go/gentype"
-
 	v1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	adminv1alpha1 "github.com/kcp-dev/sdk/client/applyconfiguration/admin/v1alpha1"
 	typedadminv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/admin/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeAPIIdentities implements APIIdentityInterface

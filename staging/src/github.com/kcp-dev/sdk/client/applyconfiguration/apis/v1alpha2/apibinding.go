@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha2
 
 import (
+	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-
-	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // APIBindingApplyConfiguration represents a declarative configuration of the APIBinding type for use
@@ -33,7 +32,7 @@ import (
 //
 // The service provider uses an APIExport to expose the API.
 type APIBindingApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// Spec holds the desired state.
 	Spec *APIBindingSpecApplyConfiguration `json:"spec,omitempty"`

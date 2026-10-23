@@ -21,11 +21,10 @@ package v1alpha1
 import (
 	context "context"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gentype "k8s.io/client-go/gentype"
-
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	scheme "github.com/kcp-dev/sdk/client/clientset/versioned/scheme"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // LogicalClusterDumpsGetter has a method to return a LogicalClusterDumpInterface.

@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-
-	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // ClusterCachedResourceEndpointSliceApplyConfiguration represents a declarative configuration of the ClusterCachedResourceEndpointSlice type for use
@@ -30,7 +29,7 @@ import (
 //
 // ClusterCachedResourceEndpointSlice is a sink for the endpoints of ClusterCachedResource virtual workspaces.
 type ClusterCachedResourceEndpointSliceApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// spec holds the desired state:
 	// - the targeted ClusterCachedResource

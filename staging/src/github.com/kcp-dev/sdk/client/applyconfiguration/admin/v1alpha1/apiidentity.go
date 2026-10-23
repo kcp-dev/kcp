@@ -19,10 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
-
-	v1 "github.com/kcp-dev/sdk/client/applyconfiguration/meta/v1"
 )
 
 // APIIdentityApplyConfiguration represents a declarative configuration of the APIIdentity type for use
@@ -33,7 +32,7 @@ import (
 // installation and not stored anywhere; there is one per identity, named
 // after the identity value, served read-only through the Admin workspace.
 type APIIdentityApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	Status                           *APIIdentityStatusApplyConfiguration `json:"status,omitempty"`
 }
