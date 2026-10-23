@@ -29,7 +29,6 @@ import (
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/component-base/featuregate"
 	logsapi "k8s.io/component-base/logs/api/v1"
-	kubefeatures "k8s.io/kubernetes/pkg/features"
 )
 
 const (
@@ -174,12 +173,6 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 		{Version: version.MustParse("1.16"), Default: true, PreRelease: featuregate.Beta},
 	},
 
-	genericfeatures.ConsistentListFromCache: {
-		{Version: version.MustParse("1.28"), Default: false, PreRelease: featuregate.Alpha},
-		{Version: version.MustParse("1.31"), Default: true, PreRelease: featuregate.Beta},
-		{Version: version.MustParse("1.34"), Default: true, PreRelease: featuregate.GA, LockToDefault: true},
-	},
-
 	genericfeatures.ListFromCacheSnapshot: {
 		{Version: version.MustParse("1.33"), Default: false, PreRelease: featuregate.Alpha},
 		{Version: version.MustParse("1.34"), Default: true, PreRelease: featuregate.Beta},
@@ -188,16 +181,6 @@ var defaultVersionedGenericControlPlaneFeatureGates = map[featuregate.Feature]fe
 	genericfeatures.OpenAPIEnums: {
 		{Version: version.MustParse("1.23"), Default: false, PreRelease: featuregate.Alpha},
 		{Version: version.MustParse("1.24"), Default: true, PreRelease: featuregate.Beta},
-	},
-
-	genericfeatures.StreamingCollectionEncodingToJSON: {
-		{Version: version.MustParse("1.33"), Default: true, PreRelease: featuregate.Beta},
-		{Version: version.MustParse("1.34"), Default: true, PreRelease: featuregate.GA, LockToDefault: true},
-	},
-
-	genericfeatures.StreamingCollectionEncodingToProtobuf: {
-		{Version: version.MustParse("1.33"), Default: true, PreRelease: featuregate.Beta},
-		{Version: version.MustParse("1.34"), Default: true, PreRelease: featuregate.GA, LockToDefault: true},
 	},
 
 	genericfeatures.WatchList: {
@@ -230,9 +213,6 @@ func disableFeatures() error {
 		// cannot be handled due to the version not being known by the
 		// apiserver.
 		genericfeatures.UnknownVersionInteroperabilityProxy: false,
-
-		// DynamicResourceAllocation is irrelevant in kcp.
-		kubefeatures.DRAExtendedResource: false,
 
 		// WatchCacheInitializationPostStartHook blocks /readyz until
 		// all built-in APIs report ready. This isn't a problem for kcp
