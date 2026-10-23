@@ -89,16 +89,11 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIE
 		return nil
 	}
 
-	// Ref exists - make sure it's valid
-	if err := c.updateOrVerifyIdentitySecretHash(ctx, clusterName, apiExport); err != nil {
-		conditions.MarkFalse(
-			apiExport,
-			apisv1alpha2.APIExportIdentityValid,
-			apisv1alpha2.IdentityVerificationFailedReason,
-			conditionsv1alpha1.ConditionSeverityError,
-			"%v",
-			err,
-		)
+	// Ref exists - make sure it's valid and the export is authorized to
+	// serve the identity. reconcileIdentity reports every failure on the
+	// IdentityValid condition itself; the error only drives the retry.
+	if err := c.reconcileIdentity(ctx, apiExport); err != nil {
+		return err
 	}
 
 	// Ensure the APIExportEndpointSlice exists
@@ -187,30 +182,6 @@ func (c *controller) createIdentitySecret(ctx context.Context, clusterName logic
 	ctx = klog.NewContext(ctx, logger)
 	logger.V(2).Info("creating identity secret")
 	return c.createSecret(ctx, clusterName, secret)
-}
-
-func (c *controller) updateOrVerifyIdentitySecretHash(ctx context.Context, clusterName logicalcluster.Name, apiExport *apisv1alpha2.APIExport) error {
-	secret, err := c.getSecret(ctx, clusterName, apiExport.Spec.Identity.SecretRef.Namespace, apiExport.Spec.Identity.SecretRef.Name)
-	if err != nil {
-		return err
-	}
-
-	hash, err := identity.IdentityHash(secret)
-	if err != nil {
-		return err
-	}
-
-	if apiExport.Status.IdentityHash == "" {
-		apiExport.Status.IdentityHash = hash
-	}
-
-	if apiExport.Status.IdentityHash != hash {
-		return fmt.Errorf("hash mismatch: identity secret hash %q must match status.identityHash %q", hash, apiExport.Status.IdentityHash)
-	}
-
-	conditions.MarkTrue(apiExport, apisv1alpha2.APIExportIdentityValid)
-
-	return nil
 }
 
 func (c *controller) updateVirtualWorkspaceURLs(ctx context.Context, apiExport *apisv1alpha2.APIExport) error {

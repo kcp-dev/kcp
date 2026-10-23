@@ -28,6 +28,8 @@ import (
 
 	applyconfiguration "github.com/kcp-dev/sdk/client/applyconfiguration"
 	clientset "github.com/kcp-dev/sdk/client/clientset/versioned"
+	adminv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/admin/v1alpha1"
+	fakeadminv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/admin/v1alpha1/fake"
 	apisv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha1"
 	fakeapisv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha1/fake"
 	apisv1alpha2 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha2"
@@ -148,6 +150,11 @@ var (
 	_ clientset.Interface = &Clientset{}
 	_ testing.FakeClient  = &Clientset{}
 )
+
+// AdminV1alpha1 retrieves the AdminV1alpha1Client
+func (c *Clientset) AdminV1alpha1() adminv1alpha1.AdminV1alpha1Interface {
+	return &fakeadminv1alpha1.FakeAdminV1alpha1{Fake: &c.Fake}
+}
 
 // ApisV1alpha1 retrieves the ApisV1alpha1Client
 func (c *Clientset) ApisV1alpha1() apisv1alpha1.ApisV1alpha1Interface {

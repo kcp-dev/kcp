@@ -29,6 +29,12 @@ const (
 // to assign resources to a particular shard.
 type Name string
 
+// Registry is the shard scope on the cache server under which kcp keeps
+// installation-wide registry objects that any shard may write, such as the
+// APIIdentity entries of admin.kcp.io. Every shard writes under this one
+// scope, so a create of a given name is atomic across the installation.
+const Registry Name = "system:registry"
+
 var (
 	// Wildcard is the name indicating cross-shards requests.
 	Wildcard = Name("*")

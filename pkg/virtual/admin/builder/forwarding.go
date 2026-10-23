@@ -52,7 +52,6 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 )
 
 // provideShardsRestStorage builds the REST storage for the shards view:
@@ -169,14 +168,7 @@ func sourceContext(ctx context.Context) context.Context {
 // Shard object. The kcp.io/cluster annotation is kept: it tells the consumer
 // in which logical cluster the authoritative object lives.
 func fixupShard(obj *unstructured.Unstructured) {
-	annotations := obj.GetAnnotations()
-	if annotations == nil {
-		return
-	}
-	delete(annotations, shard.AnnotationKey)
-	delete(annotations, replication.AnnotationKeyOriginalResourceUID)
-	delete(annotations, replication.AnnotationKeyOriginalResourceVersion)
-	obj.SetAnnotations(annotations)
+	stripCacheBookkeeping(obj)
 }
 
 // stripField removes the field at the given path from the object, pruning

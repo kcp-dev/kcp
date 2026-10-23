@@ -22,12 +22,12 @@ import (
 	"strings"
 	"sync"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	"github.com/kcp-dev/virtual-workspace-framework/framework"
@@ -41,18 +41,20 @@ import (
 	adminauthorizer "github.com/kcp-dev/kcp/pkg/virtual/admin/authorizer"
 )
 
-// apiDomainKey is the single, static API domain of the shards view: the VW
-// serves one fixed API set regardless of the caller.
+// apiDomainKey is the single, static API domain of the Admin workspace: the
+// VW serves one fixed API set regardless of the caller.
 const apiDomainKey = dynamiccontext.APIDomainKey(admin.VirtualWorkspaceName)
 
-// BuildVirtualWorkspace builds the Admin workspace virtual workspace. Its
-// first resource is a read-only, cache-backed aggregate view of every
-// shard's Shard object.
+// BuildVirtualWorkspace builds the Admin workspace virtual workspace. It
+// serves two cache-backed, installation-wide views: every shard's Shard
+// object, writable for the allow-listed operational fields, and the
+// read-only APIIdentity registry.
 //
 // URL patterns:
 //
 //	/services/admin/apis/core.kcp.io/v1alpha1/shards            (plain clients, e.g. kubectl via `ws use :admin`)
-//	/services/admin/clusters/<anything>/apis/core.kcp.io/...    (cluster-aware clients; the segment is accepted and ignored)
+//	/services/admin/apis/admin.kcp.io/v1alpha1/apiidentities
+//	/services/admin/clusters/<anything>/apis/...                (cluster-aware clients; the segment is accepted and ignored)
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	cacheDynamicClusterClient kcpdynamic.ClusterInterface,
@@ -82,7 +84,7 @@ func BuildVirtualWorkspace(
 			}
 		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
-			provider := &singleResourceAPIDefinitionSetProvider{
+			provider := &adminAPIDefinitionSetProvider{
 				config:                    mainConfig,
 				cacheDynamicClusterClient: cacheDynamicClusterClient,
 			}
@@ -103,7 +105,7 @@ func BuildVirtualWorkspace(
 
 // digestURL accepts /services/admin and everything below it. An optional
 // /clusters/<name-or-*> segment (added by cluster-aware clients) is parsed
-// and stripped; the shards view is identical for every value.
+// and stripped; the views are identical for every value.
 func digestURL(urlPath, rootPathPrefix string) (cluster genericapirequest.Cluster, logicalPath string, accepted bool) {
 	if !strings.HasPrefix(urlPath, rootPathPrefix) {
 		return genericapirequest.Cluster{}, "", false
@@ -139,9 +141,9 @@ func digestURL(urlPath, rootPathPrefix string) (cluster genericapirequest.Cluste
 	return cluster, prefix, true
 }
 
-// singleResourceAPIDefinitionSetProvider serves the one fixed API of this
-// virtual workspace, lazily constructing the serving info once.
-type singleResourceAPIDefinitionSetProvider struct {
+// adminAPIDefinitionSetProvider serves the fixed API set of this virtual
+// workspace, lazily constructing the serving info once.
+type adminAPIDefinitionSetProvider struct {
 	config                    genericapiserver.CompletedConfig
 	cacheDynamicClusterClient kcpdynamic.ClusterInterface
 
@@ -149,7 +151,7 @@ type singleResourceAPIDefinitionSetProvider struct {
 	cached apidefinition.APIDefinitionSet
 }
 
-func (p *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(_ context.Context, key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
+func (p *adminAPIDefinitionSetProvider) GetAPIDefinitionSet(_ context.Context, key dynamiccontext.APIDomainKey) (apidefinition.APIDefinitionSet, bool, error) {
 	if key != apiDomainKey {
 		return nil, false, nil
 	}
@@ -160,22 +162,24 @@ func (p *singleResourceAPIDefinitionSetProvider) GetAPIDefinitionSet(_ context.C
 		return p.cached, true, nil
 	}
 
-	apiDef, err := provideShardsRestStorage(p.config, p.cacheDynamicClusterClient)
+	shardsDef, err := provideShardsRestStorage(p.config, p.cacheDynamicClusterClient)
 	if err != nil {
+		return nil, false, err
+	}
+	apiIdentitiesDef, err := provideAPIIdentitiesRestStorage(p.config, p.cacheDynamicClusterClient)
+	if err != nil {
+		shardsDef.TearDown()
 		return nil, false, err
 	}
 
 	p.cached = apidefinition.APIDefinitionSet{
-		schema.GroupVersionResource{
-			Group:    corev1alpha1.SchemeGroupVersion.Group,
-			Version:  corev1alpha1.SchemeGroupVersion.Version,
-			Resource: "shards",
-		}: apiDef,
+		corev1alpha1.SchemeGroupVersion.WithResource("shards"):         shardsDef,
+		adminv1alpha1.SchemeGroupVersion.WithResource("apiidentities"): apiIdentitiesDef,
 	}
 	return p.cached, true, nil
 }
 
-var _ apidefinition.APIDefinitionSetGetter = &singleResourceAPIDefinitionSetProvider{}
+var _ apidefinition.APIDefinitionSetGetter = &adminAPIDefinitionSetProvider{}
 
 func newAuthorizer() *authorization.Decorator {
 	auth := adminauthorizer.NewAdminAuthorizer()

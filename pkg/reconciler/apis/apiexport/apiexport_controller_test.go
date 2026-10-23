@@ -102,6 +102,7 @@ func TestReconcile(t *testing.T) {
 			secretExists: false,
 
 			wantVerifyFailure: true,
+			wantError:         true,
 		},
 		"identity verification fails when hash from secret's key differs with APIExport's hash": {
 			secretRefSet:                         true,
@@ -110,6 +111,7 @@ func TestReconcile(t *testing.T) {
 			secretHashDoesntMatchAPIExportStatus: true,
 
 			wantVerifyFailure: true,
+			wantError:         true,
 		},
 		"able to fix identity verification by returning to secret with correct key/hash": {
 			secretRefSet:                true,
@@ -184,7 +186,14 @@ func TestReconcile(t *testing.T) {
 			expectedHash := fmt.Sprintf("%x", sha256.Sum256([]byte(expectedKey)))
 			someOtherKey := "def"
 
+			registry := newIdentityFixture().controller()
 			c := &controller{
+				queue:              registry.queue,
+				now:                registry.now,
+				getAPIIdentity:     registry.getAPIIdentity,
+				getAPIIdentityLive: registry.getAPIIdentityLive,
+				createAPIIdentity:  registry.createAPIIdentity,
+				updateAPIIdentity:  registry.updateAPIIdentity,
 				getNamespace: func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error) {
 					return &corev1.Namespace{}, nil
 				},
