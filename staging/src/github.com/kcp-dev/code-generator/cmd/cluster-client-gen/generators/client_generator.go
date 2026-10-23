@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/code-generator/pkg/apidefinitions"
 	codegennamer "k8s.io/code-generator/pkg/namer"
 	"k8s.io/gengo/v2"
 	"k8s.io/gengo/v2/generator"
@@ -277,16 +278,18 @@ NextGroup:
 // applyGroupOverrides applies group name overrides to each package, if applicable. If there is a
 // comment of the form "// +groupName=somegroup" or "// +groupName=somegroup.foo.bar.io", use the
 // first field (somegroup) as the name of the group in Go code, e.g. as the func name in a clientset.
-//
-// If the first field of the groupName is not unique within the clientset, use "// +groupName=unique".
-func applyGroupOverrides(universe types.Universe, args *args.Args) {
+func applyGroupOverrides(universe types.Universe, args *args.Args) error {
 	// Create a map from "old GV" to "new GV" so we know what changes we need to make.
 	changes := make(map[clientgentypes.GroupVersion]clientgentypes.GroupVersion)
 	for gv, inputDir := range args.GroupVersionPackages() {
 		p := universe.Package(inputDir)
-		if override := gengo.ExtractCommentTags("+", p.Comments)["groupName"]; override != nil { //nolint:staticcheck
+		override, ok, err := apidefinitions.GroupNameForPackage(p.Comments)
+		if err != nil {
+			return err
+		}
+		if ok {
 			newGV := clientgentypes.GroupVersion{
-				Group:   clientgentypes.Group(override[0]),
+				Group:   clientgentypes.Group(override),
 				Version: gv.Version,
 			}
 			changes[gv] = newGV
@@ -314,6 +317,7 @@ func applyGroupOverrides(universe types.Universe, args *args.Args) {
 		}
 	}
 	args.Groups = newGroups
+	return nil
 }
 
 // Because we try to assemble inputs from an input-base and a set of
@@ -357,12 +361,27 @@ func GetTargets(context *generator.Context, args *args.Args) []generator.Target 
 	if err := sanitizePackagePaths(context, args); err != nil {
 		klog.Fatalf("cannot sanitize inputs: %v", err)
 	}
-	applyGroupOverrides(context.Universe, args)
+	if err := applyGroupOverrides(context.Universe, args); err != nil {
+		klog.Fatalf("cannot apply group overrides: %v", err)
+	}
+
+	var idOpts []apidefinitions.Option
+	if len(args.LintRules) > 0 {
+		idOpts = append(idOpts, apidefinitions.WithLintRules(args.LintRules...))
+	}
 
 	gvToTypes := map[clientgentypes.GroupVersion][]*types.Type{}
 	groupGoNames := make(map[clientgentypes.GroupVersion]string)
 	for gv, inputDir := range args.GroupVersionPackages() {
 		p := context.Universe.Package(inputDir)
+
+		info, err := apidefinitions.Identify(p, apidefinitions.Client, idOpts...)
+		if err != nil {
+			klog.Fatal(err)
+		}
+		if !info.ShouldGenerate() {
+			continue
+		}
 
 		// If there's a comment of the form "// +groupGoName=SomeUniqueShortName", use that as
 		// the Go group identifier in CamelCase. It defaults
