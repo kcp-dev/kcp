@@ -20,6 +20,8 @@ package v1
 
 type DeviceClassClusterExpansion interface{}
 
+type DeviceTaintRuleClusterExpansion interface{}
+
 type ResourceClaimClusterExpansion interface{}
 
 type ResourceClaimTemplateClusterExpansion interface{}
