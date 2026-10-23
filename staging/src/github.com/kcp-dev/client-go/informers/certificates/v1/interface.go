@@ -25,6 +25,10 @@ import (
 type ClusterInterface interface {
 	// CertificateSigningRequests returns a CertificateSigningRequestClusterInformer.
 	CertificateSigningRequests() CertificateSigningRequestClusterInformer
+	// ClusterTrustBundles returns a ClusterTrustBundleClusterInformer.
+	ClusterTrustBundles() ClusterTrustBundleClusterInformer
+	// PodCertificateRequests returns a PodCertificateRequestClusterInformer.
+	PodCertificateRequests() PodCertificateRequestClusterInformer
 }
 
 type version struct {
@@ -40,4 +44,14 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 // CertificateSigningRequests returns a CertificateSigningRequestClusterInformer.
 func (v *version) CertificateSigningRequests() CertificateSigningRequestClusterInformer {
 	return &certificateSigningRequestClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterTrustBundles returns a ClusterTrustBundleClusterInformer.
+func (v *version) ClusterTrustBundles() ClusterTrustBundleClusterInformer {
+	return &clusterTrustBundleClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// PodCertificateRequests returns a PodCertificateRequestClusterInformer.
+func (v *version) PodCertificateRequests() PodCertificateRequestClusterInformer {
+	return &podCertificateRequestClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
