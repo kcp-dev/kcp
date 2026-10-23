@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -199,4 +200,14 @@ func (s *serviceAccountTokenGetter) GetServiceAccount(_ context.Context, namespa
 
 func (s *serviceAccountTokenGetter) GetSecret(_ context.Context, namespace, name string) (*corev1.Secret, error) {
 	return s.secrets.Get(s.clusterName, namespace, name)
+}
+
+// These are stubbed out for now, as they need to be properly implemented on the for
+// see https://github.com/kcp-dev/kcp/issues/4489.
+func (s *serviceAccountTokenGetter) GetValidatingWebhookConfiguration(_ context.Context, name string) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+	return nil, kerrors.NewNotFound(schema.GroupResource{Group: admissionregistrationv1.GroupName, Resource: "validatingwebhookconfigurations"}, name)
+}
+
+func (s *serviceAccountTokenGetter) GetMutatingWebhookConfiguration(_ context.Context, name string) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
+	return nil, kerrors.NewNotFound(schema.GroupResource{Group: admissionregistrationv1.GroupName, Resource: "mutatingwebhookconfigurations"}, name)
 }
