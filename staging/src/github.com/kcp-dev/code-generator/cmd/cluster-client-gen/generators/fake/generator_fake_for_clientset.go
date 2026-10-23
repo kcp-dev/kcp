@@ -191,7 +191,7 @@ type ClusterClientset struct {
 var _ kcpclientset.ClusterInterface = (*ClusterClientset)(nil)
 
 // Discovery retrieves the DiscoveryClient
-func (c *ClusterClientset) Discovery() discovery.DiscoveryInterface {
+func (c *ClusterClientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.discovery
 }
 
@@ -258,7 +258,7 @@ var (
 	_ kcptesting.FakeScopedClient = &Clientset{}
 )
 
-func (c *Clientset) Discovery() discovery.DiscoveryInterface {
+func (c *Clientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.discovery
 }
 
