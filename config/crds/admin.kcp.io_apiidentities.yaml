@@ -25,8 +25,13 @@ spec:
       jsonPath: .status.owner.cluster
       name: Cluster
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Shared")].status
-      name: Holders
+    - description: Identity of a core APIExport in root
+      jsonPath: .status.core
+      name: Core
+      type: boolean
+    - description: True while other APIExports hold the identity
+      jsonPath: .status.conditions[?(@.type=="Shared")].status
+      name: Shared
       priority: 1
       type: string
     - jsonPath: .metadata.creationTimestamp

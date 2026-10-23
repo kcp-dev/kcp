@@ -116,9 +116,9 @@ other exports holding it and whether it is a core identity. See
 
 ```sh
 $ kubectl get apiidentities
-NAME                                                               OWNER             CLUSTER            AGE
-0e2fc4327ee7af2b2b9a0f2b4b1a8c4c7a0d6c2f0f1b6e5a9d8c7b6a5f4e3d2c   tenancy.kcp.io    root               3d
-5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6   widgets           2cynbfy2m0wtjqcs   2h
+NAME                                                               OWNER             CLUSTER            CORE    AGE
+0e2fc4327ee7af2b2b9a0f2b4b1a8c4c7a0d6c2f0f1b6e5a9d8c7b6a5f4e3d2c   tenancy.kcp.io    root               true    3d
+5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6   widgets           2cynbfy2m0wtjqcs   false   2h
 ```
 
 Access requires membership in the `system:kcp:admin` group; the serving

@@ -38,7 +38,8 @@ import (
 // +kubebuilder:resource:scope=Cluster,categories=kcp
 // +kubebuilder:printcolumn:name="Owner",type=string,JSONPath=`.status.owner.name`,description="APIExport owning the identity"
 // +kubebuilder:printcolumn:name="Cluster",type=string,JSONPath=`.status.owner.cluster`,description="Logical cluster of the owner"
-// +kubebuilder:printcolumn:name="Holders",type=string,JSONPath=`.status.conditions[?(@.type=="Shared")].status`,priority=1
+// +kubebuilder:printcolumn:name="Core",type=boolean,JSONPath=`.status.core`,description="Identity of a core APIExport in root"
+// +kubebuilder:printcolumn:name="Shared",type=string,JSONPath=`.status.conditions[?(@.type=="Shared")].status`,priority=1,description="True while other APIExports hold the identity"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 type APIIdentity struct {
 	metav1.TypeMeta `json:",inline"`
