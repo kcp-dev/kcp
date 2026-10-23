@@ -61,11 +61,33 @@ type options struct {
 	inputDir            string
 	outputDir           string
 	ignoreExportSchemas []string
+	ignoreSchemas       []string
 	preserveResources   bool
 	headerFile          string
 
 	ignoreExportSchemasParsed []metav1.GroupResource
+	ignoreSchemasParsed       []metav1.GroupResource
 	headerText                string
+}
+
+// parseGroupResources parses strings like "resource.group.org" into GroupResources.
+func parseGroupResources(in []string) ([]metav1.GroupResource, error) {
+	var out []metav1.GroupResource
+	for _, s := range in {
+		parts := strings.Split(s, ".")
+		if len(parts) < 2 {
+			return nil, fmt.Errorf("invalid schema %q: must have at least 2 dot-separated segments", s)
+		}
+
+		resource := parts[0]
+		group := strings.Join(parts[1:], ".")
+		if group == "core" {
+			group = ""
+		}
+		group = strings.TrimSuffix(group, "/")
+		out = append(out, metav1.GroupResource{Group: group, Resource: resource})
+	}
+	return out, nil
 }
 
 func bindOptions(fs *pflag.FlagSet) *options {
@@ -73,6 +95,7 @@ func bindOptions(fs *pflag.FlagSet) *options {
 	fs.StringVar(&o.inputDir, "input-dir", "", "Directory containing CustomResourceDefinition YAML files.")
 	fs.StringVar(&o.outputDir, "output-dir", "", "Directory where APIResourceSchemas and APIExports will be written.")
 	fs.StringSliceVar(&o.ignoreExportSchemas, "ignore-export-schemas", []string{}, "Comma-separated list of 'Resource.Group' to be ignored for APIExports generation.")
+	fs.StringSliceVar(&o.ignoreSchemas, "ignore-schemas", []string{}, "Comma-separated list of 'Resource.Group' for which no APIResourceSchema is generated at all.")
 	fs.BoolVar(&o.preserveResources, "preserve-resources", false, "Preserve existing resources in APIExport manifests instead of overriding them.")
 	fs.StringVar(&o.headerFile, "header-file", "", "Path to a file containing boilerplate header text; the contents will be prepended to all generated files.")
 	return &o
@@ -85,22 +108,12 @@ func (o *options) Validate() error {
 	if o.outputDir == "" {
 		return fmt.Errorf("--output-dir is required")
 	}
-	if len(o.ignoreExportSchemas) > 0 {
-		for _, s := range o.ignoreExportSchemas {
-			// parse strings like "resource.group.org"
-			parts := strings.Split(s, ".")
-			if len(parts) < 2 {
-				return fmt.Errorf("invalid schema %q: must have at least 2 dot-separated segments", s)
-			}
-
-			resource := parts[0]
-			group := strings.Join(parts[1:], ".")
-			if group == "core" {
-				group = ""
-			}
-			group = strings.TrimSuffix(group, "/")
-			o.ignoreExportSchemasParsed = append(o.ignoreExportSchemasParsed, metav1.GroupResource{Group: group, Resource: resource})
-		}
+	var err error
+	if o.ignoreExportSchemasParsed, err = parseGroupResources(o.ignoreExportSchemas); err != nil {
+		return err
+	}
+	if o.ignoreSchemasParsed, err = parseGroupResources(o.ignoreSchemas); err != nil {
+		return err
 	}
 	if o.headerFile != "" {
 		headerText, err := os.ReadFile(o.headerFile)
@@ -154,6 +167,12 @@ func main() {
 	if err != nil {
 		logger.Error(err, "Could not load CustomResourceDefinitions.")
 		os.Exit(1)
+	}
+	for _, gr := range opts.ignoreSchemasParsed {
+		if _, ok := crds[gr]; ok {
+			logger.Info(fmt.Sprintf("Skipping APIResourceSchema generation for %s", gr))
+			delete(crds, gr)
+		}
 	}
 
 	if _, err := os.Stat(opts.outputDir); os.IsNotExist(err) {

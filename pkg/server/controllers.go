@@ -59,6 +59,8 @@ import (
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
@@ -71,6 +73,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/objectcount"
 	permissionclaimlabler "github.com/kcp-dev/kcp/pkg/permissionclaim"
+	"github.com/kcp-dev/kcp/pkg/reconciler/admin/apiidentity"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibinding"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apibindingdeletion"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexport"
@@ -113,6 +116,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacemounts"
 	"github.com/kcp-dev/kcp/pkg/reconciler/tenancy/workspacetype"
 	"github.com/kcp-dev/kcp/pkg/reconciler/topology/partitionset"
+	kcpbootstrap "github.com/kcp-dev/kcp/pkg/server/bootstrap"
 	initializingworkspacesbuilder "github.com/kcp-dev/kcp/pkg/virtual/initializingworkspaces/builder"
 
 	_ "net/http/pprof"
@@ -1344,9 +1348,13 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		return err
 	}
 
+	apiIdentityInformer := s.CacheKcpSharedInformerFactory.Admin().V1alpha1().APIIdentities()
+
 	c, err := apiexport.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
+		s.KcpCacheClusterClient,
+		apiIdentityInformer,
 		s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices(),
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		kubeClusterClient,
@@ -1367,9 +1375,47 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
+					apiIdentityInformer.Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().HasSynced() &&
 					s.KubeSharedInformerFactory.Core().V1().Namespaces().Informer().HasSynced() &&
 					s.KubeSharedInformerFactory.Core().V1().Secrets().Informer().HasSynced(), nil
+			})
+		},
+		Runner: func(ctx context.Context) {
+			c.Start(ctx, 2)
+		},
+	})
+}
+
+// installAPIIdentityController runs the registry controller of this shard:
+// it maintains the APIIdentity entries of the identities whose owner this
+// shard hosts and passes an identity on when its owner is deleted.
+func (s *Server) installAPIIdentityController(_ context.Context) error {
+	coreExports := sets.New[string]()
+	for _, name := range kcpbootstrap.KcpRootGroupExportNames {
+		coreExports.Insert(name)
+	}
+	for _, name := range kcpbootstrap.KcpRootGroupResourceExportNames {
+		coreExports.Insert(name)
+	}
+	isCore := func(export *apisv1alpha2.APIExport) bool {
+		return logicalcluster.From(export) == core.RootCluster && coreExports.Has(export.Name)
+	}
+
+	apiIdentities := s.CacheKcpSharedInformerFactory.Admin().V1alpha1().APIIdentities()
+	localExports := s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports()
+	globalExports := s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports()
+
+	c, err := apiidentity.NewController(s.KcpCacheClusterClient, apiIdentities, localExports, globalExports, isCore)
+	if err != nil {
+		return err
+	}
+
+	return s.registerController(&controllerWrapper{
+		Name: apiidentity.ControllerName,
+		Wait: func(ctx context.Context, s *Server) error {
+			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
+				return apiIdentities.Informer().HasSynced() && localExports.Informer().HasSynced() && globalExports.Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {

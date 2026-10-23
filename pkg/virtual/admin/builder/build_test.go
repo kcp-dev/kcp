@@ -26,9 +26,14 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/watch"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+
+	configshard "github.com/kcp-dev/kcp/config/shard"
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 )
 
 func TestDigestURL(t *testing.T) {
@@ -44,6 +49,7 @@ func TestDigestURL(t *testing.T) {
 	}{
 		{urlPath: "/services/admin", accepted: true, clusterName: "root", prefixToTrim: "/services/admin"},
 		{urlPath: "/services/admin/apis/core.kcp.io/v1alpha1/shards", accepted: true, clusterName: "root", prefixToTrim: "/services/admin"},
+		{urlPath: "/services/admin/apis/admin.kcp.io/v1alpha1/apiidentities", accepted: true, clusterName: "root", prefixToTrim: "/services/admin"},
 		{urlPath: "/services/admin/clusters/*/apis/core.kcp.io/v1alpha1/shards", accepted: true, wildcard: true, prefixToTrim: "/services/admin/clusters/*"},
 		{urlPath: "/services/admin/clusters/myws/apis/core.kcp.io/v1alpha1/shards", accepted: true, clusterName: "myws", prefixToTrim: "/services/admin/clusters/myws"},
 		{urlPath: "/services/adminfoo/apis", accepted: false},
@@ -388,4 +394,45 @@ func TestMutableFieldUpdate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRegistryContextTargetsTheRegistryScope(t *testing.T) {
+	t.Parallel()
+	ctx := registryContext(context.Background())
+
+	cluster, err := genericapirequest.ValidClusterFrom(ctx)
+	require.NoError(t, err)
+	require.Equal(t, configshard.SystemShardCluster, cluster.Name)
+	require.False(t, cluster.Wildcard)
+
+	require.Equal(t, shard.Registry, cacheclient.ShardFromContext(ctx))
+}
+
+func TestStrippingWatchStripsCacheBookkeeping(t *testing.T) {
+	t.Parallel()
+	source := watch.NewFake()
+	w := newStrippingWatch(context.Background(), source)
+
+	entry := &unstructured.Unstructured{}
+	entry.SetAPIVersion("admin.kcp.io/v1alpha1")
+	entry.SetKind("APIIdentity")
+	entry.SetName("abc")
+	entry.SetAnnotations(map[string]string{
+		logicalcluster.AnnotationKey:             "system:shard",
+		"kcp.io/shard":                           "system:registry",
+		"cache.kcp.io/original-resource-version": "42",
+	})
+	source.Add(entry)
+	source.Action(watch.Bookmark, &unstructured.Unstructured{})
+	source.Stop()
+
+	var got []watch.Event
+	for event := range w.ResultChan() {
+		got = append(got, event)
+	}
+	require.Len(t, got, 2)
+	require.Equal(t, watch.Added, got[0].Type)
+	anns := got[0].Object.(*unstructured.Unstructured).GetAnnotations()
+	require.Equal(t, map[string]string{logicalcluster.AnnotationKey: "system:shard"}, anns)
+	require.Equal(t, watch.Bookmark, got[1].Type)
 }

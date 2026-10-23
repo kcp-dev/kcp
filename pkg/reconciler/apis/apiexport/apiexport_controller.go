@@ -37,15 +37,20 @@ import (
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	apisv1alpha2client "github.com/kcp-dev/sdk/client/clientset/versioned/typed/apis/v1alpha2"
+	adminv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/admin/v1alpha1"
 	apisv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha1"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 
+	configshard "github.com/kcp-dev/kcp/config/shard"
+	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
+	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
@@ -61,9 +66,12 @@ const (
 )
 
 // NewController returns a new controller for APIExports.
+// cacheKcpClusterClient and apiIdentityInformer serve the identity registry.
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
 	apiExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	cacheKcpClusterClient kcpclientset.ClusterInterface,
+	apiIdentityInformer adminv1alpha1informers.APIIdentityClusterInformer,
 	apiExportEndpointSliceInformer apisv1alpha1informers.APIExportEndpointSliceClusterInformer,
 	globalShardInformer corev1alpha1informers.ShardClusterInformer,
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
@@ -139,6 +147,17 @@ func NewController(
 
 		commit: committer.NewCommitter[*APIExport, Patcher, *APIExportSpec, *APIExportStatus](kcpClusterClient.ApisV1alpha2().APIExports()),
 
+		getAPIIdentityLive: func(ctx context.Context, name string) (*adminv1alpha1.APIIdentity, error) {
+			return cacheKcpClusterClient.Cluster(configshard.SystemShardCluster.Path()).AdminV1alpha1().APIIdentities().Get(cacheclient.WithShardInContext(ctx, shard.Registry), name, metav1.GetOptions{})
+		},
+		createAPIIdentity: func(ctx context.Context, entry *adminv1alpha1.APIIdentity) (*adminv1alpha1.APIIdentity, error) {
+			return cacheKcpClusterClient.Cluster(configshard.SystemShardCluster.Path()).AdminV1alpha1().APIIdentities().Create(cacheclient.WithShardInContext(ctx, shard.Registry), entry, metav1.CreateOptions{})
+		},
+		updateAPIIdentity: func(ctx context.Context, entry *adminv1alpha1.APIIdentity) (*adminv1alpha1.APIIdentity, error) {
+			return cacheKcpClusterClient.Cluster(configshard.SystemShardCluster.Path()).AdminV1alpha1().APIIdentities().Update(cacheclient.WithShardInContext(ctx, shard.Registry), entry, metav1.UpdateOptions{})
+		},
+		now: time.Now,
+
 		countedAPIExportConditions: make(map[string]map[string]string),
 		readyAPIExports:            make(map[string]struct{}),
 	}
@@ -196,7 +215,34 @@ func NewController(
 	},
 	))
 
+	c.getAPIIdentity = func(name string) (*adminv1alpha1.APIIdentity, error) {
+		return apiIdentityInformer.Lister().Cluster(configshard.SystemShardCluster).Get(name)
+	}
+
+	// a registry entry that changes, or that the cache server lost, has the
+	// local exports of the identity record themselves again.
+	_, _ = apiIdentityInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { c.enqueueHoldersOf(obj.(*adminv1alpha1.APIIdentity).Name) },
+		UpdateFunc: func(_, newObj interface{}) { c.enqueueHoldersOf(newObj.(*adminv1alpha1.APIIdentity).Name) },
+		DeleteFunc: func(obj interface{}) { c.enqueueHoldersOf(tombstone.Obj[*adminv1alpha1.APIIdentity](obj).Name) },
+	}))
+
 	return c, nil
+}
+
+// enqueueHoldersOf enqueues the local APIExports that serve, or may be waiting
+// to serve, the identity.
+func (c *controller) enqueueHoldersOf(identityHash string) {
+	exports, err := c.listAPIExports()
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	for _, export := range exports {
+		if export.Status.IdentityHash == identityHash || export.Status.IdentityHash == "" {
+			c.enqueueAPIExport(export)
+		}
+	}
 }
 
 type APIExport = apisv1alpha2.APIExport
@@ -230,6 +276,13 @@ type controller struct {
 	createSecret func(ctx context.Context, clusterName logicalcluster.Path, secret *corev1.Secret) error
 
 	listShards func() ([]*corev1alpha1.Shard, error)
+
+	// identity registry
+	getAPIIdentity     func(name string) (*adminv1alpha1.APIIdentity, error)
+	getAPIIdentityLive func(ctx context.Context, name string) (*adminv1alpha1.APIIdentity, error)
+	createAPIIdentity  func(ctx context.Context, entry *adminv1alpha1.APIIdentity) (*adminv1alpha1.APIIdentity, error)
+	updateAPIIdentity  func(ctx context.Context, entry *adminv1alpha1.APIIdentity) (*adminv1alpha1.APIIdentity, error)
+	now                func() time.Time
 
 	commit CommitFunc
 
