@@ -17,7 +17,6 @@ limitations under the License.
 package framework
 
 import (
-	"bytes"
 	"path/filepath"
 	"testing"
 
@@ -27,35 +26,11 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/kcp-dev/sdk/apis/core"
-	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 )
 
-type TestCli struct {
-	Server         kcptestingserver.RunningServer
-	KubeconfigPath string
-}
-
-func NewCli(t *testing.T) *TestCli {
-	t.Helper()
-
-	tc := &TestCli{}
-	tc.Server = kcptesting.SharedKcpServer(t)
-
-	wsPath, _ := kcptesting.NewWorkspaceFixture(t, tc.Server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
-
-	tc.KubeconfigPath = writeKubeconfig(t, tc.Server, wsPath)
-
-	return tc
-}
-
-func (tc *TestCli) RunPlugin(t *testing.T, plugin string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
-	t.Helper()
-	return RunKcpCliPlugin(t, tc.KubeconfigPath, plugin, args)
-}
-
-func writeKubeconfig(t *testing.T, server kcptestingserver.RunningServer, wsPath logicalcluster.Path) string {
+// WriteWorkspaceKubeconfig writes a kubeconfig for wsPath to dir and returns its path.
+func WriteWorkspaceKubeconfig(t *testing.T, server kcptestingserver.RunningServer, wsPath logicalcluster.Path, dir string) string {
 	t.Helper()
 
 	cfg := server.BaseConfig(t)
@@ -82,8 +57,7 @@ func writeKubeconfig(t *testing.T, server kcptestingserver.RunningServer, wsPath
 		CurrentContext: "kcp",
 	}
 
-	tmpdir := t.TempDir()
-	kubeconfigPath := filepath.Join(tmpdir, "kubeconfig.yaml")
+	kubeconfigPath := filepath.Join(dir, "kubeconfig.yaml")
 	err := clientcmd.WriteToFile(kubeconfig, kubeconfigPath)
 	require.NoError(t, err)
 

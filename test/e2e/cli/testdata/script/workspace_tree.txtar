@@ -1,0 +1,55 @@
+# a tree with a grandchild and a sibling to render
+
+exec kubectl-create-workspace host
+stdout 'is ready to use'
+exec kubectl-create-workspace mid --workspace host
+stdout 'is ready to use'
+exec kubectl-create-workspace other --workspace host
+stdout 'is ready to use'
+exec kubectl-create-workspace leaf --workspace host:mid
+stdout 'is ready to use'
+
+# the default labels are the last path segment of each workspace
+exec kubectl-kcp workspace tree --workspace host
+cmp stdout short.txt
+
+# --wide adds the workspace and logical cluster phase of every node
+exec kubectl-kcp workspace tree --workspace host --wide
+cmp stdout wide.txt
+
+# --full labels each node with its full workspace path
+exec kubectl-kcp workspace tree --workspace host --full
+cmpenv stdout full.txt
+
+# with no flag the tree is rooted at the current workspace
+exec kubectl-kcp workspace tree --full
+cmpenv stdout current.txt
+
+-- short.txt --
+.
+└── host
+    ├── mid
+    │   └── leaf
+    └── other
+
+-- wide.txt --
+.
+└── host          ws=-      lc=Ready
+    ├── mid       ws=Ready  lc=Ready
+    │   └── leaf  ws=Ready  lc=Ready
+    └── other     ws=Ready  lc=Ready
+-- full.txt --
+.
+└── :$ORG:host
+    ├── :$ORG:host:mid
+    │   └── :$ORG:host:mid:leaf
+    └── :$ORG:host:other
+
+-- current.txt --
+.
+└── :$ORG
+    └── :$ORG:host
+        ├── :$ORG:host:mid
+        │   └── :$ORG:host:mid:leaf
+        └── :$ORG:host:other
+
