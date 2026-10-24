@@ -1,0 +1,63 @@
+# --workspace on create places the new workspace in the targeted workspace
+
+exec kubectl-create-workspace host
+stdout 'is ready to use'
+
+exec kubectl-kcp workspace use host
+stdout 'Current workspace is'
+
+# . stays in the current workspace
+exec kubectl-create-workspace dot --workspace .
+stdout 'is ready to use'
+
+# :<abs> targets an absolute workspace
+exec kubectl-create-workspace abs --workspace :${ORG}:host
+stdout 'is ready to use'
+
+# .. targets the parent workspace
+exec kubectl-create-workspace up --workspace ..
+stdout 'is ready to use'
+
+# a relative name targets a workspace below the current one
+exec kubectl-create-workspace rel --workspace dot
+stdout 'is ready to use'
+
+# one tree shows where all of them landed
+exec kubectl-kcp workspace tree --workspace .. --full
+cmpenv stdout org.txt
+
+# --workspace . and a relative or absolute path select the same subtree
+exec kubectl-kcp workspace tree --workspace . --full
+cmpenv stdout host.txt
+exec kubectl-kcp workspace tree --workspace dot --full
+cmpenv stdout dot.txt
+exec kubectl-kcp workspace tree --workspace :${ORG}:host --full
+cmpenv stdout host.txt
+
+# targeting did not change the current workspace
+exec kubectl-ws . --short
+cmpenv stdout current.txt
+
+-- org.txt --
+.
+└── :$ORG
+    ├── :$ORG:host
+    │   ├── :$ORG:host:abs
+    │   └── :$ORG:host:dot
+    │       └── :$ORG:host:dot:rel
+    └── :$ORG:up
+
+-- host.txt --
+.
+└── :$ORG:host
+    ├── :$ORG:host:abs
+    └── :$ORG:host:dot
+        └── :$ORG:host:dot:rel
+
+-- dot.txt --
+.
+└── :$ORG:host:dot
+    └── :$ORG:host:dot:rel
+
+-- current.txt --
+$ORG:host
