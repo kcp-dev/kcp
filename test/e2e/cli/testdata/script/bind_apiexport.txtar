@@ -1,0 +1,122 @@
+# bind an APIExport
+
+exec kubectl-create-workspace provider
+stdout 'is ready to use'
+exec kubectl-create-workspace consumer
+stdout 'is ready to use'
+
+exec kubectl-kcp workspace use provider
+exec kubectl apply -f apiexport.yaml
+stdout 'apiresourceschema.apis.kcp.io/txtar.widgets.example.kcp.io created'
+stdout 'apiresourceschema.apis.kcp.io/txtar.gadgets.example.kcp.io created'
+stdout 'apiexport.apis.kcp.io/widgets created'
+stdout 'apiexport.apis.kcp.io/gadgets created'
+
+exec kubectl wait --for=condition=IdentityValid apiexport/widgets --timeout=60s
+stdout 'condition met'
+exec kubectl wait --for=condition=IdentityValid apiexport/gadgets --timeout=60s
+stdout 'condition met'
+
+exec kubectl-kcp workspace use :${ORG}:consumer
+exec kubectl-kcp bind apiexport ${ORG}:provider:widgets
+stdout 'apibinding widgets created. Waiting to successfully bind ...'
+stdout 'widgets created and bound.'
+
+# the bound API is usable in the consumer workspace
+exec kubectl get apibinding widgets -o jsonpath='{.status.phase}'
+stdout 'Bound'
+exec kubectl apply -f widget.yaml
+stdout 'widget.example.kcp.io/txtar created'
+exec kubectl get widget txtar -o jsonpath='{.metadata.name}'
+stdout 'txtar'
+
+# --name chooses the APIBinding name
+exec kubectl-kcp bind apiexport ${ORG}:provider:gadgets --name renamed
+stdout 'renamed created and bound.'
+exec kubectl get apibinding renamed -o jsonpath='{.spec.reference.export.name}'
+stdout 'gadgets'
+
+-- apiexport.yaml --
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: txtar.widgets.example.kcp.io
+spec:
+  group: example.kcp.io
+  names:
+    kind: Widget
+    listKind: WidgetList
+    plural: widgets
+    singular: widget
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      type: object
+      properties:
+        spec:
+          type: object
+          properties:
+            size:
+              type: string
+---
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: txtar.gadgets.example.kcp.io
+spec:
+  group: example.kcp.io
+  names:
+    kind: Gadget
+    listKind: GadgetList
+    plural: gadgets
+    singular: gadget
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      type: object
+      properties:
+        spec:
+          type: object
+          properties:
+            name:
+              type: string
+---
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIExport
+metadata:
+  name: widgets
+spec:
+  resources:
+  - group: example.kcp.io
+    name: widgets
+    schema: txtar.widgets.example.kcp.io
+  permissionClaims:
+  - group: ""
+    resource: configmaps
+    verbs: ["get", "list", "watch"]
+  - group: ""
+    resource: secrets
+    verbs: ["*"]
+---
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIExport
+metadata:
+  name: gadgets
+spec:
+  resources:
+  - group: example.kcp.io
+    name: gadgets
+    schema: txtar.gadgets.example.kcp.io
+-- widget.yaml --
+apiVersion: example.kcp.io/v1alpha1
+kind: Widget
+metadata:
+  name: txtar
+spec:
+  size: big
