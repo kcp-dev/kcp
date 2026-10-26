@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strconv"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
@@ -135,7 +137,7 @@ func Labels(owner ExportReference, core bool) map[string]string {
 	return map[string]string{
 		APIIdentityOwnerLabel:        owner.Name,
 		APIIdentityOwnerClusterLabel: owner.Cluster,
-		APIIdentityCoreLabel:         map[bool]string{true: "true", false: "false"}[core],
+		APIIdentityCoreLabel:         strconv.FormatBool(core),
 	}
 }
 

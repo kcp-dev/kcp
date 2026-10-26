@@ -89,12 +89,10 @@ func (c *controller) reconcile(ctx context.Context, apiExport *apisv1alpha2.APIE
 		return nil
 	}
 
-	// Ref exists - make sure it's valid and the export is authorized to
-	// serve the identity. reconcileIdentity reports every failure on the
-	// IdentityValid condition itself; the error only drives the retry.
-	if err := c.reconcileIdentity(ctx, apiExport); err != nil {
-		return err
-	}
+	// Ref exists - make sure it's valid. A failure is reported on the
+	// IdentityValid condition and is not retried: it is a wrong or missing
+	// secret, and the export is reconciled again when that secret changes.
+	c.reconcileIdentity(ctx, apiExport)
 
 	// Ensure the APIExportEndpointSlice exists
 	if _, ok := apiExport.Annotations[apisv1alpha2.APIExportEndpointSliceSkipAnnotation]; !ok {

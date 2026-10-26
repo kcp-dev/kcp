@@ -103,7 +103,6 @@ func TestReconcile(t *testing.T) {
 			secretExists: false,
 
 			wantVerifyFailure: true,
-			wantError:         true,
 		},
 		"identity verification fails when hash from secret's key differs with APIExport's hash": {
 			secretRefSet:                         true,
@@ -112,7 +111,6 @@ func TestReconcile(t *testing.T) {
 			secretHashDoesntMatchAPIExportStatus: true,
 
 			wantVerifyFailure: true,
-			wantError:         true,
 		},
 		"able to fix identity verification by returning to secret with correct key/hash": {
 			secretRefSet:                true,

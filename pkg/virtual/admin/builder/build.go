@@ -56,10 +56,14 @@ const apiDomainKey = dynamiccontext.APIDomainKey(admin.VirtualWorkspaceName)
 //	/services/admin/apis/core.kcp.io/v1alpha1/shards            (plain clients, e.g. kubectl via `ws use :admin`)
 //	/services/admin/apis/admin.kcp.io/v1alpha1/apiidentities
 //	/services/admin/clusters/<anything>/apis/...                (cluster-aware clients; the segment is accepted and ignored)
+//
+// identitiesSynced reports whether the identity view has seen every
+// APIExport the cache server holds; the workspace is not ready before.
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	cacheDynamicClusterClient kcpdynamic.ClusterInterface,
 	identities *apiidentity.Projector,
+	identitiesSynced func() bool,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -80,10 +84,13 @@ func BuildVirtualWorkspace(
 		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
 			case <-readyCh:
-				return nil
 			default:
 				return errors.New("admin virtual workspace is not started")
 			}
+			if !identitiesSynced() {
+				return errors.New("the identity view has not synced yet")
+			}
+			return nil
 		}),
 		BootstrapAPISetManagement: func(mainConfig genericapiserver.CompletedConfig) (apidefinition.APIDefinitionSetGetter, error) {
 			provider := &adminAPIDefinitionSetProvider{

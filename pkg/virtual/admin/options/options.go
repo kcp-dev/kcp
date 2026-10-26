@@ -60,11 +60,15 @@ func (o *Admin) NewAdmin(
 	// the identity view follows the APIExports of every shard, replicated
 	// to the cache server.
 	identities := apiidentity.NewProjector(apiidentity.IsCoreExport)
-	_, _ = cachedKcpInformers.Apis().V1alpha2().APIExports().Informer().AddEventHandler(identities)
+	registration, err := cachedKcpInformers.Apis().V1alpha2().APIExports().Informer().AddEventHandler(identities)
+	if err != nil {
+		return nil, err
+	}
 
 	return builder.BuildVirtualWorkspace(
 		path.Join(rootPathPrefix, admin.VirtualWorkspaceName),
 		cacheDynamicClusterClient,
 		identities,
+		registration.HasSynced,
 	)
 }

@@ -35,28 +35,30 @@ import (
 // recorded anywhere.
 //
 // Once set, status.identityHash is immutable: a secret edited to another
-// key fails verification instead of changing the identity.
-func (c *controller) reconcileIdentity(ctx context.Context, apiExport *apisv1alpha2.APIExport) error {
+// key fails verification instead of changing the identity. Failures are
+// reported on the IdentityValid condition.
+func (c *controller) reconcileIdentity(ctx context.Context, apiExport *apisv1alpha2.APIExport) {
 	clusterName := logicalcluster.From(apiExport)
 
 	secret, err := c.getSecret(ctx, clusterName, apiExport.Spec.Identity.SecretRef.Namespace, apiExport.Spec.Identity.SecretRef.Name)
 	if err != nil {
-		return c.identityVerificationFailed(apiExport, err)
+		c.identityVerificationFailed(apiExport, err)
+		return
 	}
 	hash, err := identity.IdentityHash(secret)
 	if err != nil {
-		return c.identityVerificationFailed(apiExport, err)
+		c.identityVerificationFailed(apiExport, err)
+		return
 	}
 	if apiExport.Status.IdentityHash != "" && apiExport.Status.IdentityHash != hash {
-		return c.identityVerificationFailed(apiExport, fmt.Errorf("hash mismatch: identity secret hash %q must match status.identityHash %q", hash, apiExport.Status.IdentityHash))
+		c.identityVerificationFailed(apiExport, fmt.Errorf("hash mismatch: identity secret hash %q must match status.identityHash %q", hash, apiExport.Status.IdentityHash))
+		return
 	}
 
 	apiExport.Status.IdentityHash = hash
 	conditions.MarkTrue(apiExport, apisv1alpha2.APIExportIdentityValid)
-	return nil
 }
 
-func (c *controller) identityVerificationFailed(apiExport *apisv1alpha2.APIExport, err error) error {
+func (c *controller) identityVerificationFailed(apiExport *apisv1alpha2.APIExport, err error) {
 	conditions.MarkFalse(apiExport, apisv1alpha2.APIExportIdentityValid, apisv1alpha2.IdentityVerificationFailedReason, conditionsv1alpha1.ConditionSeverityError, "%v", err)
-	return err
 }
