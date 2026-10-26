@@ -137,7 +137,6 @@ func startFrontProxy(
 		"--bind-address="+hostIP,
 		fmt.Sprintf("--mapping-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy", "mapping.yaml")),
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, ".kcp-front-proxy")),
-		fmt.Sprintf("--root-kubeconfig=%s", filepath.Join(workDirPath, ".kcp", "root.kubeconfig")),
 		fmt.Sprintf("--shards-kubeconfig=%s", filepath.Join(workDirPath, ".kcp-front-proxy", "shards.kubeconfig")),
 		fmt.Sprintf("--shard-peer-kubeconfig=%s", filepath.Join(workDirPath, ".kcp-front-proxy", "peers.kubeconfig")),
 		fmt.Sprintf("--client-ca-file=%s", filepath.Join(workDirPath, ".kcp", "client-ca.crt")),
