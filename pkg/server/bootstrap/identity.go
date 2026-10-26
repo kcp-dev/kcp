@@ -17,7 +17,6 @@ limitations under the License.
 package bootstrap
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,23 +28,13 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
 	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
-	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
-
-	configshard "github.com/kcp-dev/kcp/config/shard"
-	"github.com/kcp-dev/kcp/pkg/logging"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 
 	_ "net/http/pprof"
 )
@@ -194,60 +183,15 @@ func (ids *identities) grIdentity(gr schema.GroupResource) (string, bool) {
 	return "", false
 }
 
-// NewConfigWithWildcardIdentities creates a rest.Config with injected resource identities for
-// individual group or group resources. Each group or resource is coming from one APIExport whose
-// names are passed in as a map.
-//
-// The returned resolve function will get the APIExports and extract the identities.
-// The resolve func might return an error if the APIExport is not found or for other reason. Only
-// after it succeeds a client using the returned rest.Config can use the group and group resources
-// with identities.
-//
-// The returned event handler keeps the identities up to date after that. Register it on an
-// informer of the APIExports in the root workspace; see APIExportHandler.
-func NewConfigWithWildcardIdentities(config *rest.Config,
-	groupExportNames map[string]string,
-	groupResourceExportNames map[schema.GroupResource]string,
-	localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) (identityConfig *rest.Config, resolve func(ctx context.Context) error, handler cache.ResourceEventHandler) {
-	identityRoundTripper, identityResolver, handler := NewWildcardIdentitiesWrappingRoundTripper(groupExportNames, groupResourceExportNames, config, localShardKubeClusterClient)
-	identityConfig = rest.CopyConfig(config)
-	identityConfig.Wrap(identityRoundTripper)
-	return identityConfig, identityResolver, handler
-}
-
-// NewWildcardIdentitiesWrappingRoundTripper creates an HTTP RoundTripper
-// that injects resource identities for individual groups or group resources.
-// Each group or resource is coming from one APIExport whose names are passed in as a map.
-// The RoundTripper is exposed as a function that allows wrapping the RoundTripper
-//
-// The method also returns the resolve function that gets the APIExports and extract the identities.
-// The resolve func might return an error if the APIExport is not found or for other reason. Only
-// after it succeeds a client using the returned RoundTripper can use the group and group resources
-// with identities.
-//
-// The returned event handler keeps the identities up to date after that. Register it on an
-// informer of the APIExports in the root workspace; see APIExportHandler.
-func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]string,
-	groupResourceExportNames map[schema.GroupResource]string,
-	config *rest.Config,
-	localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) (wrap func(rt http.RoundTripper) http.RoundTripper, resolve func(ctx context.Context) error, handler cache.ResourceEventHandler) {
-	ids := newIdentities(groupExportNames, groupResourceExportNames)
-	provider := apiExportIdentityProvider(config, localShardKubeClusterClient)
-	return injectKcpIdentities(ids),
-		wildcardIdentitiesResolver(ids, groupExportNames, groupResourceExportNames, provider),
-		apiExportHandler(ids)
-}
-
 // NewRegistryWildcardIdentities creates the identity-injecting round tripper
-// for a component that learns the identities of the core APIExports from
-// the APIIdentity registry instead of from the root shard: the front-proxy,
-// which reads the registry through the Admin workspace of its peer shards.
+// for the core APIExports. Their identities come from the APIIdentity
+// registry: shards and virtual workspaces read it on the cache server, the
+// front-proxy through the Admin workspace of its peer shards.
 //
 // The returned handler is registered on an informer of the APIIdentity
 // entries; it feeds the identities as the entries arrive. The returned ready
-// func fails while any core identity is still unknown and is meant as a
-// readiness check: requests that need an identity fail until it arrives,
-// nothing blocks startup on it.
+// func fails while any core identity is still unknown. Requests that need an
+// identity fail until it arrives.
 func NewRegistryWildcardIdentities(groupExportNames map[string]string,
 	groupResourceExportNames map[schema.GroupResource]string) (wrap func(rt http.RoundTripper) http.RoundTripper, handler cache.ResourceEventHandler, ready func() error) {
 	ids := newIdentities(groupExportNames, groupResourceExportNames)
@@ -308,142 +252,6 @@ func (ids *identities) ready() error {
 		return nil
 	}
 	return fmt.Errorf("the identities of the core APIExports %v are not known yet", sets.List(missing))
-}
-
-// apiExportHandler returns an informer event handler that keeps the
-// identities in sync with status.identityHash of the APIExports in the root
-// workspace. An identity rotation flips that hash; the handler swaps the
-// injected identity the moment the change arrives and expires the open
-// watches sent with the old identity, so their informers relist with the
-// new one instead of watching a storage prefix that is being drained.
-// Exports of other workspaces, exports without an identity yet and deleted
-// exports are ignored: an identity in use is only ever replaced by a new one.
-//
-// The handler works with any informer that sees the root workspace's
-// APIExports: the shard's local one, one against the cache server, or a
-// scoped one on the root workspace.
-func apiExportHandler(ids *identities) cache.ResourceEventHandler {
-	exportNames := coreExportNames(ids)
-	update := func(obj interface{}) {
-		export, ok := obj.(*apisv1alpha2.APIExport)
-		if !ok {
-			return
-		}
-		if cluster := logicalcluster.From(export); !cluster.Empty() && cluster != core.RootCluster {
-			return
-		}
-		if !exportNames.Has(export.Name) || export.Status.IdentityHash == "" {
-			return
-		}
-		ids.set(export.Name, export.Status.IdentityHash)
-	}
-	return cache.ResourceEventHandlerFuncs{
-		AddFunc:    func(obj interface{}) { update(obj) },
-		UpdateFunc: func(_, obj interface{}) { update(obj) },
-	}
-}
-
-func wildcardIdentitiesResolver(ids *identities,
-	groupExportNames map[string]string,
-	groupResourceExportNames map[schema.GroupResource]string,
-	apiExportIdentityProviderFn func(ctx context.Context, apiExportName string) (string, error)) func(ctx context.Context) error {
-	return func(ctx context.Context) error {
-		logger := klog.FromContext(ctx)
-		var errs []error
-		for group, name := range groupExportNames {
-			logger := logging.WithObject(logger, &apisv1alpha2.APIExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        name,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
-				},
-			}).WithValues("group", group)
-			ids.lock.RLock()
-			id := ids.groupIdentities[group]
-			ids.lock.RUnlock()
-
-			if id != "" {
-				continue
-			}
-
-			apiExportIdentity, err := apiExportIdentityProviderFn(ctx, name)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			if apiExportIdentity == "" {
-				errs = append(errs, fmt.Errorf("APIExport %s is not ready", name))
-				continue
-			}
-			logger = logger.WithValues("identity", apiExportIdentity)
-
-			ids.lock.Lock()
-			ids.groupIdentities[group] = apiExportIdentity
-			ids.lock.Unlock()
-
-			logger.V(4).Info("APIExport has identity")
-		}
-		for gr, name := range groupResourceExportNames {
-			logger := logging.WithObject(logger, &apisv1alpha2.APIExport{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        name,
-					Annotations: map[string]string{logicalcluster.AnnotationKey: core.RootCluster.String()},
-				},
-			}).WithValues("gr", gr.String())
-			ids.lock.RLock()
-			id := ids.groupResourceIdentities[gr]
-			ids.lock.RUnlock()
-
-			if id != "" {
-				continue
-			}
-
-			apiExportIdentity, err := apiExportIdentityProviderFn(ctx, name)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			if apiExportIdentity == "" {
-				errs = append(errs, fmt.Errorf("APIExport %s is not ready", name))
-				continue
-			}
-			logger = logger.WithValues("identity", apiExportIdentity)
-
-			ids.lock.Lock()
-			ids.groupResourceIdentities[gr] = apiExportIdentity
-			ids.lock.Unlock()
-
-			logger.V(4).Info("APIExport has identity")
-		}
-		return utilerrors.NewAggregate(errs)
-	}
-}
-
-func apiExportIdentityProvider(config *rest.Config, localShardKubeClusterClient kcpkubernetesclientset.ClusterInterface) func(ctx context.Context, apiExportName string) (string, error) {
-	return func(ctx context.Context, apiExportName string) (string, error) {
-		rootShardKcpClient, err := kcpclientset.NewForConfig(config)
-		if err != nil {
-			return "", err
-		}
-
-		if localShardKubeClusterClient != nil {
-			apiExportIdentitiesConfigMap, err := localShardKubeClusterClient.Cluster(configshard.SystemShardCluster.Path()).CoreV1().ConfigMaps("default").Get(ctx, identitycache.ConfigMapName, metav1.GetOptions{})
-			if err == nil {
-				apiExportIdentity, found := apiExportIdentitiesConfigMap.Data[apiExportName]
-				if found {
-					return apiExportIdentity, nil
-				}
-			}
-			// fall back when:
-			// - this is not the root shard (localShardKubeClusterClient == nil)
-			// - the cm wasn't found
-			// - an entry in the cm wasn't found
-		}
-		apiExport, err := rootShardKcpClient.Cluster(core.RootCluster.Path()).ApisV1alpha2().APIExports().Get(ctx, apiExportName, metav1.GetOptions{})
-		if err != nil {
-			return "", err
-		}
-		return apiExport.Status.IdentityHash, nil
-	}
 }
 
 type roundTripperFunc struct {

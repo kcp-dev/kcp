@@ -283,9 +283,6 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		return err
 	}
 
-	if err := s.installApiExportIdentityController(ctx, controllerConfig); err != nil {
-		return err
-	}
 	if err := s.installShardRepresentationController(ctx, controllerConfig); err != nil {
 		return err
 	}
@@ -554,7 +551,6 @@ func (s *Server) Run(ctx context.Context) error {
 
 		if s.Options.Extra.ShardName == corev1alpha1.RootShard {
 			logger.Info("bootstrapping root workspace phase 0")
-			s.RootShardKcpClusterClient = s.KcpClusterClient
 
 			if s.Options.Extra.RootIdentitiesFile != "" {
 				logger.Info("bootstrapping identities into root workspace", "file", s.Options.Extra.RootIdentitiesFile)
@@ -597,37 +593,25 @@ func (s *Server) Run(ctx context.Context) error {
 				return nil // don't klog.Fatal. This only happens when context is cancelled.
 			}
 			logger.Info("bootstrapped root workspace phase 0")
-
-			logger.Info("getting kcp APIExport identities")
-			var identityErr error
-			if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
-				if err := s.resolveIdentities(ctx); err != nil {
-					logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
-					identityErr = err
-					return false, nil
-				}
-				return true, nil
-			}); err != nil {
-				logger.Error(err, "failed to get or create identities: %w", identityErr)
-				return nil // don't klog.Fatal. This only happens when context is cancelled.
-			}
-			logger.Info("finished getting kcp APIExport identities")
-		} else if len(s.Options.Extra.RootShardKubeconfigFile) > 0 {
-			logger.Info("getting kcp APIExport identities for the root shard")
-			if err := wait.PollUntilContextCancel(hookContext, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
-				if err := s.resolveIdentities(ctx); err != nil {
-					logger.V(3).Info("failed to resolve identities for the root shard, keeping trying", "err", err)
-					return false, nil
-				}
-				return true, nil
-			}); err != nil {
-				logger.Error(err, "failed to get or create identities for the root shard")
-				return nil // don't klog.Fatal. This only happens when context is cancelled.
-			}
-			logger.Info("finished getting kcp APIExport identities for the root shard")
 		}
 
-		_, _ = s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().AddEventHandler(s.coreIdentityHandler)
+		// The identities of the core APIExports come from the APIIdentity
+		// registry on the cache server. On the shard hosting the root
+		// workspace the APIExport controller claims them right after phase 0
+		// above; on every other shard they are already there.
+		_, _ = s.CacheKcpSharedInformerFactory.Admin().V1alpha1().APIIdentities().Informer().AddEventHandler(s.coreIdentityHandler)
+		logger.Info("waiting for the identities of the core APIExports")
+		if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
+			if err := s.coreIdentitiesReady(); err != nil {
+				logger.V(3).Info("the identities of the core APIExports are not known yet, keeping trying", "err", err)
+				return false, nil
+			}
+			return true, nil
+		}); err != nil {
+			logger.Error(err, "failed waiting for the identities of the core APIExports")
+			return nil // don't klog.Fatal. This only happens when context is cancelled.
+		}
+		logger.Info("the identities of the core APIExports are known")
 
 		s.KcpSharedInformerFactory.Start(hookCtx.Done())
 		s.CacheKcpSharedInformerFactory.Start(hookCtx.Done())

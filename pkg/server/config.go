@@ -105,15 +105,15 @@ type Config struct {
 }
 
 type ExtraConfig struct {
-	// resolveIdentities is to be called on server start until it succeeds. It injects the kcp
-	// resource identities into the rest.Config used by the client. Only after it succeeds,
-	// the clients can wildcard-list/watch most kcp resources.
-	resolveIdentities func(ctx context.Context) error
-	// coreIdentityHandler keeps the identities resolved by resolveIdentities
-	// in sync with the APIExports in the root workspace, e.g. across an
-	// APIExport identity rotation. It is registered on the APIExport
-	// informers once the identities are resolved.
+	// coreIdentityHandler feeds the identities of the core APIExports, which
+	// the clients built from IdentityConfig inject into their wildcard
+	// requests, from the APIIdentity registry on the cache server. It is
+	// registered on the registry informer in the kcp-start-informers hook.
 	coreIdentityHandler cache.ResourceEventHandler
+	// coreIdentitiesReady fails while the identity of a core APIExport is
+	// still unknown. The clients cannot wildcard-list/watch most kcp
+	// resources before it succeeds.
+	coreIdentitiesReady func() error
 	IdentityConfig      *rest.Config
 
 	// authentication
@@ -128,7 +128,6 @@ type ExtraConfig struct {
 	CacheApiExtensionsClusterClient     kcpapiextensionsclientset.ClusterInterface
 	KcpClusterClient                    kcpclientset.ClusterInterface
 	KcpCacheClusterClient               kcpclientset.ClusterInterface
-	RootShardKcpClusterClient           kcpclientset.ClusterInterface
 	BootstrapDynamicClusterClient       kcpdynamic.ClusterInterface
 	BootstrapApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
 
@@ -297,41 +296,17 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		return nil, err
 	}
 
-	// Setup kcp * informers, but those will need the identities for the APIExports used to make the APIs available.
-	// The identities are not known before we can get them from the APIExports via the loopback client or from the root shard in case this is a non-root shard,
-	// hence we postpone this to getOrCreateKcpIdentities() in the kcp-start-informers post-start hook.
-	// The informers here are not used before the informers are actually started (i.e. no race).
-	if len(c.Options.Extra.RootShardKubeconfigFile) > 0 {
-		// TODO(p0lyn0mial): use kcp-admin instead of system:admin
-		nonIdentityRootKcpShardBaseConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.Extra.RootShardKubeconfigFile}, &clientcmd.ConfigOverrides{CurrentContext: "shard-base"}).ClientConfig()
-		if err != nil {
-			return nil, fmt.Errorf("failed to load the kubeconfig from: %s, for the root shard, err: %w", c.Options.Extra.RootShardKubeconfigFile, err)
-		}
-
-		var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-		kcpShardIdentityRoundTripper, c.resolveIdentities, c.coreIdentityHandler = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootKcpShardBaseConfig, c.KubeClusterClient)
-		rootKcpShardIdentityConfig := rest.CopyConfig(nonIdentityRootKcpShardBaseConfig)
-		rootKcpShardIdentityConfig.Wrap(kcpShardIdentityRoundTripper)
-		c.RootShardKcpClusterClient, err = kcpclientset.NewForConfig(rootKcpShardIdentityConfig)
-		if err != nil {
-			return nil, err
-		}
-
-		c.IdentityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
-		c.IdentityConfig.Wrap(kcpShardIdentityRoundTripper)
-		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.IdentityConfig) // this is now generic to be used for all kcp API groups
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// The informers here are not used before the informers are actually started (i.e. no race).
-
-		c.IdentityConfig, c.resolveIdentities, c.coreIdentityHandler = bootstrap.NewConfigWithWildcardIdentities(c.GenericConfig.LoopbackClientConfig, bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nil)
-		c.KcpClusterClient, err = kcpclientset.NewForConfig(c.IdentityConfig) // this is now generic to be used for all kcp API groups
-		if err != nil {
-			return nil, err
-		}
-		c.RootShardKcpClusterClient = c.KcpClusterClient
+	// The kcp * informers need the identities of the core APIExports. They
+	// come from the APIIdentity registry on the cache server and are fed by
+	// the registry informer in the kcp-start-informers post-start hook, which
+	// waits for them before the informers below start (i.e. no race).
+	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
+	kcpShardIdentityRoundTripper, c.coreIdentityHandler, c.coreIdentitiesReady = bootstrap.NewRegistryWildcardIdentities(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames)
+	c.IdentityConfig = rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+	c.IdentityConfig.Wrap(kcpShardIdentityRoundTripper)
+	c.KcpClusterClient, err = kcpclientset.NewForConfig(c.IdentityConfig) // this is now generic to be used for all kcp API groups
+	if err != nil {
+		return nil, err
 	}
 
 	informerConfig := rest.CopyConfig(c.IdentityConfig)
