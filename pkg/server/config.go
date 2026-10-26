@@ -28,9 +28,12 @@ import (
 	"os"
 	"sync"
 
+	certificatesv1 "k8s.io/api/certificates/v1"
+	resourcev1 "k8s.io/api/resource/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
@@ -241,10 +244,24 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 
 	var err error
 	var storageFactory *serverstorage.DefaultStorageFactory
+
+	resourceConfig := controlplane.DefaultAPIResourceConfigSource()
+	// default upstream config marks resourcev1 as enabled by default, which then
+	// causes DeviceClass to create informers, resulting in a panic.
+	// Previous attempts at disabling callers via featuregates are no longer
+	// possible as of 1.37, as functionality moved into default.
+	// Since we are not using any resource.k8s.io resources, disable the full group.
+	resourceConfig.DisableMatchingVersions(func(gv schema.GroupVersion) bool {
+		return gv.Group == resourcev1.GroupName
+	})
+	// ClusterTrustBundles distribute CA trust anchors to kubelets via projected
+	// volumes, which we don't need.
+	resourceConfig.DisableResources(certificatesv1.SchemeGroupVersion.WithResource("clustertrustbundles"))
+
 	c.GenericConfig, c.KubeSharedInformerFactory, storageFactory, err = controlplaneapiserver.BuildGenericConfig(
 		opts.GenericControlPlane,
 		[]*runtime.Scheme{legacyscheme.Scheme, apiextensionsapiserver.Scheme},
-		controlplane.DefaultAPIResourceConfigSource(),
+		resourceConfig,
 		generatedopenapi.GetOpenAPIDefinitions,
 		// Currently we don't have support for informer names in our upstream fork,
 		// which are mainly used for metrics.
