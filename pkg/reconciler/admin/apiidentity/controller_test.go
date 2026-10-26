@@ -35,7 +35,10 @@ import (
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 )
 
-const identity = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+const (
+	identity = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	grace    = time.Minute
+)
 
 // fakeRegistry is an in-memory APIIdentity store.
 type fakeRegistry struct {
@@ -111,6 +114,7 @@ func newFixture(t *testing.T) *fixture {
 		getGlobalAPIExport: lookup(f.global),
 		requeueAfter:       func(_ string, delay time.Duration) { f.requeued = append(f.requeued, delay) },
 		isCore:             func(*apisv1alpha2.APIExport) bool { return false },
+		gracePeriod:        grace,
 	}
 	return f
 }
@@ -148,7 +152,7 @@ func (f *fixture) entry(owner *apisv1alpha2.APIExport, holders ...*apisv1alpha2.
 	for i, h := range holders {
 		e.Status.Holders = append(e.Status.Holders, adminv1alpha1.Holder{
 			ExportReference: ref(h),
-			Since:           metav1.NewTime(time.Now().Add(-3*MissingGracePeriod + time.Duration(i)*time.Second)),
+			Since:           metav1.NewTime(time.Now().Add(-3*grace + time.Duration(i)*time.Second)),
 		})
 	}
 	if len(holders) > 0 {
@@ -193,6 +197,7 @@ func TestHostedOwnerIsMaintained(t *testing.T) {
 
 	entry := f.reconcile()
 	require.True(t, entry.Status.Core)
+	require.Equal(t, adminv1alpha1.Labels(ref(owner), true), entry.Labels)
 	require.Len(t, entry.Status.Holders, 1)
 	require.True(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityShared))
 	require.Nil(t, conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing))
@@ -227,14 +232,14 @@ func TestOwnerMissingStartsTheGracePeriod(t *testing.T) {
 	require.Equal(t, ref(owner), entry.Status.Owner, "ownership must not move before the grace period")
 	require.True(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityOwnerMissing))
 	require.Len(t, entry.Status.Holders, 1)
-	require.Equal(t, []time.Duration{MissingGracePeriod}, f.requeued)
+	require.Equal(t, []time.Duration{grace}, f.requeued)
 
 	// still within the grace period: wait for the rest of it
-	f.ownerMissingFor(MissingGracePeriod / 4)
+	f.ownerMissingFor(grace / 4)
 	entry = f.reconcile()
 	require.Equal(t, ref(owner), entry.Status.Owner)
 	require.Len(t, f.requeued, 2)
-	require.InDelta(t, 3*MissingGracePeriod/4, f.requeued[1], float64(time.Second), "requeued for the rest of the grace period")
+	require.InDelta(t, 3*grace/4, f.requeued[1], float64(time.Second), "requeued for the rest of the grace period")
 }
 
 func TestGoneOwnerPassesToOldestHolderHostedHere(t *testing.T) {
@@ -247,10 +252,11 @@ func TestGoneOwnerPassesToOldestHolderHostedHere(t *testing.T) {
 	f.host(oldest)
 	f.elsewhere(newer)
 	f.entry(owner, oldest, newer)
-	f.ownerMissingFor(MissingGracePeriod)
+	f.ownerMissingFor(grace)
 
 	entry := f.reconcile()
 	require.Equal(t, ref(oldest), entry.Status.Owner, "the identity passes to the oldest holder")
+	require.Equal(t, adminv1alpha1.Labels(ref(oldest), false), entry.Labels, "the labels follow the owner")
 	require.Len(t, entry.Status.Holders, 1)
 	require.Equal(t, ref(newer), entry.Status.Holders[0].ExportReference)
 	require.True(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityShared))
@@ -267,7 +273,7 @@ func TestGoneOwnerSkipsHoldersNotInTheCache(t *testing.T) {
 	alive := export("consumer-b", "wildwest", "b-uid")
 	f.host(alive)
 	f.entry(owner, oldestButGone, alive)
-	f.ownerMissingFor(MissingGracePeriod)
+	f.ownerMissingFor(grace)
 
 	entry := f.reconcile()
 	require.Equal(t, ref(alive), entry.Status.Owner, "a holder that is not in the cache cannot succeed")
@@ -281,7 +287,7 @@ func TestSuccessorHostedElsewhereIsLeftToItsShard(t *testing.T) {
 	remote := export("consumer-a", "wildwest", "a-uid")
 	f.elsewhere(remote)
 	f.entry(owner, remote)
-	f.ownerMissingFor(MissingGracePeriod)
+	f.ownerMissingFor(grace)
 
 	entry := f.reconcile()
 	require.Equal(t, ref(owner), entry.Status.Owner, "the successor's shard performs the succession")
@@ -296,7 +302,7 @@ func TestGoneOwnerWithoutHoldersIsRemoved(t *testing.T) {
 	owner := export("provider", "wildwest", "owner-uid")
 	dead := export("consumer", "wildwest", "holder-uid")
 	f.entry(owner, dead) // neither is in the cache
-	f.ownerMissingFor(MissingGracePeriod)
+	f.ownerMissingFor(grace)
 
 	require.NoError(t, f.c.reconcile(context.Background(), identity))
 	_, err := f.registry.Get(context.Background(), identity, metav1.GetOptions{})
@@ -315,7 +321,7 @@ func TestRecreatedOwnerIsNotGone(t *testing.T) {
 	holder := export("consumer", "wildwest", "holder-uid")
 	f.host(holder)
 	f.entry(owner, holder)
-	f.ownerMissingFor(MissingGracePeriod)
+	f.ownerMissingFor(grace)
 
 	// the owner was recreated under its name and the registry already
 	// records the new UID; its copy is back in the cache
@@ -348,7 +354,7 @@ func TestMaintainDropsHoldersGoneFromTheCache(t *testing.T) {
 	require.Equal(t, ref(young), entry.Status.Holders[1].ExportReference, "a holder within its grace period is kept")
 	require.True(t, conditions.IsTrue(entry, adminv1alpha1.APIIdentityShared))
 
-	f.registry.entries[identity].Status.Holders[1].Since = metav1.NewTime(time.Now().Add(-MissingGracePeriod))
+	f.registry.entries[identity].Status.Holders[1].Since = metav1.NewTime(time.Now().Add(-grace))
 	entry = f.reconcile()
 	require.Len(t, entry.Status.Holders, 1, "past the grace period a holder missing from the cache is dropped")
 	require.Equal(t, ref(alive), entry.Status.Holders[0].ExportReference)

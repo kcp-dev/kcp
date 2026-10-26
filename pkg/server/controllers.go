@@ -1406,7 +1406,7 @@ func (s *Server) installAPIIdentityController(_ context.Context) error {
 	localExports := s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports()
 	globalExports := s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports()
 
-	c, err := apiidentity.NewController(s.KcpCacheClusterClient, apiIdentities, localExports, globalExports, isCore)
+	c, err := apiidentity.NewController(s.KcpCacheClusterClient, apiIdentities, localExports, globalExports, isCore, s.Options.Extra.APIIdentityMissingGracePeriod)
 	if err != nil {
 		return err
 	}

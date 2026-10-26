@@ -74,6 +74,7 @@ func (c *controller) reconcileIdentity(ctx context.Context, apiExport *apisv1alp
 		entry, err = c.createAPIIdentity(ctx, &adminv1alpha1.APIIdentity{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        hash,
+				Labels:      adminv1alpha1.Labels(me, false), // core is decided by the registry controller
 				Annotations: map[string]string{logicalcluster.AnnotationKey: configshard.SystemShardCluster.String()},
 			},
 			Status: adminv1alpha1.APIIdentityStatus{Owner: me},

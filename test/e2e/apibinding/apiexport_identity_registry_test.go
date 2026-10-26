@@ -45,9 +45,9 @@ import (
 	kcpclusterclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
+	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 
 	"github.com/kcp-dev/kcp/config/helpers"
-	"github.com/kcp-dev/kcp/pkg/reconciler/admin/apiidentity"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
@@ -61,7 +61,10 @@ func TestAPIExportIdentityRegistry(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	server := kcptesting.SharedKcpServer(t)
+	// a deleted owner is taken as gone only after the grace period, which is
+	// an hour by default: run against a private server with a short one.
+	const grace = 10 * time.Second
+	server := kcptesting.PrivateKcpServer(t, kcptestingserver.WithCustomArguments("--api-identity-missing-grace-period="+grace.String()))
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	ownerPath, ownerWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -135,8 +138,7 @@ func TestAPIExportIdentityRegistry(t *testing.T) {
 			return check(entry)
 		}, timeout, 250*time.Millisecond)
 	}
-	// a deleted owner is taken as gone only after the grace period
-	afterGrace := apiidentity.MissingGracePeriod + wait.ForeverTestTimeout
+	afterGrace := grace + wait.ForeverTestTimeout
 	copyKey := func(from, to logicalcluster.Path) {
 		t.Helper()
 		secret, err := kubeClusterClient.Cluster(from).CoreV1().Secrets("kcp-system").Get(t.Context(), "wildwest", metav1.GetOptions{})

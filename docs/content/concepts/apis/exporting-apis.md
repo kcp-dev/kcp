@@ -187,7 +187,7 @@ identity a lifecycle of its own.
 
 When the owner's `APIExport` is deleted, the identity passes to the oldest holder. The decision is made from the
 `APIExports` replicated to the cache server: an owner missing from the cache is marked `OwnerMissing`, and after a
-grace period it is taken as gone. An identity with no owner and no holder left is removed from the registry; the
+grace period (an hour by default, `--api-identity-missing-grace-period`) it is taken as gone. An identity with no owner and no holder left is removed from the registry; the
 next `APIExport` whose secret carries the original `key` registers it anew.
 `status.identityHash` is set once the identity is recorded in the registry and is immutable afterwards.
 

@@ -60,11 +60,12 @@ import (
 const (
 	ControllerName = "kcp-apiidentity"
 
-	// MissingGracePeriod is how long an export may be missing from the cache
-	// server before it is taken as gone. It covers the window between an
-	// entry being written and the export's replicated copy arriving, and a
-	// copy disappearing for a moment, as during a workspace migration.
-	MissingGracePeriod = 30 * time.Second
+	// DefaultMissingGracePeriod is the default for how long an export may be
+	// missing from the cache server before it is taken as gone. It has to
+	// cover the window between an entry being written and the export's
+	// replicated copy arriving, and a copy disappearing for a while, as
+	// during a workspace migration or a cache server rebuild.
+	DefaultMissingGracePeriod = 60 * time.Minute
 )
 
 // NewController creates the registry controller of this shard.
@@ -73,6 +74,7 @@ func NewController(
 	apiIdentityInformer adminv1alpha1informers.APIIdentityClusterInformer,
 	apiExportInformer, globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	isCore func(*apisv1alpha2.APIExport) bool,
+	missingGracePeriod time.Duration,
 ) (*Controller, error) {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -92,6 +94,7 @@ func NewController(
 		},
 		requeueAfter: queue.AddAfter,
 		isCore:       isCore,
+		gracePeriod:  missingGracePeriod,
 	}
 
 	_, _ = apiIdentityInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
@@ -135,6 +138,7 @@ type Controller struct {
 	getGlobalAPIExport func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIExport, error)
 	requeueAfter       func(identity string, delay time.Duration)
 	isCore             func(*apisv1alpha2.APIExport) bool
+	gracePeriod        time.Duration
 }
 
 func (c *Controller) enqueue(identity string) {
@@ -215,12 +219,13 @@ func (c *Controller) maintain(ctx context.Context, entry *adminv1alpha1.APIIdent
 	}
 	hostsOwner := err == nil
 
-	return c.updateStatus(ctx, entry.Name, func(entry *adminv1alpha1.APIIdentity) {
+	return c.update(ctx, entry.Name, func(entry *adminv1alpha1.APIIdentity) {
 		conditions.Delete(entry, adminv1alpha1.APIIdentityOwnerMissing)
 		if !hostsOwner {
 			return
 		}
 		entry.Status.Core = c.isCore(owner)
+		entry.Labels = adminv1alpha1.Labels(entry.Status.Owner, entry.Status.Core)
 		// an owner that succeeded from holder is not a holder any more
 		dropHolders(entry, append(c.goneHolders(entry), ref(owner)))
 	})
@@ -237,15 +242,15 @@ func (c *Controller) ownerMissing(ctx context.Context, entry *adminv1alpha1.APII
 	missing := conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing)
 	if missing == nil || missing.Status != corev1.ConditionTrue {
 		logger.V(2).Info("owner of identity is not in the cache, waiting for the grace period", "owner", entry.Status.Owner.Cluster+"|"+entry.Status.Owner.Name)
-		if err := c.updateStatus(ctx, entry.Name, func(entry *adminv1alpha1.APIIdentity) {
+		if err := c.update(ctx, entry.Name, func(entry *adminv1alpha1.APIIdentity) {
 			conditions.MarkTrue(entry, adminv1alpha1.APIIdentityOwnerMissing)
 		}); err != nil {
 			return err
 		}
-		c.requeueAfter(entry.Name, MissingGracePeriod)
+		c.requeueAfter(entry.Name, c.gracePeriod)
 		return nil
 	}
-	if remaining := MissingGracePeriod - time.Since(missing.LastTransitionTime.Time); remaining > 0 {
+	if remaining := c.gracePeriod - time.Since(missing.LastTransitionTime.Time); remaining > 0 {
 		c.requeueAfter(entry.Name, remaining)
 		return nil
 	}
@@ -268,8 +273,9 @@ func (c *Controller) ownerMissing(ctx context.Context, entry *adminv1alpha1.APII
 	}
 
 	logger.Info("owner of identity is gone, passing it to the oldest holder", "successor", successor.Cluster+"|"+successor.Name)
-	return c.updateStatus(ctx, entry.Name, func(entry *adminv1alpha1.APIIdentity) {
+	return c.update(ctx, entry.Name, func(entry *adminv1alpha1.APIIdentity) {
 		entry.Status.Owner = successor.ExportReference
+		entry.Labels = adminv1alpha1.Labels(entry.Status.Owner, entry.Status.Core)
 		dropHolders(entry, []adminv1alpha1.ExportReference{successor.ExportReference})
 		conditions.Delete(entry, adminv1alpha1.APIIdentityOwnerMissing)
 	})
@@ -298,7 +304,7 @@ func (c *Controller) oldestHolderInCache(entry *adminv1alpha1.APIIdentity) *admi
 func (c *Controller) goneHolders(entry *adminv1alpha1.APIIdentity) []adminv1alpha1.ExportReference {
 	var gone []adminv1alpha1.ExportReference
 	for _, holder := range entry.Status.Holders {
-		if time.Since(holder.Since.Time) < MissingGracePeriod {
+		if time.Since(holder.Since.Time) < c.gracePeriod {
 			continue
 		}
 		if _, err := c.getGlobalAPIExport(logicalcluster.Name(holder.Cluster), holder.Name); apierrors.IsNotFound(err) {
@@ -321,7 +327,9 @@ func dropHolders(entry *adminv1alpha1.APIIdentity, refs []adminv1alpha1.ExportRe
 	}
 }
 
-func (c *Controller) updateStatus(ctx context.Context, name string, mutate func(*adminv1alpha1.APIIdentity)) error {
+// update applies mutate to the live entry and writes it when its status or
+// labels changed.
+func (c *Controller) update(ctx context.Context, name string, mutate func(*adminv1alpha1.APIIdentity)) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		current, err := c.registry.Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
@@ -329,7 +337,7 @@ func (c *Controller) updateStatus(ctx context.Context, name string, mutate func(
 		}
 		desired := current.DeepCopy()
 		mutate(desired)
-		if equality.Semantic.DeepEqual(current.Status, desired.Status) {
+		if equality.Semantic.DeepEqual(current.Status, desired.Status) && equality.Semantic.DeepEqual(current.Labels, desired.Labels) {
 			return nil
 		}
 		_, err = c.registry.Update(ctx, desired, metav1.UpdateOptions{})

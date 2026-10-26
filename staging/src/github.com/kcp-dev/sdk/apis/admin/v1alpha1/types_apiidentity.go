@@ -124,6 +124,27 @@ type APIIdentityStatus struct {
 }
 
 const (
+	// APIIdentityOwnerLabel is the name of the APIExport that owns the
+	// identity, so that entries can be selected by export name.
+	APIIdentityOwnerLabel = "admin.kcp.io/owner"
+	// APIIdentityOwnerClusterLabel is the logical cluster of the APIExport
+	// that owns the identity, so that entries can be selected by workspace.
+	APIIdentityOwnerClusterLabel = "admin.kcp.io/owner-cluster"
+	// APIIdentityCoreLabel is "true" on the identities of the core
+	// APIExports in root and "false" on every other one.
+	APIIdentityCoreLabel = "admin.kcp.io/core"
+)
+
+// Labels returns the labels an entry carries for its owner and core flag.
+func Labels(owner ExportReference, core bool) map[string]string {
+	return map[string]string{
+		APIIdentityOwnerLabel:        owner.Name,
+		APIIdentityOwnerClusterLabel: owner.Cluster,
+		APIIdentityCoreLabel:         map[bool]string{true: "true", false: "false"}[core],
+	}
+}
+
+const (
 	// APIIdentityShared is True while holders is non-empty.
 	APIIdentityShared conditionsv1alpha1.ConditionType = "Shared"
 

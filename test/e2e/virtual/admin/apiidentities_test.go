@@ -87,7 +87,22 @@ func TestAdminWorkspaceAPIIdentities(t *testing.T) {
 		require.NotNil(c, tenancy, "the tenancy.kcp.io identity must be registered")
 		require.True(c, tenancy.Status.Core, "tenancy.kcp.io is a core identity")
 		require.Equal(c, adminv1alpha1.ExportReference{Cluster: core.RootCluster.String(), Name: "tenancy.kcp.io", UID: string(tenancyExport.UID)}, tenancy.Status.Owner)
+		require.Equal(c, adminv1alpha1.Labels(tenancy.Status.Owner, true), tenancy.Labels)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond)
+
+	t.Logf("Select identities by label: core, by owner cluster, by owner name")
+	for selector, want := range map[string]func(*adminv1alpha1.APIIdentity) bool{
+		adminv1alpha1.APIIdentityCoreLabel + "=true":                                 func(e *adminv1alpha1.APIIdentity) bool { return e.Status.Core },
+		adminv1alpha1.APIIdentityOwnerClusterLabel + "=" + core.RootCluster.String(): func(e *adminv1alpha1.APIIdentity) bool { return e.Status.Owner.Cluster == core.RootCluster.String() },
+		adminv1alpha1.APIIdentityOwnerLabel + "=tenancy.kcp.io":                      func(e *adminv1alpha1.APIIdentity) bool { return e.Status.Owner.Name == "tenancy.kcp.io" },
+	} {
+		selected, err := adminClient.AdminV1alpha1().APIIdentities().List(ctx, metav1.ListOptions{LabelSelector: selector})
+		require.NoError(t, err, "selector %q", selector)
+		require.NotEmpty(t, selected.Items, "selector %q selected nothing", selector)
+		for i := range selected.Items {
+			require.True(t, want(&selected.Items[i]), "selector %q selected %s, owner %v core %v", selector, selected.Items[i].Name, selected.Items[i].Status.Owner, selected.Items[i].Status.Core)
+		}
+	}
 
 	t.Logf("Get the core identity by name through the Admin workspace")
 	for _, rv := range []string{"", "0", registry.ResourceVersion} {
