@@ -166,6 +166,11 @@ func TestAPIExportIdentityRegistry(t *testing.T) {
 
 	t.Logf("Copy the owner's key into %q: the holder shares the identity and is recorded", holderPath)
 	copyKey(ownerPath, holderPath)
+	// The owner is the oldest export by creationTimestamp, which has second
+	// precision; an export created in the same second as the owner ties and
+	// the tie is broken by cluster name. Let the second pass so that the
+	// holder is strictly younger.
+	time.Sleep(time.Until(owner.CreationTimestamp.Add(time.Second)))
 	createWithKey(holderPath)
 	holder := waitForIdentity(holderPath)
 	require.Equal(t, identity, holder.Status.IdentityHash, "same key, same identity")
