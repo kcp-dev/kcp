@@ -927,13 +927,13 @@ type fakeClientWithDiscoveryErrors struct {
 	err error
 }
 
-func (c fakeClientWithDiscoveryErrors) Discovery() discovery.DiscoveryInterface {
+func (c fakeClientWithDiscoveryErrors) Discovery() discovery.DiscoveryInterfaces {
 	d := c.Interface.Discovery()
 	return errorDiscoveryClient{d, c.err}
 }
 
 type errorDiscoveryClient struct {
-	discovery.DiscoveryInterface
+	discovery.DiscoveryInterfaces
 	err error
 }
 
@@ -941,7 +941,14 @@ func (c errorDiscoveryClient) ServerGroups() (*metav1.APIGroupList, error) {
 	if c.err != nil {
 		return nil, c.err
 	}
-	return c.DiscoveryInterface.ServerGroups()
+	return c.DiscoveryInterfaces.ServerGroups()
+}
+
+func (c errorDiscoveryClient) ServerGroupsWithContext(ctx context.Context) (*metav1.APIGroupList, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.DiscoveryInterfaces.ServerGroupsWithContext(ctx)
 }
 
 type bindingBuilder struct {
