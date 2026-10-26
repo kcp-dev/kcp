@@ -22,12 +22,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 )
 
@@ -148,7 +150,7 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 			},
 
 			expectedDecision: authorizer.DecisionDeny,
-			expectedReason:   `no API export providing claimed resources found for identity hash: "123"`,
+			expectedReason:   `no API export with valid identity found for identity hash: "123"`,
 		},
 		{
 			name: "claimed identity with api export having no maximum permission policy",
@@ -190,6 +192,11 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "foo",
+						},
+						Status: apisv1alpha2.APIExportStatus{
+							Conditions: conditionsv1alpha1.Conditions{
+								{Type: apisv1alpha2.APIExportIdentityValid, Status: corev1.ConditionTrue},
+							},
 						},
 					},
 				}, nil
@@ -241,6 +248,11 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 						},
 						Spec: apisv1alpha2.APIExportSpec{
 							MaximalPermissionPolicy: &apisv1alpha2.MaximalPermissionPolicy{Local: &apisv1alpha2.LocalAPIExportPolicy{}},
+						},
+						Status: apisv1alpha2.APIExportStatus{
+							Conditions: conditionsv1alpha1.Conditions{
+								{Type: apisv1alpha2.APIExportIdentityValid, Status: corev1.ConditionTrue},
+							},
 						},
 					},
 				}, nil
@@ -301,6 +313,11 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 						Spec: apisv1alpha2.APIExportSpec{
 							MaximalPermissionPolicy: &apisv1alpha2.MaximalPermissionPolicy{Local: &apisv1alpha2.LocalAPIExportPolicy{}},
 						},
+						Status: apisv1alpha2.APIExportStatus{
+							Conditions: conditionsv1alpha1.Conditions{
+								{Type: apisv1alpha2.APIExportIdentityValid, Status: corev1.ConditionTrue},
+							},
+						},
 					},
 				}, nil
 			},
@@ -312,6 +329,149 @@ func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 
 			expectedDecision: authorizer.DecisionNoOpinion,
 			expectedReason:   `API export: "fooExport", workspace: "someWorkspace" RBAC decision: access denied`,
+		},
+		{
+			name: "claimed identity with api export having invalid identity is ignored",
+			attr: &authorizer.AttributesRecord{
+				User:     &user.DefaultInfo{},
+				APIGroup: "claimedGroup",
+				Resource: "claimedResource",
+			},
+			apidomainKey: "foo/bar",
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "fooExport",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "someWorkspace",
+						},
+					},
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
+							{
+								GroupResource: apisv1alpha2.GroupResource{
+									Group:    "claimedGroup",
+									Resource: "claimedResource",
+								},
+								IdentityHash: "123",
+							},
+						},
+					},
+				}, nil
+			},
+			getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha2.APIExport, error) {
+				return []*apisv1alpha2.APIExport{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "valid",
+							Annotations: map[string]string{
+								logicalcluster.AnnotationKey: "ws",
+							},
+						},
+						Spec: apisv1alpha2.APIExportSpec{
+							MaximalPermissionPolicy: &apisv1alpha2.MaximalPermissionPolicy{Local: &apisv1alpha2.LocalAPIExportPolicy{}},
+						},
+						Status: apisv1alpha2.APIExportStatus{
+							Conditions: conditionsv1alpha1.Conditions{
+								{Type: apisv1alpha2.APIExportIdentityValid, Status: corev1.ConditionTrue},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "stale",
+							Annotations: map[string]string{
+								logicalcluster.AnnotationKey: "ws-stale",
+							},
+						},
+						Spec: apisv1alpha2.APIExportSpec{
+							MaximalPermissionPolicy: &apisv1alpha2.MaximalPermissionPolicy{Local: &apisv1alpha2.LocalAPIExportPolicy{}},
+						},
+						Status: apisv1alpha2.APIExportStatus{
+							Conditions: conditionsv1alpha1.Conditions{
+								{
+									Type:   apisv1alpha2.APIExportIdentityValid,
+									Status: corev1.ConditionFalse,
+									Reason: apisv1alpha2.IdentityVerificationFailedReason,
+								},
+							},
+						},
+					},
+				}, nil
+			},
+			newDeepSARAuthorizer: func(clusterName logicalcluster.Name) (authorizer.Authorizer, error) {
+				return authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+					if clusterName == "ws" {
+						return authorizer.DecisionAllow, "", nil
+					}
+					return authorizer.DecisionDeny, "access denied", nil
+				}), nil
+			},
+
+			expectedDecision: authorizer.DecisionAllow,
+			expectedReason:   `all claimed API exports granted access`,
+		},
+		{
+			name: "claimed identity with only api exports having invalid identity",
+			attr: &authorizer.AttributesRecord{
+				User:     &user.DefaultInfo{},
+				APIGroup: "claimedGroup",
+				Resource: "claimedResource",
+			},
+			apidomainKey: "foo/bar",
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "fooExport",
+						Annotations: map[string]string{
+							logicalcluster.AnnotationKey: "someWorkspace",
+						},
+					},
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
+							{
+								GroupResource: apisv1alpha2.GroupResource{
+									Group:    "claimedGroup",
+									Resource: "claimedResource",
+								},
+								IdentityHash: "123",
+							},
+						},
+					},
+				}, nil
+			},
+			getAPIExportsByIdentity: func(identityHash string) ([]*apisv1alpha2.APIExport, error) {
+				return []*apisv1alpha2.APIExport{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "stale",
+							Annotations: map[string]string{
+								logicalcluster.AnnotationKey: "ws-stale",
+							},
+						},
+						Spec: apisv1alpha2.APIExportSpec{
+							MaximalPermissionPolicy: &apisv1alpha2.MaximalPermissionPolicy{Local: &apisv1alpha2.LocalAPIExportPolicy{}},
+						},
+						Status: apisv1alpha2.APIExportStatus{
+							Conditions: conditionsv1alpha1.Conditions{
+								{
+									Type:   apisv1alpha2.APIExportIdentityValid,
+									Status: corev1.ConditionFalse,
+									Reason: apisv1alpha2.IdentityVerificationFailedReason,
+								},
+							},
+						},
+					},
+				}, nil
+			},
+			newDeepSARAuthorizer: func(clusterName logicalcluster.Name) (authorizer.Authorizer, error) {
+				return authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
+					return authorizer.DecisionAllow, "", nil
+				}), nil
+			},
+
+			expectedDecision: authorizer.DecisionDeny,
+			expectedReason:   `no API export with valid identity found for identity hash: "123"`,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

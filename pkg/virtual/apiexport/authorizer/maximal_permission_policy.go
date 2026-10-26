@@ -31,6 +31,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
 	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
@@ -99,19 +100,31 @@ func (a *maximalPermissionAuthorizer) Authorize(ctx context.Context, attr author
 			claimingAPIExport.Name, logicalcluster.From(claimingAPIExport)), nil
 	}
 
-	apiExportsProvidingClaimedResources, err := a.getAPIExportsByIdentity(claimedIdentityHash)
+	candidates, err := a.getAPIExportsByIdentity(claimedIdentityHash)
 	if err != nil {
 		return authorizer.DecisionNoOpinion, "", fmt.Errorf("error getting API export identity: %q: %w", claimedIdentityHash, err)
 	}
 
+	// only apply MaximalPermissionPolicies from APIExports with valid
+	// identity hashes, otherwise anyone can create an APIExport with
+	// the publicly known identity hash and apply a stricter
+	// MaximalPermissionPolicy than the actual provider intends.
+	apiExportsProvidingClaimedResources := make([]*apisv1alpha2.APIExport, 0, len(candidates))
+	for _, candidate := range candidates {
+		if conditions.IsTrue(candidate, apisv1alpha2.APIExportIdentityValid) {
+			apiExportsProvidingClaimedResources = append(apiExportsProvidingClaimedResources, candidate)
+		}
+	}
+
 	if len(apiExportsProvidingClaimedResources) == 0 {
-		// a claimed identity hash exists but not API export can be found referring to it (potentially eventually consistent).
-		// In this case be safe and deny the request, forcing the caller to retry.
-		return authorizer.DecisionDeny, fmt.Sprintf("no API export providing claimed resources found for identity hash: %q", claimedIdentityHash), nil
+		// a claimed identity hash exists but no API export with a valid identity can be found referring to it
+		// (potentially eventually consistent). In this case be safe and deny the request, forcing the caller to retry.
+		return authorizer.DecisionDeny, fmt.Sprintf("no API export with valid identity found for identity hash: %q", claimedIdentityHash), nil
 	}
 
 	// multiple claimed API exports can share the same identity hash (even in different workspaces).
-	// All maximum permission policies must grant access because at this point no deterministic API export can be picked.
+	// All maximum permission policies of exports with a valid identity must grant access because at this point
+	// no deterministic API export can be picked.
 	for _, apiExportProvidingClaimedResource := range apiExportsProvidingClaimedResources {
 		if apiExportProvidingClaimedResource.Spec.MaximalPermissionPolicy == nil {
 			continue
