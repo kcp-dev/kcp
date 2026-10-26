@@ -96,6 +96,12 @@ func (c *Authentication) tokenAuthEnabled() bool {
 	return c.BuiltInOptions.TokenFile != nil && c.BuiltInOptions.TokenFile.TokenFile != ""
 }
 
+// ServiceAccountAuthEnabled reports whether service account tokens are
+// accepted, which needs a client to the root shard.
+func (c *Authentication) ServiceAccountAuthEnabled() bool {
+	return c.serviceAccountAuthEnabled()
+}
+
 func (c *Authentication) serviceAccountAuthEnabled() bool {
 	return c.BuiltInOptions.ServiceAccounts != nil && len(c.BuiltInOptions.ServiceAccounts.KeyFiles) != 0
 }
@@ -129,6 +135,9 @@ func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *generi
 
 	// Set for service account auth, if enabled
 	if c.serviceAccountAuthEnabled() {
+		if rootShardConfig == nil {
+			return fmt.Errorf("service account authentication needs --root-kubeconfig")
+		}
 		authenticationInfo.APIAudiences = c.BuiltInOptions.APIAudiences
 		if len(c.BuiltInOptions.ServiceAccounts.Issuers) != 0 && len(c.BuiltInOptions.APIAudiences) == 0 {
 			authenticationInfo.APIAudiences = c.BuiltInOptions.ServiceAccounts.Issuers
