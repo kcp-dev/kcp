@@ -41,12 +41,10 @@ spec:
     schema:
       openAPIV3Schema:
         description: |-
-          APIIdentity is the registry entry of one API identity: the record of which
-          APIExport owns the identity and which other APIExports hold it. There is
-          exactly one entry per identity in an installation, named after the
-          identity value, living on the cache server where every shard can read it
-          and served read-only through the Admin workspace. Entries are written by
-          kcp only.
+          APIIdentity is the view of one API identity: which APIExport owns it and
+          which other APIExports hold it. It is computed from the APIExports of the
+          installation and not stored anywhere; there is one per identity, named
+          after the identity value, served read-only through the Admin workspace.
         properties:
           apiVersion:
             description: |-
@@ -124,9 +122,8 @@ spec:
               holders:
                 description: |-
                   holders lists the APIExports, other than the owner, that serve the
-                  identity: those whose identity secret carries the same key. A holder
-                  records itself when it gets the identity and is dropped when it is
-                  deleted.
+                  identity: those whose identity secret carries the same key, oldest
+                  first.
                 items:
                   description: Holder is an APIExport, other than the owner, that
                     serves the identity.
@@ -141,7 +138,7 @@ spec:
                       minLength: 1
                       type: string
                     since:
-                      description: since is when the holder was recorded.
+                      description: since is when the holder was created.
                       format: date-time
                       type: string
                     uid:
@@ -161,10 +158,8 @@ spec:
               owner:
                 description: |-
                   owner is the APIExport that holds the identity authoritatively: the
-                  first one to use it. It is written by kcp when the identity is claimed
-                  and changed by kcp only when the owner is deleted and a holder
-                  succeeds it. An entry whose owner is gone and that has no holder left
-                  is removed.
+                  oldest one holding it. When it is deleted the oldest holder succeeds
+                  it; an identity no APIExport holds any more has no entry.
                 properties:
                   cluster:
                     description: cluster is the logical cluster name hosting the APIExport.

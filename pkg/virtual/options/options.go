@@ -121,6 +121,7 @@ func (o *Options) NewVirtualWorkspaces(
 		rootPathPrefix,
 		config,
 		cacheConfig,
+		cachedKcpInformers,
 	)
 	if err != nil {
 		return nil, err

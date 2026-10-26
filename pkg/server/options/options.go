@@ -38,7 +38,6 @@ import (
 
 	kcpadmission "github.com/kcp-dev/kcp/pkg/admission"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
-	"github.com/kcp-dev/kcp/pkg/reconciler/admin/apiidentity"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	kcpserviceaccount "github.com/kcp-dev/kcp/pkg/server/serviceaccount"
 )
@@ -86,12 +85,8 @@ type ExtraOptions struct {
 	LogicalClusterAdminKubeconfig         string
 	ExternalLogicalClusterAdminKubeconfig string
 	ConversionCELTransformationTimeout    time.Duration
-	// APIIdentityMissingGracePeriod is how long an APIExport may be missing
-	// from the cache server before its API identity is taken over by another
-	// APIExport holding it, or removed from the registry.
-	APIIdentityMissingGracePeriod time.Duration
-	RootIdentitiesFile            string
-	BatteriesIncluded             []string
+	RootIdentitiesFile                    string
+	BatteriesIncluded                     []string
 	// DEVELOPMENT ONLY. AdditionalMappingsFile is the path to a file that contains additional mappings
 	// for the mini-front-proxy to use. The file should be in the format of the
 	// --miniproxy-mapping-file flag of the front-proxy. Do NOT expose this flag to users via main server options.
@@ -145,8 +140,6 @@ func NewOptions(rootDir string) *Options {
 
 			LogicalClusterTotalObjectLimit:        0,
 			LogicalClusterObjectCountScanInterval: 60 * time.Second,
-
-			APIIdentityMissingGracePeriod: apiidentity.DefaultMissingGracePeriod,
 
 			BatteriesIncluded:   sets.List[string](batteries.Defaults),
 			ServiceAccountCache: saCache,
@@ -223,8 +216,6 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 
 	fs.Int64Var(&o.Extra.LogicalClusterTotalObjectLimit, "logical-cluster-total-object-limit", o.Extra.LogicalClusterTotalObjectLimit, "Maximum total number of objects allowed in a logical cluster on this shard. 0 disables the default limit. The "+corev1alpha1.LogicalClusterMaxTotalObjectsAnnotationKey+" annotation on a LogicalCluster overrides this value for that logical cluster.")
 	fs.DurationVar(&o.Extra.LogicalClusterObjectCountScanInterval, "logical-cluster-object-count-scan-interval", o.Extra.LogicalClusterObjectCountScanInterval, "Interval at which etcd is scanned to count objects per logical cluster for total object count limit enforcement.")
-
-	fs.DurationVar(&o.Extra.APIIdentityMissingGracePeriod, "api-identity-missing-grace-period", o.Extra.APIIdentityMissingGracePeriod, "How long an APIExport may be missing from the cache server before its API identity passes to another APIExport holding it, or is removed from the registry when none does.")
 
 	fs.StringSliceVar(&o.Extra.BatteriesIncluded, "batteries-included", o.Extra.BatteriesIncluded, fmt.Sprintf(
 		`A list of batteries included (= default objects that might be unwanted in production, but are very helpful in trying out kcp or for development). These are the possible values: %s.

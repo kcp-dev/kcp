@@ -45,26 +45,22 @@ import (
 	kcpclusterclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestinghelpers "github.com/kcp-dev/sdk/testing/helpers"
-	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 
 	"github.com/kcp-dev/kcp/config/helpers"
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
-// TestAPIExportIdentityRegistry exercises the identity registry: the first
+// TestAPIExportIdentityRegistry exercises the identity view: the first
 // APIExport to use an identity owns it, another APIExport with a copy of the
-// key shares the identity and is recorded as a holder, the oldest holder
+// key shares the identity and shows as a holder, the oldest holder
 // inherits the identity when the owner is deleted, the entry is gone once
-// the last export is deleted, and the next export with the key registers
+// the last export is deleted, and the next export with the key brings
 // the identity anew.
 func TestAPIExportIdentityRegistry(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "control-plane")
 
-	// a deleted owner is taken as gone only after the grace period, which is
-	// an hour by default: run against a private server with a short one.
-	const grace = 10 * time.Second
-	server := kcptesting.PrivateKcpServer(t, kcptestingserver.WithCustomArguments("--api-identity-missing-grace-period="+grace.String()))
+	server := kcptesting.SharedKcpServer(t)
 
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
 	ownerPath, ownerWS := kcptesting.NewWorkspaceFixture(t, server, orgPath)
@@ -138,7 +134,6 @@ func TestAPIExportIdentityRegistry(t *testing.T) {
 			return check(entry)
 		}, timeout, 250*time.Millisecond)
 	}
-	afterGrace := grace + wait.ForeverTestTimeout
 	copyKey := func(from, to logicalcluster.Path) {
 		t.Helper()
 		secret, err := kubeClusterClient.Cluster(from).CoreV1().Secrets("kcp-system").Get(t.Context(), "wildwest", metav1.GetOptions{})
@@ -183,12 +178,12 @@ func TestAPIExportIdentityRegistry(t *testing.T) {
 
 	t.Logf("Delete the owner: the holder becomes the owner and keeps serving")
 	require.NoError(t, kcpClusterClient.Cluster(ownerPath).ApisV1alpha2().APIExports().Delete(t.Context(), "wildwest", metav1.DeleteOptions{}))
-	waitForEntry(identity, afterGrace, func(entry *adminv1alpha1.APIIdentity) (bool, string) {
+	waitForEntry(identity, wait.ForeverTestTimeout, func(entry *adminv1alpha1.APIIdentity) (bool, string) {
 		if !entry.Status.Owner.Equal(exportRef(holderWS, holder)) {
 			return false, fmt.Sprintf("owner=%v", entry.Status.Owner)
 		}
-		return len(entry.Status.Holders) == 0 && conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing) == nil,
-			fmt.Sprintf("holders=%v ownerMissing=%v", entry.Status.Holders, conditions.Get(entry, adminv1alpha1.APIIdentityOwnerMissing))
+		return len(entry.Status.Holders) == 0 && conditions.Get(entry, adminv1alpha1.APIIdentityShared) == nil,
+			fmt.Sprintf("holders=%v shared=%v", entry.Status.Holders, conditions.Get(entry, adminv1alpha1.APIIdentityShared))
 	})
 	holder, err = getExport(holderPath)
 	require.NoError(t, err)
@@ -201,7 +196,7 @@ func TestAPIExportIdentityRegistry(t *testing.T) {
 	kcptestinghelpers.Eventually(t, func() (bool, string) {
 		_, err := adminClient.AdminV1alpha1().APIIdentities().Get(t.Context(), identity, metav1.GetOptions{})
 		return apierrors.IsNotFound(err), fmt.Sprintf("get: %v", err)
-	}, afterGrace, 250*time.Millisecond)
+	}, wait.ForeverTestTimeout, 250*time.Millisecond)
 
 	t.Logf("A newcomer with the key registers the identity anew")
 	createWithKey(newcomerPath)

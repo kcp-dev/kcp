@@ -108,10 +108,11 @@ root      us-east-2   https://127.0.0.1:6444   ...
 shard-1   us-east-1   https://127.0.0.1:6445   ...
 ```
 
-The Admin workspace also serves the API identity registry read-only:
+The Admin workspace also serves the API identity view read-only:
 `apiidentities.admin.kcp.io` lists every APIExport identity in the
-installation, named by the identity hash, with the owning `APIExport`, the
-other exports holding it and whether it is a core identity. See
+installation, computed from the replicated `APIExports`, named by the
+identity hash, with the owning `APIExport`, the other exports holding it and
+whether it is a core identity. See
 [Exporting APIs](../apis/exporting-apis.md#sharing-an-identity-with-another-apiexport).
 
 ```sh

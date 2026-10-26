@@ -29,15 +29,12 @@ import (
 // spec: nothing about it is user intent.
 type APIIdentityStatusApplyConfiguration struct {
 	// owner is the APIExport that holds the identity authoritatively: the
-	// first one to use it. It is written by kcp when the identity is claimed
-	// and changed by kcp only when the owner is deleted and a holder
-	// succeeds it. An entry whose owner is gone and that has no holder left
-	// is removed.
+	// oldest one holding it. When it is deleted the oldest holder succeeds
+	// it; an identity no APIExport holds any more has no entry.
 	Owner *ExportReferenceApplyConfiguration `json:"owner,omitempty"`
 	// holders lists the APIExports, other than the owner, that serve the
-	// identity: those whose identity secret carries the same key. A holder
-	// records itself when it gets the identity and is dropped when it is
-	// deleted.
+	// identity: those whose identity secret carries the same key, oldest
+	// first.
 	Holders []HolderApplyConfiguration `json:"holders,omitempty"`
 	// core is true for the identities of the core APIExports in the root
 	// workspace, which every shard needs before it can serve.

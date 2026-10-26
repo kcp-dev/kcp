@@ -18,17 +18,19 @@ package builder
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/utils/ptr"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
@@ -36,28 +38,25 @@ import (
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/apiserver"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
 
-	configshard "github.com/kcp-dev/kcp/config/shard"
-	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
-	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
-	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
+	"github.com/kcp-dev/kcp/pkg/apiidentity"
 )
 
 // provideAPIIdentitiesRestStorage builds the REST storage for the identity
-// registry view: GET/LIST/WATCH forwarded to the registry scope of the cache
-// server, where the APIExport controllers of every shard record the
-// identities they assign. The view is read-only: the entries are derived
-// state, written by kcp only.
+// view: GET/LIST/WATCH computed by the projector from the APIExports
+// replicated to the cache server. Nothing is stored and nothing is written:
+// the view is read-only.
 func provideAPIIdentitiesRestStorage(
 	mainConfig genericapiserver.CompletedConfig,
-	cacheDynamicClusterClient kcpdynamic.ClusterInterface,
+	projector *apiidentity.Projector,
 ) (apidefinition.APIDefinition, error) {
 	ctx, cancelFn := context.WithCancel(context.Background())
 
+	// the view is computed; the storage never reaches for a client.
 	clientFunc := forwardingregistry.DynamicClusterClientFunc(func(_ context.Context) (kcpdynamic.ClusterInterface, error) {
-		return cacheDynamicClusterClient, nil
+		return nil, errors.New("the identity view is computed, it has no backing client")
 	})
 
-	restProvider, err := forwardingregistry.ProvideReadOnlyRestStorage(ctx, clientFunc, withRegistryView(), nil)
+	restProvider, err := forwardingregistry.ProvideReadOnlyRestStorage(ctx, clientFunc, projectedView(projector), nil)
 	if err != nil {
 		cancelFn()
 		return nil, err
@@ -75,85 +74,76 @@ func provideAPIIdentitiesRestStorage(
 	}, nil
 }
 
-// registryContext retargets a request context at the registry scope of the
-// cache server: the one shard scope and logical cluster every APIIdentity
-// lives under, whichever cluster segment the caller used.
-func registryContext(ctx context.Context) context.Context {
-	ctx = genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: configshard.SystemShardCluster})
-	return cacheclient.WithShardInContext(ctx, shard.Registry)
-}
+var apiIdentitiesResource = schema.GroupResource{Group: adminv1alpha1.SchemeGroupVersion.Group, Resource: "apiidentities"}
 
-// stripCacheBookkeeping removes the cache-server bookkeeping annotations from
-// an object read from the cache. The kcp.io/cluster annotation is kept: it
-// tells the consumer which logical cluster the object belongs to.
-func stripCacheBookkeeping(obj *unstructured.Unstructured) {
-	annotations := obj.GetAnnotations()
-	if annotations == nil {
-		return
-	}
-	delete(annotations, shard.AnnotationKey)
-	delete(annotations, replication.AnnotationKeyOriginalResourceUID)
-	delete(annotations, replication.AnnotationKeyOriginalResourceVersion)
-	obj.SetAnnotations(annotations)
-}
-
-// withRegistryView decorates the StoreFuncs so that every read is served from
-// the registry scope of the cache server, with the cache bookkeeping
-// annotations stripped from what is returned.
-func withRegistryView() forwardingregistry.StorageWrapper {
+// projectedView replaces the reads of the storage with the projector's view.
+func projectedView(projector *apiidentity.Projector) forwardingregistry.StorageWrapper {
 	return forwardingregistry.StorageWrapperFunc(func(_ schema.GroupResource, storage *forwardingregistry.StoreFuncs) {
-		delegateGet := storage.GetterFunc
-		storage.GetterFunc = func(ctx context.Context, name string, options *metav1.GetOptions) (runtime.Object, error) {
-			result, err := delegateGet(registryContext(ctx), name, options)
-			if err != nil {
-				return nil, err
-			}
-			obj, ok := result.(*unstructured.Unstructured)
+		storage.GetterFunc = func(_ context.Context, name string, _ *metav1.GetOptions) (runtime.Object, error) {
+			entry, ok := projector.Get(name)
 			if !ok {
-				return nil, fmt.Errorf("expected *unstructured.Unstructured from the registry, got %T", result)
+				return nil, apierrors.NewNotFound(apiIdentitiesResource, name)
 			}
-			stripCacheBookkeeping(obj)
-			return obj, nil
+			return toUnstructured(entry)
 		}
 
-		delegateList := storage.ListerFunc
-		storage.ListerFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
-			result, err := delegateList(registryContext(ctx), options)
-			if err != nil {
-				return nil, err
-			}
-			list, ok := result.(*unstructured.UnstructuredList)
-			if !ok {
-				return nil, fmt.Errorf("expected *unstructured.UnstructuredList from the registry, got %T", result)
-			}
-			for i := range list.Items {
-				stripCacheBookkeeping(&list.Items[i])
+		storage.ListerFunc = func(_ context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
+			list := &unstructured.UnstructuredList{}
+			list.SetAPIVersion(adminv1alpha1.SchemeGroupVersion.String())
+			list.SetKind("APIIdentityList")
+			list.SetResourceVersion(projector.ResourceVersion())
+			for _, entry := range projector.List(options.LabelSelector) {
+				if !matchesFields(options.FieldSelector, entry) {
+					continue
+				}
+				obj, err := toUnstructured(entry)
+				if err != nil {
+					return nil, err
+				}
+				list.Items = append(list.Items, *obj)
 			}
 			return list, nil
 		}
 
-		delegateWatch := storage.WatcherFunc
 		storage.WatcherFunc = func(ctx context.Context, options *metainternalversion.ListOptions) (watch.Interface, error) {
-			w, err := delegateWatch(registryContext(ctx), options)
+			w, err := projector.Watch(options.LabelSelector, apiidentity.WatchOptions{
+				ResourceVersion:     options.ResourceVersion,
+				SendInitialEvents:   ptr.Deref(options.SendInitialEvents, false),
+				AllowWatchBookmarks: options.AllowWatchBookmarks,
+			})
 			if err != nil {
 				return nil, err
 			}
-			return newStrippingWatch(ctx, w), nil
+			return newConvertingWatch(ctx, w, options.FieldSelector), nil
 		}
 	})
 }
 
-// strippingWatch wraps a watch.Interface, stripping the cache bookkeeping
-// annotations from every object it forwards. Bookmarks and errors pass
-// through untouched.
-type strippingWatch struct {
+// matchesFields applies the one field selector the view supports,
+// metadata.name.
+func matchesFields(selector fields.Selector, entry *adminv1alpha1.APIIdentity) bool {
+	return selector == nil || selector.Empty() || selector.Matches(fields.Set{"metadata.name": entry.Name})
+}
+
+func toUnstructured(entry *adminv1alpha1.APIIdentity) (*unstructured.Unstructured, error) {
+	content, err := runtime.DefaultUnstructuredConverter.ToUnstructured(entry)
+	if err != nil {
+		return nil, err
+	}
+	return &unstructured.Unstructured{Object: content}, nil
+}
+
+// convertingWatch forwards the projector's typed events as unstructured
+// objects, which is what the storage serves, dropping those a field
+// selector excludes. Bookmarks and errors pass through.
+type convertingWatch struct {
 	delegate   watch.Interface
 	resultChan chan watch.Event
 	stopOnce   sync.Once
 }
 
-func newStrippingWatch(ctx context.Context, delegate watch.Interface) *strippingWatch {
-	w := &strippingWatch{
+func newConvertingWatch(ctx context.Context, delegate watch.Interface, selector fields.Selector) *convertingWatch {
+	w := &convertingWatch{
 		delegate:   delegate,
 		resultChan: make(chan watch.Event, 100), // Matches outgoingBufSize=100 in k8s.io/apiserver/pkg/storage/etcd3/watcher.go.
 	}
@@ -166,8 +156,16 @@ func newStrippingWatch(ctx context.Context, delegate watch.Interface) *stripping
 				if !ok {
 					return
 				}
-				if obj, ok := event.Object.(*unstructured.Unstructured); ok {
-					stripCacheBookkeeping(obj)
+				if entry, ok := event.Object.(*adminv1alpha1.APIIdentity); ok {
+					if event.Type != watch.Bookmark && !matchesFields(selector, entry) {
+						continue
+					}
+					obj, err := toUnstructured(entry)
+					if err != nil {
+						event = watch.Event{Type: watch.Error, Object: &apierrors.NewInternalError(err).ErrStatus}
+					} else {
+						event.Object = obj
+					}
 				}
 				select {
 				case w.resultChan <- event:
@@ -184,10 +182,10 @@ func newStrippingWatch(ctx context.Context, delegate watch.Interface) *stripping
 	return w
 }
 
-func (w *strippingWatch) Stop() {
+func (w *convertingWatch) Stop() {
 	w.stopOnce.Do(func() { w.delegate.Stop() })
 }
 
-func (w *strippingWatch) ResultChan() <-chan watch.Event {
+func (w *convertingWatch) ResultChan() <-chan watch.Event {
 	return w.resultChan
 }

@@ -36,6 +36,7 @@ import (
 	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
+	"github.com/kcp-dev/kcp/pkg/apiidentity"
 	"github.com/kcp-dev/kcp/pkg/authorization"
 	"github.com/kcp-dev/kcp/pkg/virtual/admin"
 	adminauthorizer "github.com/kcp-dev/kcp/pkg/virtual/admin/authorizer"
@@ -58,6 +59,7 @@ const apiDomainKey = dynamiccontext.APIDomainKey(admin.VirtualWorkspaceName)
 func BuildVirtualWorkspace(
 	rootPathPrefix string,
 	cacheDynamicClusterClient kcpdynamic.ClusterInterface,
+	identities *apiidentity.Projector,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	if !strings.HasSuffix(rootPathPrefix, "/") {
 		rootPathPrefix += "/"
@@ -87,6 +89,7 @@ func BuildVirtualWorkspace(
 			provider := &adminAPIDefinitionSetProvider{
 				config:                    mainConfig,
 				cacheDynamicClusterClient: cacheDynamicClusterClient,
+				identities:                identities,
 			}
 			if err := mainConfig.AddPostStartHook(admin.VirtualWorkspaceName, func(hookContext genericapiserver.PostStartHookContext) error {
 				close(readyCh)
@@ -146,6 +149,7 @@ func digestURL(urlPath, rootPathPrefix string) (cluster genericapirequest.Cluste
 type adminAPIDefinitionSetProvider struct {
 	config                    genericapiserver.CompletedConfig
 	cacheDynamicClusterClient kcpdynamic.ClusterInterface
+	identities                *apiidentity.Projector
 
 	lock   sync.Mutex
 	cached apidefinition.APIDefinitionSet
@@ -166,7 +170,7 @@ func (p *adminAPIDefinitionSetProvider) GetAPIDefinitionSet(_ context.Context, k
 	if err != nil {
 		return nil, false, err
 	}
-	apiIdentitiesDef, err := provideAPIIdentitiesRestStorage(p.config, p.cacheDynamicClusterClient)
+	apiIdentitiesDef, err := provideAPIIdentitiesRestStorage(p.config, p.identities)
 	if err != nil {
 		shardsDef.TearDown()
 		return nil, false, err

@@ -178,18 +178,16 @@ Two `APIExports` whose secrets carry the same `key` have the same identity: they
 same storage, which is how an `APIExport` is split into two or moved to another workspace without touching the
 consumers' objects. Today that works by copying the secret, and it keeps working.
 
-kcp records every identity in a registry (`APIIdentity` in `admin.kcp.io`, on the cache server, listed read-only
-in the [Admin workspace](../sharding/shards.md#the-admin-workspace-admin) with `kubectl ws use :admin`): the first
-`APIExport` to use an identity is its **owner**, every other `APIExport` whose secret carries the same `key` is a
-**holder**, and the entry names both. An identity with holders carries the `Shared` condition. The registry does
-not change who may serve an identity, which is still whoever has the secret; it makes sharing visible and gives the
-identity a lifecycle of its own.
+kcp shows every identity as an `APIIdentity` (`admin.kcp.io`), listed read-only in the
+[Admin workspace](../sharding/shards.md#the-admin-workspace-admin) with `kubectl ws use :admin`. The view is computed
+from the `APIExports` of all shards, as replicated to the cache server; nothing is stored. The oldest `APIExport` holding
+an identity is its **owner**, every other `APIExport` whose secret carries the same `key` is a **holder**, and the entry
+names both. An identity with holders carries the `Shared` condition. The view does not change who may serve an identity,
+which is still whoever has the secret; it makes sharing visible.
 
-When the owner's `APIExport` is deleted, the identity passes to the oldest holder. The decision is made from the
-`APIExports` replicated to the cache server: an owner missing from the cache is marked `OwnerMissing`, and after a
-grace period (an hour by default, `--api-identity-missing-grace-period`) it is taken as gone. An identity with no owner and no holder left is removed from the registry; the
-next `APIExport` whose secret carries the original `key` registers it anew.
-`status.identityHash` is set once the identity is recorded in the registry and is immutable afterwards.
+When the owner's `APIExport` is deleted, the oldest holder becomes the owner. An identity no `APIExport` holds any more
+has no entry; the next `APIExport` whose secret carries the original `key` brings it back.
+`status.identityHash` is immutable once set.
 
 ### Permission Claims
 

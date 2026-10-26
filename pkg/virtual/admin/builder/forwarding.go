@@ -52,6 +52,7 @@ import (
 	configshard "github.com/kcp-dev/kcp/config/shard"
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
+	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 )
 
 // provideShardsRestStorage builds the REST storage for the shards view:
@@ -637,4 +638,18 @@ func (w *fixupWatch) Stop() {
 
 func (w *fixupWatch) ResultChan() <-chan watch.Event {
 	return w.resultChan
+}
+
+// stripCacheBookkeeping removes the cache-server bookkeeping annotations from
+// an object read from the cache. The kcp.io/cluster annotation is kept: it
+// tells the consumer which logical cluster the object belongs to.
+func stripCacheBookkeeping(obj *unstructured.Unstructured) {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		return
+	}
+	delete(annotations, shard.AnnotationKey)
+	delete(annotations, replication.AnnotationKeyOriginalResourceUID)
+	delete(annotations, replication.AnnotationKeyOriginalResourceVersion)
+	obj.SetAnnotations(annotations)
 }

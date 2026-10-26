@@ -239,7 +239,7 @@ func schema_sdk_apis_admin_v1alpha1_APIIdentity(ref common.ReferenceCallback) co
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "APIIdentity is the registry entry of one API identity: the record of which APIExport owns the identity and which other APIExports hold it. There is exactly one entry per identity in an installation, named after the identity value, living on the cache server where every shard can read it and served read-only through the Admin workspace. Entries are written by kcp only.",
+				Description: "APIIdentity is the view of one API identity: which APIExport owns it and which other APIExports hold it. It is computed from the APIExports of the installation and not stored anywhere; there is one per identity, named after the identity value, served read-only through the Admin workspace.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -334,7 +334,7 @@ func schema_sdk_apis_admin_v1alpha1_APIIdentityStatus(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"owner": {
 						SchemaProps: spec.SchemaProps{
-							Description: "owner is the APIExport that holds the identity authoritatively: the first one to use it. It is written by kcp when the identity is claimed and changed by kcp only when the owner is deleted and a holder succeeds it. An entry whose owner is gone and that has no holder left is removed.",
+							Description: "owner is the APIExport that holds the identity authoritatively: the oldest one holding it. When it is deleted the oldest holder succeeds it; an identity no APIExport holds any more has no entry.",
 							Default:     map[string]interface{}{},
 							Ref:         ref(v1alpha1.ExportReference{}.OpenAPIModelName()),
 						},
@@ -350,7 +350,7 @@ func schema_sdk_apis_admin_v1alpha1_APIIdentityStatus(ref common.ReferenceCallba
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "holders lists the APIExports, other than the owner, that serve the identity: those whose identity secret carries the same key. A holder records itself when it gets the identity and is dropped when it is deleted.",
+							Description: "holders lists the APIExports, other than the owner, that serve the identity: those whose identity secret carries the same key, oldest first.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -461,7 +461,7 @@ func schema_sdk_apis_admin_v1alpha1_Holder(ref common.ReferenceCallback) common.
 					},
 					"since": {
 						SchemaProps: spec.SchemaProps{
-							Description: "since is when the holder was recorded.",
+							Description: "since is when the holder was created.",
 							Ref:         ref(v1.Time{}.OpenAPIModelName()),
 						},
 					},

@@ -28,12 +28,10 @@ import (
 // APIIdentityApplyConfiguration represents a declarative configuration of the APIIdentity type for use
 // with apply.
 //
-// APIIdentity is the registry entry of one API identity: the record of which
-// APIExport owns the identity and which other APIExports hold it. There is
-// exactly one entry per identity in an installation, named after the
-// identity value, living on the cache server where every shard can read it
-// and served read-only through the Admin workspace. Entries are written by
-// kcp only.
+// APIIdentity is the view of one API identity: which APIExport owns it and
+// which other APIExports hold it. It is computed from the APIExports of the
+// installation and not stored anywhere; there is one per identity, named
+// after the identity value, served read-only through the Admin workspace.
 type APIIdentityApplyConfiguration struct {
 	v1.TypeMetaApplyConfiguration    `json:",inline"`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`

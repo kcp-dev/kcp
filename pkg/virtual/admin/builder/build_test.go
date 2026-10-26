@@ -24,16 +24,20 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
 
-	configshard "github.com/kcp-dev/kcp/config/shard"
-	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
-	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
+	"github.com/kcp-dev/kcp/pkg/apiidentity"
 )
 
 func TestDigestURL(t *testing.T) {
@@ -396,43 +400,47 @@ func TestMutableFieldUpdate(t *testing.T) {
 	}
 }
 
-func TestRegistryContextTargetsTheRegistryScope(t *testing.T) {
+func TestProjectedViewServesTheProjector(t *testing.T) {
 	t.Parallel()
-	ctx := registryContext(context.Background())
+	const hash = "abc"
+	projector := apiidentity.NewProjector(apiidentity.IsCoreExport)
+	projector.OnAdd(&apisv1alpha2.APIExport{
+		ObjectMeta: metav1.ObjectMeta{Name: "widgets", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
+		Status:     apisv1alpha2.APIExportStatus{IdentityHash: hash},
+	}, true)
+	storage := &forwardingregistry.StoreFuncs{}
+	projectedView(projector).Decorate(apiIdentitiesResource, storage)
+	ctx := context.Background()
 
-	cluster, err := genericapirequest.ValidClusterFrom(ctx)
+	t.Log("get serves the entry as unstructured, unknown names are not found")
+	obj, err := storage.GetterFunc(ctx, hash, nil)
 	require.NoError(t, err)
-	require.Equal(t, configshard.SystemShardCluster, cluster.Name)
-	require.False(t, cluster.Wildcard)
+	entry := obj.(*unstructured.Unstructured)
+	require.Equal(t, "APIIdentity", entry.GetKind())
+	require.Equal(t, "widgets", entry.GetLabels()[adminv1alpha1.APIIdentityOwnerLabel])
+	_, err = storage.GetterFunc(ctx, "nope", nil)
+	require.True(t, apierrors.IsNotFound(err))
 
-	require.Equal(t, shard.Registry, cacheclient.ShardFromContext(ctx))
-}
+	t.Log("list honours label and name selectors")
+	obj, err = storage.ListerFunc(ctx, &metainternalversion.ListOptions{LabelSelector: labels.SelectorFromSet(labels.Set{adminv1alpha1.APIIdentityCoreLabel: "false"})})
+	require.NoError(t, err)
+	list := obj.(*unstructured.UnstructuredList)
+	require.Equal(t, "APIIdentityList", list.GetKind())
+	require.Len(t, list.Items, 1)
+	require.Equal(t, projector.ResourceVersion(), list.GetResourceVersion())
+	obj, err = storage.ListerFunc(ctx, &metainternalversion.ListOptions{FieldSelector: fields.OneTermEqualSelector("metadata.name", "other")})
+	require.NoError(t, err)
+	require.Empty(t, obj.(*unstructured.UnstructuredList).Items)
 
-func TestStrippingWatchStripsCacheBookkeeping(t *testing.T) {
-	t.Parallel()
-	source := watch.NewFake()
-	w := newStrippingWatch(context.Background(), source)
-
-	entry := &unstructured.Unstructured{}
-	entry.SetAPIVersion("admin.kcp.io/v1alpha1")
-	entry.SetKind("APIIdentity")
-	entry.SetName("abc")
-	entry.SetAnnotations(map[string]string{
-		logicalcluster.AnnotationKey:             "system:shard",
-		"kcp.io/shard":                           "system:registry",
-		"cache.kcp.io/original-resource-version": "42",
+	t.Log("watch delivers changes as unstructured")
+	w, err := storage.WatcherFunc(ctx, &metainternalversion.ListOptions{})
+	require.NoError(t, err)
+	defer w.Stop()
+	projector.OnDelete(&apisv1alpha2.APIExport{
+		ObjectMeta: metav1.ObjectMeta{Name: "widgets", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
+		Status:     apisv1alpha2.APIExportStatus{IdentityHash: hash},
 	})
-	source.Add(entry)
-	source.Action(watch.Bookmark, &unstructured.Unstructured{})
-	source.Stop()
-
-	var got []watch.Event
-	for event := range w.ResultChan() {
-		got = append(got, event)
-	}
-	require.Len(t, got, 2)
-	require.Equal(t, watch.Added, got[0].Type)
-	anns := got[0].Object.(*unstructured.Unstructured).GetAnnotations()
-	require.Equal(t, map[string]string{logicalcluster.AnnotationKey: "system:shard"}, anns)
-	require.Equal(t, watch.Bookmark, got[1].Type)
+	event := <-w.ResultChan()
+	require.Equal(t, watch.Deleted, event.Type)
+	require.Equal(t, hash, event.Object.(*unstructured.Unstructured).GetName())
 }

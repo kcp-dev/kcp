@@ -344,9 +344,6 @@ func (s *Server) installControllers(ctx context.Context, controllerConfig *rest.
 		if err := s.installAPIExportController(ctx, controllerConfig); err != nil {
 			return err
 		}
-		if err := s.installAPIIdentityController(ctx); err != nil {
-			return err
-		}
 	}
 
 	if s.Options.Controllers.EnableAll || enabled.Has("apisreplicateclusterrole") {
@@ -529,10 +526,6 @@ func (s *Server) Run(ctx context.Context) error {
 		go s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().Run(hookContext.Done())
 		go s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().Run(hookContext.Done())
-		// The APIExport controller claims identities in the registry before
-		// the core identities are resolved below, so the registry informer
-		// has to run before the rest of the cache informers.
-		go s.CacheKcpSharedInformerFactory.Admin().V1alpha1().APIIdentities().Informer().Run(hookContext.Done())
 		go s.CacheKcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources().Informer().Run(hookContext.Done())
 		go s.CacheKcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResourceEndpointSlices().Informer().Run(hookContext.Done())
 		go s.KcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Informer().Run(hookContext.Done())

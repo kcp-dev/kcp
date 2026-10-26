@@ -37,9 +37,6 @@ const (
 
 	IdentityVerificationFailedReason = "IdentityVerificationFailed"
 	IdentityGenerationFailedReason   = "IdentityGenerationFailed"
-	// IdentityClaimFailedReason means the identity could not be recorded in
-	// the APIIdentity registry on the cache server; kcp retries.
-	IdentityClaimFailedReason = "IdentityClaimFailed"
 
 	APIExportVirtualWorkspaceURLsReady conditionsv1alpha1.ConditionType = "VirtualWorkspaceURLsReady"
 

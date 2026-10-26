@@ -24,8 +24,10 @@ import (
 	"k8s.io/client-go/rest"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
+	"github.com/kcp-dev/kcp/pkg/apiidentity"
 	"github.com/kcp-dev/kcp/pkg/virtual/admin"
 	"github.com/kcp-dev/kcp/pkg/virtual/admin/builder"
 )
@@ -47,6 +49,7 @@ func (o *Admin) NewAdmin(
 	rootPathPrefix string,
 	_ *rest.Config,
 	cacheConfig *rest.Config,
+	cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
 	// We assume the cacheConfig already has the cache-related roundtrippers applied.
 	cacheDynamicClusterClient, err := kcpdynamic.NewForConfig(cacheConfig)
@@ -54,8 +57,14 @@ func (o *Admin) NewAdmin(
 		return nil, err
 	}
 
+	// the identity view follows the APIExports of every shard, replicated
+	// to the cache server.
+	identities := apiidentity.NewProjector(apiidentity.IsCoreExport)
+	_, _ = cachedKcpInformers.Apis().V1alpha2().APIExports().Informer().AddEventHandler(identities)
+
 	return builder.BuildVirtualWorkspace(
 		path.Join(rootPathPrefix, admin.VirtualWorkspaceName),
 		cacheDynamicClusterClient,
+		identities,
 	)
 }
