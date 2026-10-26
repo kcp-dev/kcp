@@ -246,6 +246,12 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		[]*runtime.Scheme{legacyscheme.Scheme, apiextensionsapiserver.Scheme},
 		controlplane.DefaultAPIResourceConfigSource(),
 		generatedopenapi.GetOpenAPIDefinitions,
+		// Currently we don't have support for informer names in our upstream fork,
+		// which are mainly used for metrics.
+		// We cannot pass a fixed name here, since unlike Kubernetes we create
+		// multiple servers and the names have to be unique if you use this feature.
+		// TODO see https://github.com/kcp-dev/kcp/issues/4495
+		nil,
 	)
 	if err != nil {
 		return nil, err
