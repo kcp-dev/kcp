@@ -435,7 +435,7 @@ func TestProjectedViewServesTheProjector(t *testing.T) {
 	t.Log("watch delivers changes as unstructured")
 	w, err := storage.WatcherFunc(ctx, &metainternalversion.ListOptions{})
 	require.NoError(t, err)
-	defer w.Stop()
+	t.Cleanup(w.Stop)
 	projector.OnDelete(&apisv1alpha2.APIExport{
 		ObjectMeta: metav1.ObjectMeta{Name: "widgets", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
 		Status:     apisv1alpha2.APIExportStatus{IdentityHash: hash},

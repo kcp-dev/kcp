@@ -213,7 +213,7 @@ func TestProjectorWatch(t *testing.T) {
 		p.OnAdd(export("ws-a", "wildwest", hashA, 1), true)
 		w, err := p.Watch(nil, WatchOptions{})
 		require.NoError(t, err)
-		defer w.Stop()
+		t.Cleanup(w.Stop)
 
 		p.OnAdd(export("ws-b", "wildwest", hashA, 2), false)
 		ev := next(t, w)
@@ -227,7 +227,7 @@ func TestProjectorWatch(t *testing.T) {
 		p.OnAdd(export("ws-a", "wildwest", hashA, 1), true)
 		w, err := p.Watch(nil, WatchOptions{SendInitialEvents: true, AllowWatchBookmarks: true})
 		require.NoError(t, err)
-		defer w.Stop()
+		t.Cleanup(w.Stop)
 
 		ev := next(t, w)
 		require.Equal(t, watch.Added, ev.Type)
@@ -249,7 +249,7 @@ func TestProjectorWatch(t *testing.T) {
 
 		w, err := p.Watch(nil, WatchOptions{ResourceVersion: rv})
 		require.NoError(t, err)
-		defer w.Stop()
+		t.Cleanup(w.Stop)
 		ev := next(t, w)
 		require.Equal(t, watch.Added, ev.Type)
 		require.Equal(t, hashB, ev.Object.(*adminv1alpha1.APIIdentity).Name)
@@ -284,7 +284,7 @@ func TestProjectorWatch(t *testing.T) {
 		p := NewProjector(IsCoreExport)
 		w, err := p.Watch(labels.SelectorFromSet(labels.Set{adminv1alpha1.APIIdentityCoreLabel: "true"}), WatchOptions{})
 		require.NoError(t, err)
-		defer w.Stop()
+		t.Cleanup(w.Stop)
 
 		p.OnAdd(export("org", "widgets", hashB, 1), false)
 		p.OnAdd(export("root", "tenancy.kcp.io", hashA, 1), false)
