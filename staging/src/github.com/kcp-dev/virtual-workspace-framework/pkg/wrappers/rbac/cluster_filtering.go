@@ -42,30 +42,30 @@ type filteredInterface struct {
 	informers   rbacinformers.Interface
 }
 
-func (i *filteredInterface) ClusterRoleBindings() rbacinformers.ClusterRoleBindingInformer {
+func (i *filteredInterface) ClusterRoleBindings() rbacinformers.TypedClusterRoleBindingInformer {
 	return FilterClusterRoleBindingInformer(i.clusterName, i.informers.ClusterRoleBindings())
 }
 
-func (i *filteredInterface) ClusterRoles() rbacinformers.ClusterRoleInformer {
+func (i *filteredInterface) ClusterRoles() rbacinformers.TypedClusterRoleInformer {
 	return FilterClusterRoleInformer(i.clusterName, i.informers.ClusterRoles())
 }
 
-func (i *filteredInterface) RoleBindings() rbacinformers.RoleBindingInformer {
+func (i *filteredInterface) RoleBindings() rbacinformers.TypedRoleBindingInformer {
 	return FilterRoleBindingInformer(i.clusterName, i.informers.RoleBindings())
 }
 
-func (i *filteredInterface) Roles() rbacinformers.RoleInformer {
+func (i *filteredInterface) Roles() rbacinformers.TypedRoleInformer {
 	return FilterRoleInformer(i.clusterName, i.informers.Roles())
 }
 
-func FilterClusterRoleBindingInformer(clusterName logicalcluster.Name, informer rbacinformers.ClusterRoleBindingInformer) rbacinformers.ClusterRoleBindingInformer {
+func FilterClusterRoleBindingInformer(clusterName logicalcluster.Name, informer rbacinformers.ClusterRoleBindingInformer) rbacinformers.TypedClusterRoleBindingInformer {
 	return &filteredClusterRoleBindingInformer{
 		clusterName: clusterName,
 		informer:    informer,
 	}
 }
 
-var _ rbacinformers.ClusterRoleBindingInformer = (*filteredClusterRoleBindingInformer)(nil)
+var _ rbacinformers.TypedClusterRoleBindingInformer = (*filteredClusterRoleBindingInformer)(nil)
 var _ rbaclisters.ClusterRoleBindingLister = (*filteredClusterRoleBindingLister)(nil)
 
 type filteredClusterRoleBindingInformer struct {
@@ -80,6 +80,10 @@ type filteredClusterRoleBindingLister struct {
 
 func (i *filteredClusterRoleBindingInformer) Informer() cache.SharedIndexInformer {
 	return i.informer.Informer()
+}
+
+func (i *filteredClusterRoleBindingInformer) TypedInformer() rbacinformers.ClusterRoleBindingIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*rbacv1.ClusterRoleBinding](i.informer.Informer())
 }
 
 func (i *filteredClusterRoleBindingInformer) Lister() rbaclisters.ClusterRoleBindingLister {
@@ -109,14 +113,14 @@ func (l *filteredClusterRoleBindingLister) Get(name string) (*rbacv1.ClusterRole
 	return l.lister.Get(name)
 }
 
-func FilterClusterRoleInformer(clusterName logicalcluster.Name, informer rbacinformers.ClusterRoleInformer) rbacinformers.ClusterRoleInformer {
+func FilterClusterRoleInformer(clusterName logicalcluster.Name, informer rbacinformers.ClusterRoleInformer) rbacinformers.TypedClusterRoleInformer {
 	return &filteredClusterRoleInformer{
 		clusterName: clusterName,
 		informer:    informer,
 	}
 }
 
-var _ rbacinformers.ClusterRoleInformer = (*filteredClusterRoleInformer)(nil)
+var _ rbacinformers.TypedClusterRoleInformer = (*filteredClusterRoleInformer)(nil)
 var _ rbaclisters.ClusterRoleLister = (*filteredClusterRoleLister)(nil)
 
 type filteredClusterRoleInformer struct {
@@ -131,6 +135,10 @@ type filteredClusterRoleLister struct {
 
 func (i *filteredClusterRoleInformer) Informer() cache.SharedIndexInformer {
 	return i.informer.Informer()
+}
+
+func (i *filteredClusterRoleInformer) TypedInformer() rbacinformers.ClusterRoleIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*rbacv1.ClusterRole](i.informer.Informer())
 }
 
 func (i *filteredClusterRoleInformer) Lister() rbaclisters.ClusterRoleLister {
@@ -160,14 +168,14 @@ func (l *filteredClusterRoleLister) Get(name string) (*rbacv1.ClusterRole, error
 	return l.lister.Get(name)
 }
 
-func FilterRoleBindingInformer(clusterName logicalcluster.Name, informer rbacinformers.RoleBindingInformer) rbacinformers.RoleBindingInformer {
+func FilterRoleBindingInformer(clusterName logicalcluster.Name, informer rbacinformers.RoleBindingInformer) rbacinformers.TypedRoleBindingInformer {
 	return &filteredRoleBindingInformer{
 		clusterName: clusterName,
 		informer:    informer,
 	}
 }
 
-var _ rbacinformers.RoleBindingInformer = (*filteredRoleBindingInformer)(nil)
+var _ rbacinformers.TypedRoleBindingInformer = (*filteredRoleBindingInformer)(nil)
 var _ rbaclisters.RoleBindingLister = (*filteredRoleBindingLister)(nil)
 var _ rbaclisters.RoleBindingNamespaceLister = (*filteredRoleBindingNamespaceLister)(nil)
 
@@ -188,6 +196,10 @@ type filteredRoleBindingNamespaceLister struct {
 
 func (i *filteredRoleBindingInformer) Informer() cache.SharedIndexInformer {
 	return i.informer.Informer()
+}
+
+func (i *filteredRoleBindingInformer) TypedInformer() rbacinformers.RoleBindingIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*rbacv1.RoleBinding](i.informer.Informer())
 }
 
 func (i *filteredRoleBindingInformer) Lister() rbaclisters.RoleBindingLister {
@@ -237,14 +249,14 @@ func (l *filteredRoleBindingNamespaceLister) Get(name string) (*rbacv1.RoleBindi
 	return l.lister.Get(name)
 }
 
-func FilterRoleInformer(clusterName logicalcluster.Name, informer rbacinformers.RoleInformer) rbacinformers.RoleInformer {
+func FilterRoleInformer(clusterName logicalcluster.Name, informer rbacinformers.RoleInformer) rbacinformers.TypedRoleInformer {
 	return &filteredRoleInformer{
 		clusterName: clusterName,
 		informer:    informer,
 	}
 }
 
-var _ rbacinformers.RoleInformer = (*filteredRoleInformer)(nil)
+var _ rbacinformers.TypedRoleInformer = (*filteredRoleInformer)(nil)
 var _ rbaclisters.RoleLister = (*filteredRoleLister)(nil)
 var _ rbaclisters.RoleNamespaceLister = (*filteredRoleNamespaceLister)(nil)
 
@@ -265,6 +277,10 @@ type filteredRoleNamespaceLister struct {
 
 func (i *filteredRoleInformer) Informer() cache.SharedIndexInformer {
 	return i.informer.Informer()
+}
+
+func (i *filteredRoleInformer) TypedInformer() rbacinformers.RoleIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*rbacv1.Role](i.informer.Informer())
 }
 
 func (i *filteredRoleInformer) Lister() rbaclisters.RoleLister {
