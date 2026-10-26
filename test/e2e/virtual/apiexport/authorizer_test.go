@@ -420,7 +420,7 @@ metadata:
 		if err == nil {
 			return false, "expected an error but got nil"
 		}
-		return strings.Contains(err.Error(), `sheriffs.wild.wild.west is forbidden: User "service-provider-2-admin" cannot list resource "sheriffs" in API group "wild.wild.west" at the cluster scope: access denied`), fmt.Sprintf("unexpected error: %v", err)
+		return strings.Contains(err.Error(), `sheriffs.wild.wild.west is forbidden: User "service-provider-2-admin" cannot list resource "sheriffs" in API group "wild.wild.west" at the cluster scope: VirtualWorkspace: access denied`), fmt.Sprintf("unexpected error: %v", err)
 	}, wait.ForeverTestTimeout, 100*time.Millisecond, "service-provider-2-admin must not be allowed to list sheriff resources")
 
 	kcptestinghelpers.Eventually(t, func() (success bool, reason string) {
