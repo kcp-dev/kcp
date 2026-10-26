@@ -92,8 +92,5 @@ func (args *Args) Validate() error {
 	if len(args.SingleClusterVersionedClientSetPackage) == 0 {
 		return fmt.Errorf("--single-cluster-versioned-clientset-pkg must be specified")
 	}
-	if err := apidefinitions.ValidateFlags(args.LintRules); err != nil {
-		return err
-	}
-	return nil
+	return apidefinitions.ValidateFlags(args.LintRules)
 }

@@ -117,11 +117,8 @@ func (args *Args) Validate() error {
 	if len(args.SingleClusterApplyConfigurationsPackage) == 0 {
 		return fmt.Errorf("--single-cluster-applyconfigurations-pkg cannot be empty")
 	}
-	if err := apidefinitions.ValidateFlags(args.LintRules); err != nil {
-		return err
-	}
 
-	return nil
+	return apidefinitions.ValidateFlags(args.LintRules)
 }
 
 // GroupVersionPackages returns a map from GroupVersion to the package with the types.go.

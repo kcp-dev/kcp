@@ -69,8 +69,5 @@ func (args *Args) Validate() error {
 	if len(args.OutputPackage) == 0 {
 		return fmt.Errorf("--output-pkg must be specified")
 	}
-	if err := apidefinitions.ValidateFlags(args.LintRules); err != nil {
-		return err
-	}
-	return nil
+	return apidefinitions.ValidateFlags(args.LintRules)
 }
