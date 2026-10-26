@@ -30,10 +30,11 @@ type Options struct {
 	Authentication Authentication
 	MappingFile    string
 	RootDirectory  string
-	// RootKubeconfig points at the root shard.
+	// RootKubeconfig is accepted so that existing deployments keep starting.
 	//
-	// TODO: This is going to be removed once service account
-	// authentication no longer requires the root shard.
+	// Deprecated: ignored. The proxy does not use the root shard; shard
+	// discovery, the core identities and service account lookups go through
+	// the peers.
 	RootKubeconfig        string
 	ShardsKubeconfig      string
 	ShardsPeerKubeconfigs []string
@@ -45,7 +46,6 @@ func NewOptions() *Options {
 	o := &Options{
 		SecureServing:  *apiserveroptions.NewSecureServingOptions().WithLoopback(),
 		Authentication: *NewAuthentication(),
-		RootKubeconfig: "",
 		RootDirectory:  ".kcp",
 	}
 
@@ -63,12 +63,12 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs := fss.FlagSet("proxy")
 	fs.StringVar(&o.MappingFile, "mapping-file", o.MappingFile, "Config file mapping paths to backends")
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
-	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", o.RootKubeconfig, "The path to the kubeconfig of the root shard. Only needed for service account authentication; without --shard-peer-kubeconfig its server also acts as the seed peer.")
-	if err := fs.MarkDeprecated("root-kubeconfig", "use --shard-peer-kubeconfig; the root shard is needed neither for shard discovery nor for the identities of the core APIs any more. It is still required for service account authentication."); err != nil {
+	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", "", "Ignored. The proxy does not use the root shard any more.")
+	if err := fs.MarkDeprecated("root-kubeconfig", "it is ignored; the proxy discovers shards, the core identities and service accounts through --shard-peer-kubeconfig."); err != nil {
 		panic(err)
 	}
 	fs.StringVar(&o.ShardsKubeconfig, "shards-kubeconfig", o.ShardsKubeconfig, "The path to the kubeconfig used for communication with all shards. The server name if provided is replaced with a shard's hostname.")
-	fs.StringSliceVar(&o.ShardsPeerKubeconfigs, "shard-peer-kubeconfig", o.ShardsPeerKubeconfigs, "Repeatable path to a kubeconfig whose named clusters are seed peer shards; all files' clusters are merged into one seed list. The proxy discovers Shards and the identities of the core APIs through the Admin workspace (/services/admin) of the peers - requests are distributed round-robin with failover - and never talks to the root shard for them. If unset, the --root-kubeconfig server acts as the only seed peer. The seeds are used for bootstrapping and as a last-resort fallback only: once shards are discovered, requests go to the discovered shards, which join and leave the peer set at runtime, so the files do not have to track short-lived shards.")
+	fs.StringSliceVar(&o.ShardsPeerKubeconfigs, "shard-peer-kubeconfig", o.ShardsPeerKubeconfigs, "Repeatable path to a kubeconfig whose named clusters are seed peer shards; all files' clusters are merged into one seed list. The proxy discovers Shards and the identities of the core APIs through the Admin workspace (/services/admin) of the peers - requests are distributed round-robin with failover - and never talks to the root shard for them. The seeds are used for bootstrapping and as a last-resort fallback only: once shards are discovered, requests go to the discovered shards, which join and leave the peer set at runtime, so the files do not have to track short-lived shards.")
 	fs.StringVar(&o.ProfilerAddress, "profiler-address", "", "[Address]:port to bind the profiler to")
 	fs.StringSliceVar(&o.CorsAllowedOriginList, "cors-allowed-origins", o.CorsAllowedOriginList, "List of allowed origins for CORS, comma separated.  An allowed origin can be a regular expression to support subdomain matching. If this list is empty CORS will not be enabled.")
 }
@@ -101,11 +101,8 @@ func (o *Options) Validate() []error {
 	if len(o.ShardsKubeconfig) == 0 {
 		errs = append(errs, fmt.Errorf("--shards-kubeconfig is required"))
 	}
-	if len(o.ShardsPeerKubeconfigs) == 0 && len(o.RootKubeconfig) == 0 {
+	if len(o.ShardsPeerKubeconfigs) == 0 {
 		errs = append(errs, fmt.Errorf("--shard-peer-kubeconfig is required"))
-	}
-	if o.Authentication.ServiceAccountAuthEnabled() && len(o.RootKubeconfig) == 0 {
-		errs = append(errs, fmt.Errorf("--root-kubeconfig is required for service account authentication"))
 	}
 
 	errs = append(errs, o.SecureServing.Validate()...)
