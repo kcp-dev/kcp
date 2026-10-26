@@ -738,6 +738,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		opts.GenericControlPlane,
 		c.GenericConfig,
 		c.KubeSharedInformerFactory,
+		nil, // since no component in kcp uses EndpointSlices, we pass nil here.
 		storageFactory,
 		serviceResolver,
 		admissionPluginInitializers,
