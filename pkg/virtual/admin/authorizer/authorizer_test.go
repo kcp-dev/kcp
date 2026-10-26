@@ -49,7 +49,7 @@ func TestAdminAuthorizer(t *testing.T) {
 		},
 		{
 			// The front-proxy discovers shards through this view with its
-			// --root-kubeconfig client certificate, which carries
+			// --shard-peer-kubeconfig client certificate, which carries
 			// system:masters. Denying it here would break shard discovery, so
 			// this case is the regression guard.
 			name:   "system:masters may read",

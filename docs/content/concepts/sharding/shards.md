@@ -131,9 +131,8 @@ front-proxy, add a `/services/` path mapping; any shard can be the backend.
 The front-proxy itself discovers shards through the Admin workspace, and
 reads the identities of the core APIs from the `apiidentities` registry
 there, so it starts and runs without the root shard: the kubeconfigs given
-via `--shard-peer-kubeconfig` (falling back to the `--root-kubeconfig`
-server) are seeds, used to bootstrap discovery and as a last-resort fallback
-only. Every shard observed through the view joins the
+via `--shard-peer-kubeconfig` are seeds, used to bootstrap discovery and as
+a last-resort fallback only. Every shard observed through the view joins the
 failover peer set at runtime and decommissioned shards leave it; requests are
 distributed across the discovered shards, not the seeds. With short-lived
 shards the discovery channel therefore keeps working as long as any currently
