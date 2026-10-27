@@ -1755,6 +1755,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="APIExport Identity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sharing-an-identity-with-another-apiexport" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sharing an identity with another APIExport
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -5278,6 +5295,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="APIExport Identity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sharing-an-identity-with-another-apiexport" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Sharing an identity with another APIExport
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -5604,12 +5638,25 @@ does not support competing definitions for <code>rbac.authorization.k8s.io,roles
 above), kcp automatically generates one for you. The identity is always stored in a secret in the same workspace as
 the <code>APIExport.</code> By default, it is created in the <code>kcp-system</code> namespace in a secret whose name is the name of
 the <code>APIExport</code>.</p>
-<p>An <code>APIExport</code>'s identity is similar to a private key; you should never share it with anyone.</p>
-<p>The identity's <strong>hash</strong> is similar to a public key; it is not private and there are times when other consumers of your
-exported APIs need to know and reference it.</p>
+<p>An <code>APIExport</code>'s identity key is similar to a private key; you should never share it with anyone.</p>
+<p>The identity's <strong>hash</strong> (<code>status.identityHash</code>) is similar to a public key; it is not private and there are times
+when other consumers of your exported APIs need to know and reference it.</p>
 <p>Given 2 Workspaces, each with its own <code>APIExport</code> that exports <code>widgets.example.kcp.io</code>, kcp uses the identity hash (in
 a mostly transparent manner) to ensure the correct instances associated with the appropriate <code>APIResourceSchema</code> are
 served to clients. See <a href="#build-your-controller">Build Your Controller</a> for more information.</p>
+<h4 id="sharing-an-identity-with-another-apiexport">Sharing an identity with another APIExport<a class="headerlink" href="#sharing-an-identity-with-another-apiexport" title="Permanent link">&para;</a></h4>
+<p>Two <code>APIExports</code> whose secrets carry the same <code>key</code> have the same identity: they serve the same resources out of the
+same storage, which is how an <code>APIExport</code> is split into two or moved to another workspace without touching the
+consumers' objects. Today that works by copying the secret, and it keeps working.</p>
+<p>kcp shows every identity as an <code>APIIdentity</code> (<code>admin.kcp.io</code>), listed read-only in the
+<a href="../../sharding/shards/#the-admin-workspace-admin">Admin workspace</a> with <code>kubectl ws use :admin</code>. The view is computed
+from the <code>APIExports</code> of all shards, as replicated to the cache server; nothing is stored. The oldest <code>APIExport</code> holding
+an identity is its <strong>owner</strong>, every other <code>APIExport</code> whose secret carries the same <code>key</code> is a <strong>holder</strong>, and the entry
+names both. An identity with holders carries the <code>Shared</code> condition. The view does not change who may serve an identity,
+which is still whoever has the secret; it makes sharing visible.</p>
+<p>When the owner's <code>APIExport</code> is deleted, the oldest holder becomes the owner. An identity no <code>APIExport</code> holds any more
+has no entry; the next <code>APIExport</code> whose secret carries the original <code>key</code> brings it back.
+<code>status.identityHash</code> is immutable once set.</p>
 <h3 id="permission-claims">Permission Claims<a class="headerlink" href="#permission-claims" title="Permanent link">&para;</a></h3>
 <p>When a consumer creates an <code>APIBinding</code> that binds to an <code>APIExport</code>, the API provider who owns the <code>APIExport</code>
 implicitly has access to instances of the exported APIs in the consuming workspace. There are also times when the API

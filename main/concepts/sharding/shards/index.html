@@ -5673,6 +5673,20 @@ the limits in force - for the scheduling limits.</p>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>root<span class="w">      </span>us-east-2<span class="w">   </span>https://127.0.0.1:6444<span class="w">   </span>...
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>shard-1<span class="w">   </span>us-east-1<span class="w">   </span>https://127.0.0.1:6445<span class="w">   </span>...
 </code></pre></div>
+<p>The Admin workspace also serves the API identity view read-only:
+<code>apiidentities.admin.kcp.io</code> lists every APIExport identity in the
+installation, computed from the replicated <code>APIExports</code>, named by the
+identity hash, with the owning <code>APIExport</code>, the other exports holding it and
+whether it is a core identity. See
+<a href="../../apis/exporting-apis/#sharing-an-identity-with-another-apiexport">Exporting APIs</a>.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>apiidentities
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>NAME<span class="w">                                                               </span>OWNER<span class="w">             </span>CLUSTER<span class="w">            </span>CORE<span class="w">    </span>AGE
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>0e2fc4327ee7af2b2b9a0f2b4b1a8c4c7a0d6c2f0f1b6e5a9d8c7b6a5f4e3d2c<span class="w">   </span>tenancy.kcp.io<span class="w">    </span>root<span class="w">               </span><span class="nb">true</span><span class="w">    </span>3d
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>5fdf7c7aaf407fd1594566869803f565bb84d22156cef5c445d2ee13ac2cfca6<span class="w">   </span>widgets<span class="w">           </span>2cynbfy2m0wtjqcs<span class="w">   </span><span class="nb">false</span><span class="w">   </span>2h
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>apiidentities<span class="w"> </span>-l<span class="w"> </span>apiidentities.admin.kcp.io/core<span class="o">=</span><span class="nb">true</span><span class="w">           </span><span class="c1"># the core identities</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>apiidentities<span class="w"> </span>-l<span class="w"> </span>apiidentities.admin.kcp.io/owner-cluster<span class="o">=</span>root<span class="w">  </span><span class="c1"># owned by exports in root</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>$<span class="w"> </span>kubectl<span class="w"> </span>get<span class="w"> </span>apiidentities<span class="w"> </span>-l<span class="w"> </span>apiidentities.admin.kcp.io/owner<span class="o">=</span>widgets<span class="w">       </span><span class="c1"># owned by an export named widgets</span>
+</code></pre></div>
 <p>Access requires membership in the <code>system:kcp:admin</code> group; the serving
 path does not depend on the root shard. To reach the view through a
 front-proxy, add a <code>/services/</code> path mapping; any shard can be the backend.</p>
