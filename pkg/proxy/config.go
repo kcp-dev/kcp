@@ -98,9 +98,7 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
 	kcpShardIdentityRoundTripper, c.CoreIdentityHandler, c.CoreIdentitiesReady = bootstrap.NewRegistryWildcardIdentities(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames)
 
-	//nolint:staticcheck // the deprecated root kubeconfig is still needed for service account authentication and as the default seed peer.
 	if c.Options.RootKubeconfig != "" {
-		//nolint:staticcheck // see above.
 		rootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.RootKubeconfig}, nil).ClientConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to load root kubeconfig: %w", err)
@@ -133,11 +131,9 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 	// configured peers, the root kubeconfig's server is the seed peer.
 	peerKubeconfigs := c.Options.ShardsPeerKubeconfigs
 	if len(peerKubeconfigs) == 0 {
-		//nolint:staticcheck // the deprecated root kubeconfig doubles as the default seed peer for deployments that predate --shard-peer-kubeconfig.
 		if c.Options.RootKubeconfig == "" {
 			return nil, fmt.Errorf("--shard-peer-kubeconfig is required")
 		}
-		//nolint:staticcheck // see above.
 		peerKubeconfigs = []string{c.Options.RootKubeconfig}
 	}
 	c.PeersConfig, c.Peers, err = NewPeersConfig(peerKubeconfigs)
