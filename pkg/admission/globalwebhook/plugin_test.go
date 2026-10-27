@@ -18,10 +18,17 @@ package globalwebhook
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/admission"
+
+	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 )
 
 const twoWebhookConfig = `
@@ -123,5 +130,73 @@ func TestBadConfigErrors(t *testing.T) {
 	t.Parallel()
 	if _, err := NewGlobalValidatingWebhook(strings.NewReader("webhooks: [ this: is: not: valid")); err == nil {
 		t.Fatal("expected an error for malformed config")
+	}
+}
+
+func TestStampAnnotationsAndUndo(t *testing.T) {
+	t.Parallel()
+	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{
+		Annotations: map[string]string{"keep": "me", logicalcluster.AnnotationKey: "stale"},
+	}}
+	undo := stampAnnotations(cm, map[string]string{
+		logicalcluster.AnnotationKey:         "abc123",
+		core.LogicalClusterPathAnnotationKey: "root:org:team",
+	})
+	if got := cm.Annotations[logicalcluster.AnnotationKey]; got != "abc123" {
+		t.Errorf("cluster annotation: got %q, want %q", got, "abc123")
+	}
+	if got := cm.Annotations[core.LogicalClusterPathAnnotationKey]; got != "root:org:team" {
+		t.Errorf("path annotation: got %q, want %q", got, "root:org:team")
+	}
+	undo()
+	if got := cm.Annotations[logicalcluster.AnnotationKey]; got != "stale" {
+		t.Errorf("after undo cluster annotation: got %q, want %q", got, "stale")
+	}
+	if _, ok := cm.Annotations[core.LogicalClusterPathAnnotationKey]; ok {
+		t.Error("after undo path annotation should be removed")
+	}
+	if got := cm.Annotations["keep"]; got != "me" {
+		t.Errorf("unrelated annotation lost: got %q", got)
+	}
+
+	// nil annotations: stamp then undo leaves nil.
+	empty := &corev1.ConfigMap{}
+	stampAnnotations(empty, map[string]string{logicalcluster.AnnotationKey: "x"})()
+	if empty.Annotations != nil {
+		t.Errorf("expected nil annotations after undo, got %v", empty.Annotations)
+	}
+}
+
+func TestClusterPath(t *testing.T) {
+	t.Parallel()
+	name := logicalcluster.Name("abc123")
+	for _, tc := range []struct {
+		name string
+		get  func(logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
+		want string
+	}{
+		{name: "no lister", get: nil, want: ""},
+		{name: "lookup error falls back to name", get: func(logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return nil, errors.New("not found")
+		}, want: "abc123"},
+		{name: "path annotation", get: func(logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+				core.LogicalClusterPathAnnotationKey: "root:org:team",
+				logicalcluster.AnnotationKey:         "abc123",
+			}}}, nil
+		}, want: "root:org:team"},
+		{name: "no path annotation falls back to cluster annotation", get: func(logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+			return &corev1alpha1.LogicalCluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+				logicalcluster.AnnotationKey: "abc123",
+			}}}, nil
+		}, want: "abc123"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := &Plugin{getLogicalCluster: tc.get}
+			if got := p.clusterPath(name); got != tc.want {
+				t.Errorf("got %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

@@ -56,7 +56,7 @@ import (
 // It asserts the three properties that make this webhook distinct:
 //   - GLOBAL: one startup config fires in two independent workspaces.
 //   - CLUSTER-AWARE: the reviewed object carries each request's own
-//     kcp.io/cluster annotation.
+//     kcp.io/cluster and kcp.io/path annotations.
 //   - DENY + CONTENT: it decodes the full object body and can reject the request.
 func TestGlobalValidatingWebhook(t *testing.T) {
 	t.Parallel()
@@ -72,8 +72,9 @@ func TestGlobalValidatingWebhook(t *testing.T) {
 	deserializer := serializer.NewCodecFactory(scheme).UniversalDeserializer()
 
 	var (
-		seen sync.Map    // cluster name -> struct{}: which clusters the webhook saw
-		deny atomic.Bool // flip to make the webhook reject
+		seen  sync.Map    // cluster name -> struct{}: which clusters the webhook saw
+		paths sync.Map    // cluster name -> kcp.io/path the webhook saw for it
+		deny  atomic.Bool // flip to make the webhook reject
 	)
 	testWebhook := &webhookserver.AdmissionWebhookServer{
 		ObjectGVK:    schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
@@ -81,6 +82,7 @@ func TestGlobalValidatingWebhook(t *testing.T) {
 		ResponseFn: func(obj runtime.Object, review *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
 			cm := obj.(*corev1.ConfigMap)
 			seen.Store(logicalcluster.From(cm).String(), struct{}{})
+			paths.Store(logicalcluster.From(cm).String(), cm.Annotations[core.LogicalClusterPathAnnotationKey])
 			if deny.Load() {
 				return &admissionv1.AdmissionResponse{
 					Allowed: false,
@@ -185,6 +187,12 @@ plugins:
 	_, saw2 := seen.Load(ws2.Spec.Cluster)
 	require.True(t, saw1, "webhook should have seen ws1 cluster %q (stamped kcp.io/cluster)", ws1.Spec.Cluster)
 	require.True(t, saw2, "webhook should have seen ws2 cluster %q (stamped kcp.io/cluster)", ws2.Spec.Cluster)
+
+	// Path-aware: the webhook saw each workspace's canonical kcp.io/path.
+	path1, _ := paths.Load(ws1.Spec.Cluster)
+	path2, _ := paths.Load(ws2.Spec.Cluster)
+	require.Equal(t, ws1Path.String(), path1, "webhook should have seen ws1 path (stamped kcp.io/path)")
+	require.Equal(t, ws2Path.String(), path2, "webhook should have seen ws2 path (stamped kcp.io/path)")
 
 	t.Log("Flip the webhook to deny; a matching ConfigMap create is now rejected.")
 	deny.Store(true)

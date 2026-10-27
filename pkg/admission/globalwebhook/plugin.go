@@ -53,8 +53,11 @@ import (
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	"github.com/kcp-dev/logicalcluster/v3"
+	"github.com/kcp-dev/sdk/apis/core"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
-	"github.com/kcp-dev/kcp/pkg/admission/clusterannotation"
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 )
 
@@ -77,6 +80,11 @@ type Plugin struct {
 	// namespaceSelector matching and (service) endpoint resolution.
 	kubeClusterClient              kcpkubernetesclientset.ClusterInterface
 	localKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
+
+	// getLogicalCluster reads the LogicalCluster of the request's cluster so the
+	// callout can carry the workspace path too. Injected via SetKcpInformers;
+	// a func for easier unit testing.
+	getLogicalCluster func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
 }
 
 var (
@@ -84,6 +92,7 @@ var (
 	_ = admission.InitializationValidator(&Plugin{})
 	_ = kcpinitializers.WantsKubeClusterClient(&Plugin{})
 	_ = kcpinitializers.WantsKubeInformers(&Plugin{})
+	_ = kcpinitializers.WantsKcpInformers(&Plugin{})
 )
 
 // staticSource is a generic.Source backed by a fixed webhook list - the same for
@@ -173,22 +182,79 @@ func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 		return fmt.Errorf("globalwebhook: validate initialization: %w", err)
 	}
 
-	// Convey the logical cluster to the external webhook via the kcp.io/cluster
-	// annotation, on whichever object the operation carries: the new object for
-	// create/update, the old object for delete. Reverted right after dispatch so
-	// it is never persisted.
+	// Convey the logical cluster (name and path) to the external webhook via the
+	// kcp.io/cluster and kcp.io/path annotations, on whichever object the
+	// operation carries: the new object for create/update, the old object for
+	// delete. Reverted right after dispatch so it is never persisted.
+	anns := map[string]string{logicalcluster.AnnotationKey: clusterName.String()}
+	if path := p.clusterPath(clusterName); path != "" {
+		anns[core.LogicalClusterPathAnnotationKey] = path
+	}
 	if obj, ok := attr.GetObject().(metav1.Object); ok && obj != nil {
-		if undo := clusterannotation.Set(obj, clusterName); undo != nil {
-			defer undo()
-		}
+		defer stampAnnotations(obj, anns)()
 	}
 	if old, ok := attr.GetOldObject().(metav1.Object); ok && old != nil {
-		if undo := clusterannotation.Set(old, clusterName); undo != nil {
-			defer undo()
-		}
+		defer stampAnnotations(old, anns)()
 	}
 
 	return plugin.Validate(ctx, attr, o)
+}
+
+// clusterPath resolves the canonical workspace path of clusterName from its
+// LogicalCluster. Falls back to the cluster name as path when the LogicalCluster
+// is not (yet) available, and to "" when nothing is known.
+func (p *Plugin) clusterPath(clusterName logicalcluster.Name) string {
+	if p.getLogicalCluster == nil {
+		return ""
+	}
+	lc, err := p.getLogicalCluster(clusterName)
+	if err != nil || lc == nil {
+		return clusterName.Path().String()
+	}
+	if path := lc.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
+		return path
+	}
+	return logicalcluster.From(lc).Path().String()
+}
+
+// stampAnnotations sets anns on obj and returns a function restoring the
+// previous annotation values (removing keys that were absent).
+func stampAnnotations(obj metav1.Object, anns map[string]string) func() {
+	existing := obj.GetAnnotations()
+	prev := make(map[string]*string, len(anns))
+	for k := range anns {
+		if v, ok := existing[k]; ok {
+			v := v
+			prev[k] = &v
+		} else {
+			prev[k] = nil
+		}
+	}
+	if existing == nil {
+		existing = make(map[string]string, len(anns))
+	}
+	for k, v := range anns {
+		existing[k] = v
+	}
+	obj.SetAnnotations(existing)
+
+	return func() {
+		cur := obj.GetAnnotations()
+		if cur == nil {
+			return
+		}
+		for k, old := range prev {
+			if old == nil {
+				delete(cur, k)
+			} else {
+				cur[k] = *old
+			}
+		}
+		if len(cur) == 0 {
+			cur = nil
+		}
+		obj.SetAnnotations(cur)
+	}
 }
 
 // ValidateInitialization ensures required dependencies were injected.
@@ -202,6 +268,9 @@ func (p *Plugin) ValidateInitialization() error {
 	if p.localKubeSharedInformerFactory == nil {
 		return errors.New("missing localKubeSharedInformerFactory")
 	}
+	if p.getLogicalCluster == nil {
+		return errors.New("missing LogicalCluster lister")
+	}
 	return nil
 }
 
@@ -214,4 +283,13 @@ func (p *Plugin) SetKubeClusterClient(client kcpkubernetesclientset.ClusterInter
 // (namespace informer); the source is static, so no global config informer.
 func (p *Plugin) SetKubeInformers(local, global kcpkubernetesinformers.SharedInformerFactory) {
 	p.localKubeSharedInformerFactory = local
+}
+
+// SetKcpInformers implements WantsKcpInformers. The local LogicalCluster lister
+// provides the workspace path stamped on the reviewed object.
+func (p *Plugin) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
+	lister := local.Core().V1alpha1().LogicalClusters().Lister()
+	p.getLogicalCluster = func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+		return lister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
+	}
 }
