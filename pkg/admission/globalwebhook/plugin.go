@@ -32,6 +32,29 @@ limitations under the License.
 // plugin's admission-config section (see docs/content/...); leave it unset and
 // the plugin is inert. Only URL clientConfig with a caBundle is required - no
 // per-cluster objects, no APIBindings.
+//
+// Why only kcp.io/cluster, and not kcp.io/path?
+//
+// Stamping the canonical workspace path as well would spare webhooks a
+// front-proxy-style path cache, but there is no source that yields a correct
+// path on EVERY request this plugin sees, and a wrong or missing path is worse
+// than none:
+//
+//   - root and system:shard: their LogicalCluster objects carry no kcp.io/path
+//     annotation, so the path would have to be derived from the name.
+//   - system:admin, system:system-crds, system, ...: no LogicalCluster object
+//     exists at all, so a lister lookup always misses.
+//   - freshly created workspaces: writes from initializers and child
+//     bootstrapping race the local LogicalCluster informer, so the lookup
+//     misses for a short window after creation.
+//   - the LogicalCluster create itself: the object does not exist yet.
+//
+// Falling back to the cluster name in those cases is right for root/system:*
+// (name == path) but hands webhook authors a hash as a "path" for workspace
+// clusters in the race window; failing closed there breaks workspace
+// bootstrap; omitting the annotation only sometimes makes it unreliable to
+// program against. Webhooks that need the path can resolve it from the
+// cluster name via the LogicalCluster (or the front-proxy index) themselves.
 package globalwebhook
 
 import (
@@ -50,13 +73,11 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/validating"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	admissionregistrationapiv1 "k8s.io/kubernetes/pkg/apis/admissionregistration/v1"
+	"k8s.io/utils/lru"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
-	"github.com/kcp-dev/sdk/apis/core"
-	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 )
@@ -81,18 +102,23 @@ type Plugin struct {
 	kubeClusterClient              kcpkubernetesclientset.ClusterInterface
 	localKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 
-	// getLogicalCluster reads the LogicalCluster of the request's cluster so the
-	// callout can carry the workspace path too. Injected via SetKcpInformers;
-	// a func for easier unit testing.
-	getLogicalCluster func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
+	// webhooks caches the per-logical-cluster inner validating webhook plugin.
+	// The inner plugin is cluster-scoped (namespace lister/client for
+	// namespaceSelector matching) and owns the webhook client manager, so
+	// reusing it keeps HTTP clients/connections to the endpoint warm instead of
+	// rebuilding them on every request.
+	webhooks *lru.Cache
 }
+
+// webhookCacheSize bounds the number of logical clusters with a cached inner
+// plugin; evicted entries are simply rebuilt on the next request.
+const webhookCacheSize = 4096
 
 var (
 	_ = admission.ValidationInterface(&Plugin{})
 	_ = admission.InitializationValidator(&Plugin{})
 	_ = kcpinitializers.WantsKubeClusterClient(&Plugin{})
 	_ = kcpinitializers.WantsKubeInformers(&Plugin{})
-	_ = kcpinitializers.WantsKcpInformers(&Plugin{})
 )
 
 // staticSource is a generic.Source backed by a fixed webhook list - the same for
@@ -109,7 +135,8 @@ func (s *staticSource) HasSynced() bool                     { return true }
 // an inert plugin.
 func NewGlobalValidatingWebhook(configFile io.Reader) (*Plugin, error) {
 	p := &Plugin{
-		Handler: admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
+		Handler:  admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
+		webhooks: lru.New(webhookCacheSize),
 	}
 	if configFile == nil {
 		return p, nil
@@ -171,25 +198,17 @@ func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 	}
 	clusterName := cluster.Name
 
-	plugin, err := validating.NewValidatingAdmissionWebhook(nil)
+	plugin, err := p.webhookFor(clusterName)
 	if err != nil {
-		return fmt.Errorf("globalwebhook: create validating admission webhook: %w", err)
-	}
-	plugin.SetExternalKubeClientSet(p.kubeClusterClient.Cluster(clusterName.Path()))
-	plugin.SetNamespaceInformer(p.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
-	plugin.SetAPISource(p.source)
-	if err := plugin.ValidateInitialization(); err != nil {
-		return fmt.Errorf("globalwebhook: validate initialization: %w", err)
+		return err
 	}
 
-	// Convey the logical cluster (name and path) to the external webhook via the
-	// kcp.io/cluster and kcp.io/path annotations, on whichever object the
-	// operation carries: the new object for create/update, the old object for
-	// delete. Reverted right after dispatch so it is never persisted.
+	// Convey the logical cluster to the external webhook via the kcp.io/cluster
+	// annotation, on whichever object the operation carries: the new object for
+	// create/update, the old object for delete. Reverted right after dispatch so
+	// it is never persisted. (See the package doc for why kcp.io/path is not
+	// stamped alongside.)
 	anns := map[string]string{logicalcluster.AnnotationKey: clusterName.String()}
-	if path := p.clusterPath(clusterName); path != "" {
-		anns[core.LogicalClusterPathAnnotationKey] = path
-	}
 	if obj, ok := attr.GetObject().(metav1.Object); ok && obj != nil {
 		defer stampAnnotations(obj, anns)()
 	}
@@ -200,21 +219,26 @@ func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 	return plugin.Validate(ctx, attr, o)
 }
 
-// clusterPath resolves the canonical workspace path of clusterName from its
-// LogicalCluster. Falls back to the cluster name as path when the LogicalCluster
-// is not (yet) available, and to "" when nothing is known.
-func (p *Plugin) clusterPath(clusterName logicalcluster.Name) string {
-	if p.getLogicalCluster == nil {
-		return ""
+// webhookFor returns the inner validating webhook plugin scoped to clusterName,
+// building and caching it on first use.
+func (p *Plugin) webhookFor(clusterName logicalcluster.Name) (*validating.Plugin, error) {
+	if cached, ok := p.webhooks.Get(clusterName); ok {
+		return cached.(*validating.Plugin), nil
 	}
-	lc, err := p.getLogicalCluster(clusterName)
-	if err != nil || lc == nil {
-		return clusterName.Path().String()
+
+	plugin, err := validating.NewValidatingAdmissionWebhook(nil)
+	if err != nil {
+		return nil, fmt.Errorf("globalwebhook: create validating admission webhook: %w", err)
 	}
-	if path := lc.Annotations[core.LogicalClusterPathAnnotationKey]; path != "" {
-		return path
+	plugin.SetExternalKubeClientSet(p.kubeClusterClient.Cluster(clusterName.Path()))
+	plugin.SetNamespaceInformer(p.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
+	plugin.SetAPISource(p.source)
+	if err := plugin.ValidateInitialization(); err != nil {
+		return nil, fmt.Errorf("globalwebhook: validate initialization: %w", err)
 	}
-	return logicalcluster.From(lc).Path().String()
+
+	p.webhooks.Add(clusterName, plugin)
+	return plugin, nil
 }
 
 // stampAnnotations sets anns on obj and returns a function restoring the
@@ -268,9 +292,6 @@ func (p *Plugin) ValidateInitialization() error {
 	if p.localKubeSharedInformerFactory == nil {
 		return errors.New("missing localKubeSharedInformerFactory")
 	}
-	if p.getLogicalCluster == nil {
-		return errors.New("missing LogicalCluster lister")
-	}
 	return nil
 }
 
@@ -283,13 +304,4 @@ func (p *Plugin) SetKubeClusterClient(client kcpkubernetesclientset.ClusterInter
 // (namespace informer); the source is static, so no global config informer.
 func (p *Plugin) SetKubeInformers(local, global kcpkubernetesinformers.SharedInformerFactory) {
 	p.localKubeSharedInformerFactory = local
-}
-
-// SetKcpInformers implements WantsKcpInformers. The local LogicalCluster lister
-// provides the workspace path stamped on the reviewed object.
-func (p *Plugin) SetKcpInformers(local, global kcpinformers.SharedInformerFactory) {
-	lister := local.Core().V1alpha1().LogicalClusters().Lister()
-	p.getLogicalCluster = func(clusterName logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
-		return lister.Cluster(clusterName).Get(corev1alpha1.LogicalClusterName)
-	}
 }

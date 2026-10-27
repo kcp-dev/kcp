@@ -65,14 +65,6 @@ func Stamp(attr admission.Attributes, clusterName logicalcluster.Name) func() {
 	return setClusterAnnotation(obj, clusterName)
 }
 
-// Set stamps the kcp.io/cluster annotation on obj regardless of the admission
-// operation, for callers that need to convey the cluster on an object Stamp does
-// not cover (e.g. the old object of a delete). It returns an undo function, or
-// nil when the annotation was already set to clusterName.
-func Set(obj metav1.Object, clusterName logicalcluster.Name) func() {
-	return setClusterAnnotation(obj, clusterName)
-}
-
 // setClusterAnnotation sets the cluster annotation on the given object to the
 // given clusterName, returning an undo function that reverts the change, or nil
 // if the annotation was already set to clusterName (nothing to undo).

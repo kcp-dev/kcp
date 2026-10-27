@@ -16,13 +16,15 @@ workspace admin cannot see or remove it.
 
 ## How the webhook learns the cluster
 
-The reviewed object carries the request's logical cluster on two annotations,
-stamped for the duration of the callout (create/update on the new object, delete
-on the old object) and reverted afterwards — so a single endpoint is
-cluster-aware on every operation without building its own workspace cache:
+The reviewed object carries the request's logical cluster on its
+`kcp.io/cluster` annotation, stamped for the duration of the callout (create/update
+on the new object, delete on the old object) and reverted afterwards — so a single
+endpoint is cluster-aware on every operation.
 
-- `kcp.io/cluster`: the logical cluster name (e.g. `2vh6f9n2k7x1lq0c`)
-- `kcp.io/path`: the canonical workspace path (e.g. `root:org:team`)
+The workspace *path* (`kcp.io/path`) is deliberately not stamped: root and the
+`system:*` clusters have no path annotation (or no LogicalCluster at all), and
+freshly created workspaces race the informer, so no source yields a correct path
+on every request. Webhooks that need the path resolve it from the cluster name.
 
 ## Use
 
