@@ -54,8 +54,8 @@ import (
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 
+	"github.com/kcp-dev/kcp/pkg/admission/clusterannotation"
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
-	"github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 )
 
 const (
@@ -178,12 +178,12 @@ func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 	// create/update, the old object for delete. Reverted right after dispatch so
 	// it is never persisted.
 	if obj, ok := attr.GetObject().(metav1.Object); ok && obj != nil {
-		if undo := validatingwebhook.SetClusterAnnotation(obj, clusterName); undo != nil {
+		if undo := clusterannotation.Set(obj, clusterName); undo != nil {
 			defer undo()
 		}
 	}
 	if old, ok := attr.GetOldObject().(metav1.Object); ok && old != nil {
-		if undo := validatingwebhook.SetClusterAnnotation(old, clusterName); undo != nil {
+		if undo := clusterannotation.Set(old, clusterName); undo != nil {
 			defer undo()
 		}
 	}
