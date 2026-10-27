@@ -163,14 +163,31 @@ above), kcp automatically generates one for you. The identity is always stored i
 the `APIExport.` By default, it is created in the `kcp-system` namespace in a secret whose name is the name of
 the `APIExport`.
 
-An `APIExport`'s identity is similar to a private key; you should never share it with anyone.
+An `APIExport`'s identity key is similar to a private key; you should never share it with anyone.
 
-The identity's **hash** is similar to a public key; it is not private and there are times when other consumers of your
-exported APIs need to know and reference it.
+The identity's **hash** (`status.identityHash`) is similar to a public key; it is not private and there are times
+when other consumers of your exported APIs need to know and reference it.
 
 Given 2 Workspaces, each with its own `APIExport` that exports `widgets.example.kcp.io`, kcp uses the identity hash (in
 a mostly transparent manner) to ensure the correct instances associated with the appropriate `APIResourceSchema` are
 served to clients. See [Build Your Controller](#build-your-controller) for more information.
+
+#### Sharing an identity with another APIExport
+
+Two `APIExports` whose secrets carry the same `key` have the same identity: they serve the same resources out of the
+same storage, which is how an `APIExport` is split into two or moved to another workspace without touching the
+consumers' objects. Today that works by copying the secret, and it keeps working.
+
+kcp shows every identity as an `APIIdentity` (`admin.kcp.io`), listed read-only in the
+[Admin workspace](../sharding/shards.md#the-admin-workspace-admin) with `kubectl ws use :admin`. The view is computed
+from the `APIExports` of all shards, as replicated to the cache server; nothing is stored. The oldest `APIExport` holding
+an identity is its **owner**, every other `APIExport` whose secret carries the same `key` is a **holder**, and the entry
+names both. An identity with holders carries the `Shared` condition. The view does not change who may serve an identity,
+which is still whoever has the secret; it makes sharing visible.
+
+When the owner's `APIExport` is deleted, the oldest holder becomes the owner. An identity no `APIExport` holds any more
+has no entry; the next `APIExport` whose secret carries the original `key` brings it back.
+`status.identityHash` is immutable once set.
 
 ### Permission Claims
 

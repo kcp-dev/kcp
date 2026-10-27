@@ -22,6 +22,8 @@ import (
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
@@ -40,7 +42,13 @@ func NewAdminAuthorizer() authorizer.Authorizer {
 
 func (a *adminAuthorizer) Authorize(_ context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
 	switch attr.GetVerb() {
-	case "get", "list", "watch", "update", "patch":
+	case "get", "list", "watch":
+	case "update", "patch":
+		// only Shard objects accept (allow-listed) writes; every other view
+		// is derived state and read-only.
+		if attr.GetAPIGroup() != corev1alpha1.SchemeGroupVersion.Group || attr.GetResource() != "shards" {
+			return authorizer.DecisionDeny, "resource is read-only in the admin workspace", nil
+		}
 	default:
 		return authorizer.DecisionDeny, "verb not supported by the admin workspace", nil
 	}

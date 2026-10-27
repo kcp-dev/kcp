@@ -30,14 +30,25 @@ import (
 // derived from the embedded CRD manifest.
 var ShardsSchema *apisv1alpha1.APIResourceSchema
 
+// APIIdentitiesSchema is the APIResourceSchema for admin.kcp.io/v1alpha1
+// APIIdentities, derived from the embedded CRD manifest.
+var APIIdentitiesSchema *apisv1alpha1.APIResourceSchema
+
 func init() {
+	ShardsSchema = mustSchema("core.kcp.io_shards.yaml")
+	APIIdentitiesSchema = mustSchema("admin.kcp.io_apiidentities.yaml")
+}
+
+// mustSchema converts the named embedded CRD manifest into an
+// APIResourceSchema.
+func mustSchema(fileName string) *apisv1alpha1.APIResourceSchema {
 	crd := apiextensionsv1.CustomResourceDefinition{}
-	if err := configcrds.Unmarshal("core.kcp.io_shards.yaml", &crd); err != nil {
-		panic(fmt.Sprintf("failed to unmarshal shards CRD: %v", err))
+	if err := configcrds.Unmarshal(fileName, &crd); err != nil {
+		panic(fmt.Sprintf("failed to unmarshal CRD %s: %v", fileName, err))
 	}
 	schema, err := apisv1alpha1.CRDToAPIResourceSchema(&crd, "crd")
 	if err != nil {
 		panic(fmt.Sprintf("failed to convert CRD %s.%s to APIResourceSchema: %v", crd.Spec.Names.Plural, crd.Spec.Group, err))
 	}
-	ShardsSchema = schema
+	return schema
 }

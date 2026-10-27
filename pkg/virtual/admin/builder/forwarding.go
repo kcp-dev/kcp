@@ -169,14 +169,7 @@ func sourceContext(ctx context.Context) context.Context {
 // Shard object. The kcp.io/cluster annotation is kept: it tells the consumer
 // in which logical cluster the authoritative object lives.
 func fixupShard(obj *unstructured.Unstructured) {
-	annotations := obj.GetAnnotations()
-	if annotations == nil {
-		return
-	}
-	delete(annotations, shard.AnnotationKey)
-	delete(annotations, replication.AnnotationKeyOriginalResourceUID)
-	delete(annotations, replication.AnnotationKeyOriginalResourceVersion)
-	obj.SetAnnotations(annotations)
+	stripCacheBookkeeping(obj)
 }
 
 // stripField removes the field at the given path from the object, pruning
@@ -645,4 +638,18 @@ func (w *fixupWatch) Stop() {
 
 func (w *fixupWatch) ResultChan() <-chan watch.Event {
 	return w.resultChan
+}
+
+// stripCacheBookkeeping removes the cache-server bookkeeping annotations from
+// an object read from the cache. The kcp.io/cluster annotation is kept: it
+// tells the consumer which logical cluster the object belongs to.
+func stripCacheBookkeeping(obj *unstructured.Unstructured) {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		return
+	}
+	delete(annotations, shard.AnnotationKey)
+	delete(annotations, replication.AnnotationKeyOriginalResourceUID)
+	delete(annotations, replication.AnnotationKeyOriginalResourceVersion)
+	obj.SetAnnotations(annotations)
 }

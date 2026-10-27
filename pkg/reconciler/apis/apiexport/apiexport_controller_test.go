@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/workqueue"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
@@ -185,6 +186,7 @@ func TestReconcile(t *testing.T) {
 			someOtherKey := "def"
 
 			c := &controller{
+				queue: workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[string]()),
 				getNamespace: func(clusterName logicalcluster.Name, name string) (*corev1.Namespace, error) {
 					return &corev1.Namespace{}, nil
 				},

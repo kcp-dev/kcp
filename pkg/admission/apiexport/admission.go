@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authentication/user"
 
 	"github.com/kcp-dev/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
@@ -73,6 +74,13 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 	u, ok := a.GetObject().(*unstructured.Unstructured)
 	if !ok {
 		return fmt.Errorf("unexpected type %T", a.GetObject())
+	}
+
+	if a.GetSubresource() == "status" {
+		if a.GetOperation() == admission.Update {
+			return validateStatusUpdate(a, u)
+		}
+		return nil
 	}
 
 	switch a.GetKind().GroupVersion().Version {
@@ -122,6 +130,46 @@ func (e *APIExportAdmission) Validate(ctx context.Context, a admission.Attribute
 				fmt.Sprintf("unsupported API version %s", a.GetKind().GroupVersion().String())))
 	}
 	return nil
+}
+
+// validateStatusUpdate keeps status.identityHash immutable for everyone but
+// kcp itself. The identity keys the storage of every consumer's bound
+// instances and is what permission claims and wildcard clients address the
+// export by; a status write that changed it would make the writer's export
+// serve another export's consumers' data. kcp changes it only to withdraw an
+// authorization. The field sits at the same path in every served version.
+func validateStatusUpdate(a admission.Attributes, u *unstructured.Unstructured) error {
+	old, ok := a.GetOldObject().(*unstructured.Unstructured)
+	if !ok {
+		return fmt.Errorf("unexpected type %T", a.GetOldObject())
+	}
+	oldHash, _, err := unstructured.NestedString(old.Object, "status", "identityHash")
+	if err != nil {
+		return fmt.Errorf("failed to read status.identityHash: %w", err)
+	}
+	newHash, _, err := unstructured.NestedString(u.Object, "status", "identityHash")
+	if err != nil {
+		return fmt.Errorf("failed to read status.identityHash: %w", err)
+	}
+	if oldHash == "" || newHash == oldHash || isSystemPrivileged(a) {
+		return nil
+	}
+	return admission.NewForbidden(a,
+		field.Forbidden(
+			field.NewPath("status").Child("identityHash"),
+			"identityHash is immutable once set"))
+}
+
+func isSystemPrivileged(a admission.Attributes) bool {
+	if a.GetUserInfo() == nil {
+		return false
+	}
+	for _, g := range a.GetUserInfo().GetGroups() {
+		if g == user.SystemPrivilegedGroup {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *APIExportAdmission) validatev1alpha2(_ context.Context, a admission.Attributes, ae *apisv1alpha2.APIExport) (err error) {

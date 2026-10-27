@@ -32,10 +32,12 @@ func TestAdminAuthorizer(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		name   string
-		groups []string
-		verb   string
-		want   authorizer.Decision
+		name     string
+		groups   []string
+		verb     string
+		group    string // defaults to core.kcp.io
+		resource string // defaults to shards
+		want     authorizer.Decision
 	}{
 		{
 			// The external administrator identity, passed through by the
@@ -96,16 +98,49 @@ func TestAdminAuthorizer(t *testing.T) {
 			verb:   "delete",
 			want:   authorizer.DecisionDeny,
 		},
+		{
+			name:     "system:kcp:admin may read the identity registry",
+			groups:   []string{bootstrap.SystemKcpAdminGroup},
+			verb:     "list",
+			group:    "admin.kcp.io",
+			resource: "apiidentities",
+			want:     authorizer.DecisionAllow,
+		},
+		{
+			// The registry is derived state written by kcp only; the
+			// allow-listed writes exist for Shards alone.
+			name:     "system:masters may not update the identity registry",
+			groups:   []string{bootstrap.SystemMastersGroup},
+			verb:     "update",
+			group:    "admin.kcp.io",
+			resource: "apiidentities",
+			want:     authorizer.DecisionDeny,
+		},
+		{
+			name:     "system:kcp:admin may not patch the identity registry",
+			groups:   []string{bootstrap.SystemKcpAdminGroup},
+			verb:     "patch",
+			group:    "admin.kcp.io",
+			resource: "apiidentities",
+			want:     authorizer.DecisionDeny,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
+			group, resource := tc.group, tc.resource
+			if group == "" {
+				group = "core.kcp.io"
+			}
+			if resource == "" {
+				resource = "shards"
+			}
 			got, reason, err := NewAdminAuthorizer().Authorize(context.Background(), authorizer.AttributesRecord{
 				User:            &user.DefaultInfo{Name: "tester", Groups: tc.groups},
 				Verb:            tc.verb,
-				APIGroup:        "core.kcp.io",
+				APIGroup:        group,
 				APIVersion:      "v1alpha1",
-				Resource:        "shards",
+				Resource:        resource,
 				ResourceRequest: true,
 			})
 			require.NoError(t, err)

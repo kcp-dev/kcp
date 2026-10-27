@@ -24,11 +24,20 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metainternalversion "k8s.io/apimachinery/pkg/apis/meta/internalversion"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
+	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
+
+	"github.com/kcp-dev/kcp/pkg/apiidentity"
 )
 
 func TestDigestURL(t *testing.T) {
@@ -44,6 +53,7 @@ func TestDigestURL(t *testing.T) {
 	}{
 		{urlPath: "/services/admin", accepted: true, clusterName: "root", prefixToTrim: "/services/admin"},
 		{urlPath: "/services/admin/apis/core.kcp.io/v1alpha1/shards", accepted: true, clusterName: "root", prefixToTrim: "/services/admin"},
+		{urlPath: "/services/admin/apis/admin.kcp.io/v1alpha1/apiidentities", accepted: true, clusterName: "root", prefixToTrim: "/services/admin"},
 		{urlPath: "/services/admin/clusters/*/apis/core.kcp.io/v1alpha1/shards", accepted: true, wildcard: true, prefixToTrim: "/services/admin/clusters/*"},
 		{urlPath: "/services/admin/clusters/myws/apis/core.kcp.io/v1alpha1/shards", accepted: true, clusterName: "myws", prefixToTrim: "/services/admin/clusters/myws"},
 		{urlPath: "/services/adminfoo/apis", accepted: false},
@@ -388,4 +398,49 @@ func TestMutableFieldUpdate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProjectedViewServesTheProjector(t *testing.T) {
+	t.Parallel()
+	const hash = "abc"
+	projector := apiidentity.NewProjector(apiidentity.IsCoreExport)
+	projector.OnAdd(&apisv1alpha2.APIExport{
+		ObjectMeta: metav1.ObjectMeta{Name: "widgets", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
+		Status:     apisv1alpha2.APIExportStatus{IdentityHash: hash},
+	}, true)
+	storage := &forwardingregistry.StoreFuncs{}
+	projectedView(projector).Decorate(apiIdentitiesResource, storage)
+	ctx := context.Background()
+
+	t.Log("get serves the entry as unstructured, unknown names are not found")
+	obj, err := storage.GetterFunc(ctx, hash, nil)
+	require.NoError(t, err)
+	entry := obj.(*unstructured.Unstructured)
+	require.Equal(t, "APIIdentity", entry.GetKind())
+	require.Equal(t, "widgets", entry.GetLabels()[adminv1alpha1.APIIdentityOwnerLabel])
+	_, err = storage.GetterFunc(ctx, "nope", nil)
+	require.True(t, apierrors.IsNotFound(err))
+
+	t.Log("list honours label and name selectors")
+	obj, err = storage.ListerFunc(ctx, &metainternalversion.ListOptions{LabelSelector: labels.SelectorFromSet(labels.Set{adminv1alpha1.APIIdentityCoreLabel: "false"})})
+	require.NoError(t, err)
+	list := obj.(*unstructured.UnstructuredList)
+	require.Equal(t, "APIIdentityList", list.GetKind())
+	require.Len(t, list.Items, 1)
+	require.Equal(t, projector.ResourceVersion(), list.GetResourceVersion())
+	obj, err = storage.ListerFunc(ctx, &metainternalversion.ListOptions{FieldSelector: fields.OneTermEqualSelector("metadata.name", "other")})
+	require.NoError(t, err)
+	require.Empty(t, obj.(*unstructured.UnstructuredList).Items)
+
+	t.Log("watch delivers changes as unstructured")
+	w, err := storage.WatcherFunc(ctx, &metainternalversion.ListOptions{})
+	require.NoError(t, err)
+	t.Cleanup(w.Stop)
+	projector.OnDelete(&apisv1alpha2.APIExport{
+		ObjectMeta: metav1.ObjectMeta{Name: "widgets", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
+		Status:     apisv1alpha2.APIExportStatus{IdentityHash: hash},
+	})
+	event := <-w.ResultChan()
+	require.Equal(t, watch.Deleted, event.Type)
+	require.Equal(t, hash, event.Object.(*unstructured.Unstructured).GetName())
 }
