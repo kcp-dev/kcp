@@ -238,28 +238,30 @@ func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]strin
 		apiExportHandler(ids)
 }
 
-// NewRegistryWildcardIdentities creates the identity-injecting round tripper
-// for a component that learns the identities of the core APIExports from
-// the APIIdentity registry instead of from the root shard: the front-proxy,
-// which reads the registry through the Admin workspace of its peer shards.
+// NewCoreWildcardIdentities creates the identity-injecting round tripper
+// for the core APIExports of the root workspace, the ones named by the
+// given maps (see KcpRootGroupExportNames). Their identities come from the
+// APIIdentity view, which the front-proxy reads through the Admin workspace
+// of its peer shards. No other identity is tracked here: nothing in kcp
+// injects a provider's identity into wildcard URLs, consumers reach those
+// APIs through bindings.
 //
 // The returned handler is registered on an informer of the APIIdentity
-// entries; it feeds the identities as the entries arrive. The returned ready
-// func fails while any core identity is still unknown and is meant as a
-// readiness check: requests that need an identity fail until it arrives,
-// nothing blocks startup on it.
-func NewRegistryWildcardIdentities(groupExportNames map[string]string,
+// entries; it picks the core entries out and feeds their identities as they
+// arrive. The returned ready func fails while any core identity is still
+// unknown. Requests that need an identity fail until it arrives.
+func NewCoreWildcardIdentities(groupExportNames map[string]string,
 	groupResourceExportNames map[schema.GroupResource]string) (wrap func(rt http.RoundTripper) http.RoundTripper, handler cache.ResourceEventHandler, ready func() error) {
 	ids := newIdentities(groupExportNames, groupResourceExportNames)
-	return injectKcpIdentities(ids), apiIdentityHandler(ids), ids.ready
+	return injectKcpIdentities(ids), coreIdentityHandler(ids), ids.ready
 }
 
-// apiIdentityHandler returns an informer event handler that keeps the
-// identities in sync with the APIIdentity registry: an entry owned by one of
-// the core APIExports in the root workspace names that export's identity.
-// Entries of other exports and deleted entries are ignored: an identity in
-// use is only ever replaced by a new one.
-func apiIdentityHandler(ids *identities) cache.ResourceEventHandler {
+// coreIdentityHandler returns an informer event handler that keeps the
+// identities of the core APIExports in sync with the APIIdentity view: an
+// entry owned by one of them, in the root workspace, names that export's
+// identity. Every other entry is ignored, and so are deletions: an identity
+// in use is only ever replaced by a new one.
+func coreIdentityHandler(ids *identities) cache.ResourceEventHandler {
 	exportNames := coreExportNames(ids)
 	update := func(obj interface{}) {
 		entry, ok := obj.(*adminv1alpha1.APIIdentity)

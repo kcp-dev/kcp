@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"reflect"
 	"slices"
 	"time"
 
@@ -213,7 +212,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 
 	mux := http.NewServeMux()
 	healthz.InstallReadyzHandler(mux,
-		healthz.NewInformerSyncHealthz(cacheSyncWaiters{s.KcpSharedInformerFactory, s.CoreIdentityInformerFactory}),
+		healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory),
 		healthz.NamedCheck("core-identities", func(*http.Request) error { return s.CompletedConfig.CoreIdentitiesReady() }),
 	)
 	healthz.InstallLivezHandler(mux, healthz.PingHealthz)
@@ -238,22 +237,6 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	s.Handler = mux
 
 	return s, nil
-}
-
-// cacheSyncWaiters combines informer factories into one informer-sync
-// readiness check.
-type cacheSyncWaiters []interface {
-	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
-}
-
-func (w cacheSyncWaiters) WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool {
-	merged := map[reflect.Type]bool{}
-	for _, waiter := range w {
-		for informerType, synced := range waiter.WaitForCacheSync(stopCh) {
-			merged[informerType] = synced
-		}
-	}
-	return merged
 }
 
 func newProtectedMetricsHandler(auth authenticator.Request, rootShardConfig *restclient.Config, requestInfoResolver request.RequestInfoResolver) (http.Handler, error) {

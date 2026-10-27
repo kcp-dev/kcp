@@ -163,7 +163,7 @@ func TestAPIExportHandler(t *testing.T) {
 	})
 }
 
-func TestAPIIdentityHandler(t *testing.T) {
+func TestCoreIdentityHandler(t *testing.T) {
 	t.Parallel()
 
 	tenancyPath := "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces"
@@ -171,7 +171,7 @@ func TestAPIIdentityHandler(t *testing.T) {
 
 	t.Run("feeds the identities of the core exports in root and reports readiness", func(t *testing.T) {
 		t.Parallel()
-		wrap, handler, ready := NewRegistryWildcardIdentities(testGroupExportNames, testGroupResourceExportNames)
+		wrap, handler, ready := NewCoreWildcardIdentities(testGroupExportNames, testGroupResourceExportNames)
 		require.NotNil(t, wrap)
 		require.Error(t, ready(), "nothing is known yet")
 
@@ -195,9 +195,9 @@ func TestAPIIdentityHandler(t *testing.T) {
 		t.Run("ignores "+scenario.name, func(t *testing.T) {
 			t.Parallel()
 			ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
-			apiIdentityHandler(ids).OnAdd(entry("root", "tenancy.kcp.io", oldHash), true)
+			coreIdentityHandler(ids).OnAdd(entry("root", "tenancy.kcp.io", oldHash), true)
 
-			handler := apiIdentityHandler(ids)
+			handler := coreIdentityHandler(ids)
 			handler.OnAdd(scenario.obj, false)
 			handler.OnUpdate(scenario.obj, scenario.obj)
 
@@ -210,7 +210,7 @@ func TestAPIIdentityHandler(t *testing.T) {
 	t.Run("replaces the identity of the changed export only", func(t *testing.T) {
 		t.Parallel()
 		ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
-		handler := apiIdentityHandler(ids)
+		handler := coreIdentityHandler(ids)
 		handler.OnAdd(entry("root", "tenancy.kcp.io", oldHash), true)
 		handler.OnAdd(entry("root", "shards.core.kcp.io", oldHash), true)
 		watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)

@@ -96,7 +96,7 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 	// read through the Admin workspace of the peers; the root shard is not
 	// asked for them.
 	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-	kcpShardIdentityRoundTripper, c.CoreIdentityHandler, c.CoreIdentitiesReady = bootstrap.NewRegistryWildcardIdentities(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames)
+	kcpShardIdentityRoundTripper, c.CoreIdentityHandler, c.CoreIdentitiesReady = bootstrap.NewCoreWildcardIdentities(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames)
 
 	if c.Options.RootKubeconfig != "" {
 		rootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.RootKubeconfig}, nil).ClientConfig()
