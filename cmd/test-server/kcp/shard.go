@@ -46,6 +46,17 @@ import (
 //go:embed *.yaml
 var embeddedResources embed.FS
 
+// shardWaitDelay is how long cmd.Wait keeps the stdout/stderr pipes open
+// after the child process has been killed - e.g. when running via `go
+// run` the child process inherits the pipes, but the signal does
+// not propagate.
+// The wait waits until the pipes return EOF - but since the kill signal
+// does not propagate to the child of `go run` it does not exit, and the
+// test-server doesn't quit because it waits for the EOF on the pipes.
+// TODO(ntnn): That also means that the `go run` variant is orphaned.
+// Could do a pgid-based cleanup but that only works on unix.
+const shardWaitDelay = 5 * time.Second
+
 type headWriter interface {
 	io.Writer
 	StopOut()
@@ -120,6 +131,7 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 	cmd.Dir = workdir
+	cmd.WaitDelay = shardWaitDelay
 	if err := os.MkdirAll(filepath.Dir(s.logFilePath), 0755); err != nil {
 		return err
 	}
@@ -140,13 +152,6 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-
-	go func() {
-		<-ctx.Done()
-		if err := cmd.Process.Kill(); err != nil {
-			logger.Error(err, "failed to kill process")
-		}
-	}()
 
 	// Start a goroutine that will notify when the process has exited
 	terminatedCh := make(chan error, 1)

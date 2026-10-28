@@ -54,7 +54,7 @@ func startFrontProxy(
 	logDirPath, workDirPath string,
 	vwPort string,
 	quiet bool,
-) error {
+) (<-chan int, error) {
 	blue := color.New(color.BgGreen, color.FgBlack).SprintFunc()
 	inverse := color.New(color.BgHiWhite, color.FgGreen).SprintFunc()
 	out := lineprefix.New(
@@ -96,11 +96,11 @@ func startFrontProxy(
 
 	mappingsYAML, err := yaml.Marshal(mappings)
 	if err != nil {
-		return fmt.Errorf("error marshaling mappings yaml: %w", err)
+		return nil, fmt.Errorf("error marshaling mappings yaml: %w", err)
 	}
 
 	if err := os.WriteFile(filepath.Join(workDirPath, ".kcp-front-proxy", "mapping.yaml"), mappingsYAML, 0644); err != nil {
-		return fmt.Errorf("failed to create front-proxy mapping.yaml: %w", err)
+		return nil, fmt.Errorf("failed to create front-proxy mapping.yaml: %w", err)
 	}
 
 	// write root shard kubeconfig
@@ -110,14 +110,14 @@ func startFrontProxy(
 	)
 	raw, err := configLoader.RawConfig()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	raw.CurrentContext = "shard-base"
 	if err := clientcmdapi.MinifyConfig(&raw); err != nil {
-		return err
+		return nil, err
 	}
 	if err := clientcmd.WriteToFile(raw, filepath.Join(workDirPath, ".kcp", "root.kubeconfig")); err != nil {
-		return err
+		return nil, err
 	}
 
 	// create serving cert
@@ -125,10 +125,10 @@ func startFrontProxy(
 	logger.Info("creating kcp-front-proxy serving cert with hostnames", "hostnames", hostnames)
 	cert, err := servingCA.MakeServerCert(hostnames, 365)
 	if err != nil {
-		return fmt.Errorf("failed to create server cert: %w", err)
+		return nil, fmt.Errorf("failed to create server cert: %w", err)
 	}
 	if err := cert.WriteCertConfigFile(filepath.Join(workDirPath, ".kcp-front-proxy", "apiserver.crt"), filepath.Join(workDirPath, ".kcp-front-proxy", "apiserver.key")); err != nil {
-		return fmt.Errorf("failed to write server cert: %w", err)
+		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
 	// run front-proxy command
@@ -164,6 +164,7 @@ func startFrontProxy(
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 	cmd.Dir = workdir
+	cmd.WaitDelay = subprocessWaitDelay
 
 	logFilePath := filepath.Join(workDirPath, ".kcp-front-proxy", "proxy.log")
 	if logDirPath != "" {
@@ -172,7 +173,7 @@ func startFrontProxy(
 
 	logFile, err := os.OpenFile(logFilePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	writer := helpers.NewHeadWriter(logFile, out)
@@ -185,15 +186,8 @@ func startFrontProxy(
 	}
 
 	if err := cmd.Start(); err != nil {
-		return err
+		return nil, err
 	}
-
-	go func() {
-		<-ctx.Done()
-		if err := cmd.Process.Kill(); err != nil {
-			logger.Error(err, "failed to kill process")
-		}
-	}()
 
 	terminatedCh := make(chan int, 1)
 	go func() {
@@ -214,9 +208,9 @@ func startFrontProxy(
 
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("context canceled")
+			return nil, fmt.Errorf("context canceled")
 		case rc := <-terminatedCh:
-			return fmt.Errorf("kcp-front-proxy terminated with exit code %d", rc)
+			return nil, fmt.Errorf("kcp-front-proxy terminated with exit code %d", rc)
 		default:
 		}
 
@@ -256,9 +250,12 @@ func startFrontProxy(
 	fmt.Fprintf(successOut, "kcp-front-proxy is ready\n")
 	cfg, err := configLoader.ClientConfig()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return scrapeMetrics(ctx, cfg, workDirPath)
+	if err := scrapeMetrics(ctx, cfg, workDirPath); err != nil {
+		return nil, err
+	}
+	return terminatedCh, nil
 }
 
 func scrapeMetrics(ctx context.Context, cfg *rest.Config, workDir string) error {
