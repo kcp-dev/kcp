@@ -44,6 +44,10 @@ func (c *ResourceV1ClusterClient) DeviceClasses() kcpresourcev1.DeviceClassClust
 	return newFakeDeviceClassClusterClient(c)
 }
 
+func (c *ResourceV1ClusterClient) DeviceTaintRules() kcpresourcev1.DeviceTaintRuleClusterInterface {
+	return newFakeDeviceTaintRuleClusterClient(c)
+}
+
 func (c *ResourceV1ClusterClient) ResourceClaims() kcpresourcev1.ResourceClaimClusterInterface {
 	return newFakeResourceClaimClusterClient(c)
 }
@@ -63,6 +67,10 @@ type ResourceV1Client struct {
 
 func (c *ResourceV1Client) DeviceClasses() resourcev1.DeviceClassInterface {
 	return newFakeDeviceClassClient(c.Fake, c.ClusterPath)
+}
+
+func (c *ResourceV1Client) DeviceTaintRules() resourcev1.DeviceTaintRuleInterface {
+	return newFakeDeviceTaintRuleClient(c.Fake, c.ClusterPath)
 }
 
 func (c *ResourceV1Client) ResourceClaims(namespace string) resourcev1.ResourceClaimInterface {
