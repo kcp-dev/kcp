@@ -17,19 +17,19 @@ exec kubectl wait --for=condition=IdentityValid apiexport/widgets --timeout=60s
 stdout 'condition met'
 
 exec kubectl-kcp workspace use :${ORG}:accept-all
-exec kubectl-kcp bind apiexport ${ORG}:provider:widgets --accept-all-permission-claims
+eventually kubectl-kcp bind apiexport ${ORG}:provider:widgets --accept-all-permission-claims
 stdout 'widgets created and bound.'
 exec kubectl-kcp claims get apibinding widgets
 cmp stdout accepted-all.txt
 
 exec kubectl-kcp workspace use :${ORG}:reject-all
-exec kubectl-kcp bind apiexport ${ORG}:provider:widgets --reject-all-permission-claims
+eventually kubectl-kcp bind apiexport ${ORG}:provider:widgets --reject-all-permission-claims
 stdout 'widgets created and bound.'
 exec kubectl-kcp claims get apibinding widgets
 cmp stdout rejected-all.txt
 
 exec kubectl-kcp workspace use :${ORG}:mixed
-exec kubectl-kcp bind apiexport ${ORG}:provider:widgets --accept-permission-claim configmaps.core --reject-permission-claim secrets.core
+eventually kubectl-kcp bind apiexport ${ORG}:provider:widgets --accept-permission-claim configmaps.core --reject-permission-claim secrets.core
 stdout 'widgets created and bound.'
 exec kubectl-kcp claims get apibinding widgets
 cmp stdout mixed.txt

@@ -14,7 +14,7 @@ stdout 'condition met'
 
 exec kubectl-kcp workspace use :${ORG}:consumer
 # every claim starts out rejected so accept and reject have something to flip
-exec kubectl-kcp bind apiexport ${ORG}:provider:widgets --reject-all-permission-claims
+eventually kubectl-kcp bind apiexport ${ORG}:provider:widgets --reject-all-permission-claims
 stdout 'widgets created and bound.'
 
 # no argument, just list the current claims
