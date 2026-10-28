@@ -52,7 +52,7 @@ update_third_party() {
             "$source_dir/${third_party##third_party/k8s.io/client-go/}" \
             "$third_party" \
             -e 's#"k8s.io/client-go/testing"#kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"#' \
-            -e 's# testing\.#kcptesting.#' \
+            -e 's# testing\.# kcptesting.#' \
             -e 's#*testing\.#*kcptesting.#'
 
     done
