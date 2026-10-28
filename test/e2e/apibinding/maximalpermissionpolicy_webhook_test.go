@@ -63,7 +63,7 @@ func TestMaximalPermissionPolicyWebhookEscalation(t *testing.T) {
 		name, order string
 	}{
 		{"default order", ""},
-		{"webhook ahead of RBAC", "AlwaysAllowGroups,AlwaysAllowPaths,Webhook,RBAC"},
+		{"webhook ahead of RBAC", "Webhook,RBAC"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
