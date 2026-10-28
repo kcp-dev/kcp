@@ -48,7 +48,7 @@ func TestAuthorizationOrder(t *testing.T) {
 
 		webhook := framework.StartAuthzWebhook(ctx, t, server.Allow)
 
-		srv, kcpClusterClient, kubeClusterClient := setupTest(t, "AlwaysAllowGroups,AlwaysAllowPaths,Webhook,RBAC", webhook)
+		srv, kcpClusterClient, kubeClusterClient := setupTest(t, "Webhook,RBAC", webhook)
 
 		t.Log("Admin should be allowed to list Workspaces.")
 		_, err := kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
@@ -73,7 +73,7 @@ func TestAuthorizationOrder(t *testing.T) {
 
 		webhook := framework.StartAuthzWebhook(ctx, t, server.Allow)
 
-		srv, kcpClusterClient, kubeClusterClient := setupTest(t, "Webhook,AlwaysAllowGroups,AlwaysAllowPaths,RBAC", webhook)
+		srv, kcpClusterClient, kubeClusterClient := setupTest(t, "Webhook,RBAC", webhook)
 
 		t.Log("Verify that it is allowed to access one of AllowAllPaths endpoints.")
 		verifyEndpointAccess(ctx, t, srv, "/livez", true)
@@ -93,8 +93,10 @@ func TestAuthorizationOrder(t *testing.T) {
 		_, err = kubeClusterClient.Cluster(logicalcluster.NewPath("root")).CoreV1().Services("default").List(ctx, metav1.ListOptions{})
 		require.Error(t, err)
 
-		t.Log("Verify that it is not allowed to access one of AllowAllPaths endpoints.")
-		verifyEndpointAccess(ctx, t, srv, "/readyz", false)
+		t.Log("Verify that it is allowed to access one of AllowAllPaths endpoints.")
+		// The always-allow paths run before any grant source, so a denying webhook listed
+		// first cannot take the health endpoints away.
+		verifyEndpointAccess(ctx, t, srv, "/readyz", true)
 	})
 
 	t.Run("Default authorization order", func(t *testing.T) {
@@ -104,7 +106,7 @@ func TestAuthorizationOrder(t *testing.T) {
 
 		webhook := framework.StartAuthzWebhook(ctx, t, server.Deny)
 
-		// This will setup the test with the default authorization order: AlwaysAllowGroups,AlwaysAllowPaths,RBAC,Webhook
+		// This will setup the test with the default authorization order: RBAC,Webhook
 		srv, kcpClusterClient, _ := setupTest(t, "", webhook)
 
 		t.Log("Verify that it is allowed to access one of AllowAllPaths endpoints.")
