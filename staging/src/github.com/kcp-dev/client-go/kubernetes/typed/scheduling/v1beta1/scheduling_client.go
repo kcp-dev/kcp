@@ -32,7 +32,9 @@ import (
 
 type SchedulingV1beta1ClusterInterface interface {
 	SchedulingV1beta1ClusterScoper
+	PodGroupsClusterGetter
 	PriorityClassesClusterGetter
+	WorkloadsClusterGetter
 }
 
 type SchedulingV1beta1ClusterScoper interface {
@@ -51,8 +53,16 @@ func (c *SchedulingV1beta1ClusterClient) Cluster(clusterPath logicalcluster.Path
 	return c.clientCache.ClusterOrDie(clusterPath)
 }
 
+func (c *SchedulingV1beta1ClusterClient) PodGroups() PodGroupClusterInterface {
+	return &podGroupsClusterInterface{clientCache: c.clientCache}
+}
+
 func (c *SchedulingV1beta1ClusterClient) PriorityClasses() PriorityClassClusterInterface {
 	return &priorityClassesClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *SchedulingV1beta1ClusterClient) Workloads() WorkloadClusterInterface {
+	return &workloadsClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new SchedulingV1beta1ClusterClient for the given config.

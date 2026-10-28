@@ -25,6 +25,8 @@ import (
 type ClusterInterface interface {
 	// DeviceClasses returns a DeviceClassClusterInformer.
 	DeviceClasses() DeviceClassClusterInformer
+	// DeviceTaintRules returns a DeviceTaintRuleClusterInformer.
+	DeviceTaintRules() DeviceTaintRuleClusterInformer
 	// ResourceClaims returns a ResourceClaimClusterInformer.
 	ResourceClaims() ResourceClaimClusterInformer
 	// ResourceClaimTemplates returns a ResourceClaimTemplateClusterInformer.
@@ -46,6 +48,11 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 // DeviceClasses returns a DeviceClassClusterInformer.
 func (v *version) DeviceClasses() DeviceClassClusterInformer {
 	return &deviceClassClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// DeviceTaintRules returns a DeviceTaintRuleClusterInformer.
+func (v *version) DeviceTaintRules() DeviceTaintRuleClusterInformer {
+	return &deviceTaintRuleClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // ResourceClaims returns a ResourceClaimClusterInformer.
