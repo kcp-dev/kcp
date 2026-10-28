@@ -250,6 +250,7 @@ func (v *VirtualWorkspace) start(ctx context.Context) error {
 
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 	cmd.Dir = workdir
+	cmd.WaitDelay = subprocessWaitDelay
 
 	if err := os.MkdirAll(filepath.Dir(logFilePath), 0755); err != nil {
 		return err

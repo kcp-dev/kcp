@@ -104,6 +104,7 @@ func startCacheServer(ctx context.Context, logDirPath, workingDir, hostIP string
 	fmt.Fprintf(out, "running: %v\n", strings.Join(commandLine, " "))
 	cmd := exec.CommandContext(ctx, commandLine[0], commandLine[1:]...) //nolint:gosec
 	cmd.Dir = workdir
+	cmd.WaitDelay = subprocessWaitDelay
 
 	logFilePath := filepath.Join(".kcp-cache", "kcp.log")
 	if logDirPath != "" {
