@@ -42,6 +42,8 @@ func TestScript(t *testing.T) {
 	framework.Suite(t, "cli")
 
 	// validate the plugins are actually built
+	// TODO(ntnn): If the e2e tests are reused as compliance tests this
+	// needs to be removed/moved into a different harness.
 	repo, err := kcptestinghelpers.RepositoryDir()
 	require.NoError(t, err)
 	binDir := filepath.Join(repo, "bin")
@@ -59,6 +61,8 @@ func TestScript(t *testing.T) {
 		// allows updating files the cli output is compared against by setting UPDATE=true
 		UpdateScripts: os.Getenv("UPDATE") != "",
 		Setup: func(env *testscript.Env) error {
+			env.Setenv("PATH", binDir+string(os.PathListSeparator)+env.Getenv("PATH"))
+
 			orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path())
 			env.Setenv("ORG", orgPath.String())
 
