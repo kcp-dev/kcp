@@ -38,7 +38,7 @@ import (
 )
 
 // FakeDiscovery implements discovery.DiscoveryInterface and discovery.DiscoveryInterfaceWithContext.
-// It sometimes callskcptesting.Fake.Invoke with an action,
+// It sometimes calls kcptesting.Fake.Invoke with an action,
 // but doesn't respect the return value if any. There is a way to fake static values like ServerVersion by using the Faked... fields on the struct.
 type FakeDiscovery struct {
 	*kcptesting.Fake
