@@ -232,6 +232,116 @@ func TestBoundAPIAuthorizer(t *testing.T) {
 			expectedDecision: authorizer.DecisionAllow,
 		},
 		{
+			name: "list request to the API bound via permission claims allowing wildcard on the APIExport only",
+			attr: &authorizer.AttributesRecord{
+				User:     &user.DefaultInfo{},
+				APIGroup: "foo",
+				Resource: "bar",
+				Verb:     "list",
+			},
+			apidomainKey: apidomainKey,
+			getAPIBindingByExport: func(clusterName, apiExportName, apiExportCluster string) (*apisv1alpha2.APIBinding, error) {
+				return &apisv1alpha2.APIBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bar",
+					},
+					Spec: apisv1alpha2.APIBindingSpec{
+						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
+							{
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "foo",
+											Resource: "bar",
+										},
+										Verbs: []string{"get", "list"},
+									},
+									Selector: apisv1alpha2.PermissionClaimSelector{
+										MatchAll: true,
+									},
+								},
+								State: apisv1alpha2.ClaimAccepted,
+							},
+						},
+					},
+				}, nil
+			},
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bar",
+					},
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
+							{
+								GroupResource: apisv1alpha2.GroupResource{
+									Group:    "foo",
+									Resource: "bar",
+								},
+								Verbs: []string{"*"},
+							},
+						},
+					},
+				}, nil
+			},
+			expectedDecision: authorizer.DecisionAllow,
+		},
+		{
+			name: "list request to the API bound via permission claims allowing wildcard on the APIBinding only",
+			attr: &authorizer.AttributesRecord{
+				User:     &user.DefaultInfo{},
+				APIGroup: "foo",
+				Resource: "bar",
+				Verb:     "list",
+			},
+			apidomainKey: apidomainKey,
+			getAPIBindingByExport: func(clusterName, apiExportName, apiExportCluster string) (*apisv1alpha2.APIBinding, error) {
+				return &apisv1alpha2.APIBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bar",
+					},
+					Spec: apisv1alpha2.APIBindingSpec{
+						PermissionClaims: []apisv1alpha2.AcceptablePermissionClaim{
+							{
+								ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+									PermissionClaim: apisv1alpha2.PermissionClaim{
+										GroupResource: apisv1alpha2.GroupResource{
+											Group:    "foo",
+											Resource: "bar",
+										},
+										Verbs: []string{"*"},
+									},
+									Selector: apisv1alpha2.PermissionClaimSelector{
+										MatchAll: true,
+									},
+								},
+								State: apisv1alpha2.ClaimAccepted,
+							},
+						},
+					},
+				}, nil
+			},
+			getAPIExport: func(clusterName, apiExportName string) (*apisv1alpha2.APIExport, error) {
+				return &apisv1alpha2.APIExport{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "bar",
+					},
+					Spec: apisv1alpha2.APIExportSpec{
+						PermissionClaims: []apisv1alpha2.PermissionClaim{
+							{
+								GroupResource: apisv1alpha2.GroupResource{
+									Group:    "foo",
+									Resource: "bar",
+								},
+								Verbs: []string{"get", "list"},
+							},
+						},
+					},
+				}, nil
+			},
+			expectedDecision: authorizer.DecisionAllow,
+		},
+		{
 			name: "list request to the API bound via permission claims allowing wildcard (rejected claim)",
 			attr: &authorizer.AttributesRecord{
 				User:     &user.DefaultInfo{},
