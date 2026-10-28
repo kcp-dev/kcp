@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,7 +80,13 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	// This context controls the life of the shards, proxy, etc.
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// cancel only triggers the kill asynchronously; wait until every
+	// subprocess has exited so none outlives this process.
+	var subprocesses sync.WaitGroup
+	defer func() {
+		cancel()
+		subprocesses.Wait()
+	}()
 
 	// create request header CA and client cert for front-proxy to connect to shards
 	requestHeaderCA, _, err := crypto.EnsureCA(
@@ -213,14 +220,16 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 
 	standaloneVW := sets.New[string](shardFlags...).Has("--run-virtual-workspaces=false")
 
-	cacheServerErrCh := make(chan indexErrTuple)
+	cacheServerErrCh := make(chan indexErrTuple, 1)
 	if cacheServerConfigPath == "" {
 		cacheServerCh, configPath, err := startCacheServer(ctx, logDirPath, workDirPath, hostIP.String(), cacheSyntheticDelay, clientCA, filepath.Join(workDirPath, ".kcp", "client-ca.crt"), externalEtcdServers)
 		if err != nil {
 			return fmt.Errorf("error starting the cache server: %w", err)
 		}
 		cacheServerConfigPath = configPath
+		subprocesses.Add(1)
 		go func() {
+			defer subprocesses.Done()
 			err := <-cacheServerCh
 			cacheServerErrCh <- indexErrTuple{0, err}
 		}()
@@ -250,7 +259,7 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	// Wait for shards to be ready before starting virtual workspaces.
 	// Virtual workspaces depend on shards for token authentication (TokenReview),
 	// so shards must be fully ready before VWs can accept authenticated requests.
-	shardsErrCh := make(chan indexErrTuple)
+	shardsErrCh := make(chan indexErrTuple, numberOfShards)
 	for i, s := range shards {
 		terminatedCh, err := s.WaitForReady(ctx)
 		if err != nil {
@@ -260,7 +269,9 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 		if err != nil {
 			return err
 		}
+		subprocesses.Add(1)
 		go func(i int, terminatedCh <-chan error) {
+			defer subprocesses.Done()
 			err := <-terminatedCh
 			shardsErrCh <- indexErrTuple{i, err}
 		}(i, terminatedCh)
@@ -286,14 +297,16 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// Wait for virtual workspaces to be ready
-	virtualWorkspacesErrCh := make(chan indexErrTuple)
+	virtualWorkspacesErrCh := make(chan indexErrTuple, len(virtualWorkspaces))
 	if standaloneVW {
 		for i, vw := range virtualWorkspaces {
 			terminatedCh, err := vw.waitForReady(ctx)
 			if err != nil {
 				return err
 			}
+			subprocesses.Add(1)
 			go func(i int, terminatedCh <-chan error) {
+				defer subprocesses.Done()
 				err := <-terminatedCh
 				virtualWorkspacesErrCh <- indexErrTuple{i, err}
 			}(i, terminatedCh)
@@ -314,9 +327,15 @@ func start(proxyFlags, shardFlags []string, logDirPath, workDirPath string, numb
 	}
 
 	// start front-proxy
-	if err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort, quiet); err != nil {
+	frontProxyCh, err := startFrontProxy(ctx, proxyFlags, servingCA, hostIP.String(), logDirPath, workDirPath, vwPort, quiet)
+	if err != nil {
 		return err
 	}
+	subprocesses.Add(1)
+	go func() {
+		defer subprocesses.Done()
+		<-frontProxyCh
+	}()
 
 	// Shard labels come from --shard-labels on each shard. Wait for all
 	// shards to be visible in the Admin workspace (through the front-proxy)
