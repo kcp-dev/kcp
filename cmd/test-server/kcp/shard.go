@@ -141,13 +141,6 @@ func (s *Shard) Start(ctx context.Context, quiet bool) error {
 		return err
 	}
 
-	go func() {
-		<-ctx.Done()
-		if err := cmd.Process.Kill(); err != nil {
-			logger.Error(err, "failed to kill process")
-		}
-	}()
-
 	// Start a goroutine that will notify when the process has exited
 	terminatedCh := make(chan error, 1)
 	s.terminatedCh = terminatedCh

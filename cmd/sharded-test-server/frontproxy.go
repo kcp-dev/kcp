@@ -188,13 +188,6 @@ func startFrontProxy(
 		return err
 	}
 
-	go func() {
-		<-ctx.Done()
-		if err := cmd.Process.Kill(); err != nil {
-			logger.Error(err, "failed to kill process")
-		}
-	}()
-
 	terminatedCh := make(chan int, 1)
 	go func() {
 		if err := cmd.Wait(); err != nil {
