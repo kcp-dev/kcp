@@ -27,7 +27,7 @@ import (
 // ClusterTestTypeApplyConfiguration represents a declarative configuration of the ClusterTestType type for use
 // with apply.
 type ClusterTestTypeApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// ObjectKind is the type of resource being referenced
 	ObjectKind *string `json:"kind,omitempty"`

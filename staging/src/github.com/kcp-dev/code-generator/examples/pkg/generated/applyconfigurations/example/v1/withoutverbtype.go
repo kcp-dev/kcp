@@ -27,7 +27,7 @@ import (
 // WithoutVerbTypeApplyConfiguration represents a declarative configuration of the WithoutVerbType type for use
 // with apply.
 type WithoutVerbTypeApplyConfiguration struct {
-	metav1.TypeMetaApplyConfiguration    `json:",inline"`
+	metav1.TypeMetaApplyConfiguration    `json:""`
 	*metav1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 }
 

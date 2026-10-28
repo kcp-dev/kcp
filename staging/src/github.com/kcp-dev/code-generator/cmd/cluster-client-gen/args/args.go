@@ -22,6 +22,8 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"k8s.io/code-generator/pkg/apidefinitions"
+
 	"github.com/kcp-dev/code-generator/v3/cmd/cluster-client-gen/types"
 )
 
@@ -58,6 +60,8 @@ type Args struct {
 	SingleClusterClientPackage string
 	// Path to the generated Kubernetes single-cluster applyconfigurations package.
 	SingleClusterApplyConfigurationsPackage string
+
+	apidefinitions.LintArgs
 }
 
 func New() *Args {
@@ -94,6 +98,7 @@ func (args *Args) AddFlags(fs *pflag.FlagSet, inputBase string) {
 		"package path to the generated Kubernetes single-cluster clientset package")
 	fs.StringVar(&args.SingleClusterApplyConfigurationsPackage, "single-cluster-applyconfigurations-pkg", args.SingleClusterApplyConfigurationsPackage,
 		"package path to the generated Kubernetes single-cluster applyconfigurations package")
+	apidefinitions.AddFlags(&args.LintArgs, fs)
 }
 
 func (args *Args) Validate() error {
@@ -113,7 +118,7 @@ func (args *Args) Validate() error {
 		return fmt.Errorf("--single-cluster-applyconfigurations-pkg cannot be empty")
 	}
 
-	return nil
+	return apidefinitions.ValidateFlags(args.LintRules)
 }
 
 // GroupVersionPackages returns a map from GroupVersion to the package with the types.go.
