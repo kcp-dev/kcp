@@ -17,12 +17,16 @@ limitations under the License.
 package cli_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/rogpeppe/go-internal/testscript"
 	"github.com/stretchr/testify/require"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/kcp-dev/sdk/apis/core"
 	kcptesting "github.com/kcp-dev/sdk/testing"
@@ -30,6 +34,28 @@ import (
 
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
+
+// eventuallyInterval is the pause between attempts of `eventually`.
+const eventuallyInterval = 100 * time.Millisecond
+
+// eventually re-runs a command until it exits 0 or wait.ForeverTestTimeout passes.
+// stdout and stderr of the last attempt are available to stdout/stderr/cmp.
+func eventually(ctx context.Context) func(*testscript.TestScript, bool, []string) {
+	return func(ts *testscript.TestScript, neg bool, args []string) {
+		if neg || len(args) < 1 {
+			ts.Fatalf("usage: eventually program [args...]")
+		}
+
+		var execErr error
+		err := wait.PollUntilContextTimeout(ctx, eventuallyInterval, wait.ForeverTestTimeout, true, func(context.Context) (bool, error) {
+			execErr = ts.Exec(args[0], args[1:]...)
+			return execErr == nil, nil
+		})
+		if err != nil {
+			ts.Fatalf("%s did not succeed within %s: %v", args[0], wait.ForeverTestTimeout, execErr)
+		}
+	}
+}
 
 // TestScript runs the txtar scripts in testdata/script.
 //
@@ -60,6 +86,9 @@ func TestScript(t *testing.T) {
 		RequireExplicitExec: true,
 		// allows updating files the cli output is compared against by setting UPDATE=true
 		UpdateScripts: os.Getenv("UPDATE") != "",
+		Cmds: map[string]func(*testscript.TestScript, bool, []string){
+			"eventually": eventually(t.Context()),
+		},
 		Setup: func(env *testscript.Env) error {
 			env.Setenv("PATH", binDir+string(os.PathListSeparator)+env.Getenv("PATH"))
 
