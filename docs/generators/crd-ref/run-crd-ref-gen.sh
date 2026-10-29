@@ -22,7 +22,7 @@ set -o xtrace
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 
 CONTAINER_ENGINE=${CONTAINER_ENGINE:-podman}
-CRD_DOCS_GENERATOR_VERSION=0.10.0
+CRD_DOCS_GENERATOR_VERSION=0.11.0
 
 #TODO(ncdc): i18n
 DESTINATION="${REPO_ROOT}/docs/content/reference/crd"
@@ -37,7 +37,7 @@ fi
 $CONTAINER_ENGINE run --rm \
     -v "${DESTINATION}":/opt/crd-docs-generator/output"${BIND_MOUNT_OPTS}" \
     -v "${REPO_ROOT}"/docs/generators/crd-ref:/opt/crd-docs-generator/config"${BIND_MOUNT_OPTS}" \
-    quay.io/giantswarm/crd-docs-generator:${CRD_DOCS_GENERATOR_VERSION} \
+    gsoci.azurecr.io/giantswarm/crd-docs-generator:${CRD_DOCS_GENERATOR_VERSION} \
     --config /opt/crd-docs-generator/config/config.yaml
 
 # Organise CRDs by API group
