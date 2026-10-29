@@ -160,6 +160,11 @@ var (
 		// These could potentially be moved out
 		exact(unreserved, "internal.kcp.io/e2e-test"),
 		exact(unreserved, "internal.kcp.io/test-initializer"),
+
+		// set by kcp-operator (running as system:kcp:admin) on objects it
+		// manages inside workspaces, e.g. ClusterRoleBindings provisioned
+		// for Kubeconfig objects
+		prefix(adminReserved, "operator.kcp.io/"),
 	}
 )
 
