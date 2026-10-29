@@ -31,11 +31,31 @@ func InitializerGroup(initializer corev1alpha1.LogicalClusterInitializer) string
 	return bootstrap.SystemKcpInitializerGroupPrefix + string(initializer)
 }
 
+// HasInitializerGroup returns true if any group has the initializer synthetic prefix.
+func HasInitializerGroup(groups []string) bool {
+	for _, group := range groups {
+		if strings.HasPrefix(group, bootstrap.SystemKcpInitializerGroupPrefix) {
+			return true
+		}
+	}
+	return false
+}
+
 // TerminatorGroup returns the synthetic group that the terminating virtual workspace's
 // content proxy injects when it has already authorized a request against the
 // WorkspaceType's terminatorPermissions.
 func TerminatorGroup(terminator corev1alpha1.LogicalClusterTerminator) string {
 	return bootstrap.SystemKcpTerminatorGroupPrefix + string(terminator)
+}
+
+// HasTerminatorGroup returns true if any group has the terminator synthetic prefix.
+func HasTerminatorGroup(groups []string) bool {
+	for _, group := range groups {
+		if strings.HasPrefix(group, bootstrap.SystemKcpTerminatorGroupPrefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // HasLifecycleGroup returns true if any of the supplied groups is a synthetic
