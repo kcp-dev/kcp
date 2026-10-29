@@ -58,6 +58,14 @@ type Authorization struct {
 }
 
 const (
+	// authorizerAlwaysAllowGroups is used to authorize one of the configured always-allow groups, by default system:masters.
+	//
+	// Deprecated: the AlwaysAllowGroups authorizer is now always checked before other authorizers.
+	authorizerAlwaysAllowGroups string = "AlwaysAllowGroups"
+	// authorizerAlwaysAllowPaths is used to authorize one of the preconfigured paths that do not require authorization, like /healthz, /readyz and /livez.
+	//
+	// Deprecated: the AlwaysAllowPaths authorizer is now always checked before other authorizers.
+	authorizerAlwaysAllowPaths string = "AlwaysAllowPaths"
 	// authorizerWebhook is the authorizer to make an external webhook call.
 	authorizerWebhook string = "Webhook"
 	// authorizerRBAC is the authorizer to use Role Based Access Control.
@@ -66,8 +74,10 @@ const (
 
 var defaultAuthorizers = []string{authorizerRBAC, authorizerWebhook}
 
+var deprecatedAuthorizers = sets.NewString(authorizerAlwaysAllowGroups, authorizerAlwaysAllowPaths)
+
 func isValidAuthorizer(authorizer string) bool {
-	return sets.NewString(defaultAuthorizers...).Has(authorizer)
+	return sets.NewString(defaultAuthorizers...).Has(authorizer) || deprecatedAuthorizers.Has(authorizer)
 }
 
 func NewAuthorization() *Authorization {
@@ -143,7 +153,8 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 			"contacting the 'core' kubernetes server.")
 
 	fs.StringSliceVar(&s.AuthorizationOrder, "authorization-order", s.AuthorizationOrder,
-		"A list of authorizers that should be enabled, allowing administrator rearrange the default order."+
+		"A list of authorizers that should be enabled, allowing administrator rearrange the default order. "+
+			"Always-allow groups and paths are always consulted first and their names are accepted but ignored. "+
 			"The default order is: RBAC,Webhook.")
 
 	// Only surface selected, webhook-related CLI flags
@@ -260,6 +271,11 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 				authorizer = authz.WithWarrantsAndScopes(authorizer)
 				grants = append(grants, authorizer)
 			}
+		case authorizerAlwaysAllowGroups, authorizerAlwaysAllowPaths:
+			// TODO(ntnn): These used to be configurable in the authorization order.
+			// They are still recognized for backwards compatibility but are now always checked first.
+			// This should be removed after a few releases.
+			continue
 		default:
 			return fmt.Errorf("invalid authorizer: %q", authorizer)
 		}

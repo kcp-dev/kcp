@@ -99,6 +99,25 @@ func TestAuthorizationOrder(t *testing.T) {
 		verifyEndpointAccess(ctx, t, srv, "/readyz", true)
 	})
 
+	t.Run("Legacy authorization order", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		t.Cleanup(cancelFunc)
+
+		webhook := framework.StartAuthzWebhook(ctx, t, server.Deny)
+
+		// Locks in that the pre-reorder flag values from the docs keep working: the always-allow
+		// names are accepted as no-ops because those authorizers always run first now.
+		srv, kcpClusterClient, _ := setupTest(t, "Webhook,AlwaysAllowGroups,AlwaysAllowPaths,RBAC", webhook)
+
+		t.Log("Verify that it is allowed to access one of AllowAllPaths endpoints.")
+		verifyEndpointAccess(ctx, t, srv, "/healthz", true)
+
+		t.Log("Admin should not be allowed to list Workspaces.")
+		_, err := kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+		require.Error(t, err)
+	})
+
 	t.Run("Default authorization order", func(t *testing.T) {
 		t.Parallel()
 		ctx, cancelFunc := context.WithCancel(context.Background())
