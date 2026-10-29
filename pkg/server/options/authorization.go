@@ -230,7 +230,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	bypass = append(bypass, authz.NewLifecycleGroupsAuthorizer(getLogicalCluster))
 
 	// pre-gates run before any grant
-	preGate := authz.NewDecorator("00-existence", authz.NewLogicalClusterExistenceAuthorizer(getLogicalCluster)).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	preGate := authz.NewDecorator("pregate-existence", authz.NewLogicalClusterExistenceAuthorizer(getLogicalCluster)).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// grants are the configured authorizers.
 	// They may grant or deny access.
@@ -244,14 +244,14 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 		case authorizerRBAC:
 			// bootstrap rules defined once for every workspace
 			bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(kubeInformers)
-			bootstrapAuth = authz.NewDecorator("05-bootstrap", bootstrapAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+			bootstrapAuth = authz.NewDecorator("grant-bootstrap", bootstrapAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 			// resolves RBAC resources in the workspace
 			localAuth, localResolver := authz.NewLocalAuthorizer(kubeInformers)
-			localAuth = authz.NewDecorator("05-local", localAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+			localAuth = authz.NewDecorator("grant-local", localAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 			globalAuth, _ := authz.NewGlobalAuthorizer(kubeInformers, globalKubeInformers)
-			globalAuth = authz.NewDecorator("05-global", globalAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+			globalAuth = authz.NewDecorator("grant-global", globalAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 			rbacAuth := union.New(bootstrapAuth, localAuth, globalAuth)
 
@@ -264,7 +264,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
 			// mean nothing unless they also have `verb=access` on `/`.
 			rbacAccess := authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, getLogicalCluster)(rbacAuth)
-			rbacAccess = authz.NewDecorator("02-content", rbacAccess).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+			rbacAccess = authz.NewDecorator("grant-content", rbacAccess).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 			grants = append(grants, rbacAccess)
 			config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
@@ -293,6 +293,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 					return err
 				}
 				authorizer = authz.WithWarrantsAndScopes(authorizer)
+				authorizer = authz.NewDecorator("grant-webhook", authorizer).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 				grants = append(grants, authorizer)
 			}
 		case authorizerAlwaysAllowGroups, authorizerAlwaysAllowPaths:
@@ -312,18 +313,18 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 
 	// enforce maximal permission policy
 	gates = authz.NewMaximalPermissionPolicyAuthorizer(kubeInformers, globalKubeInformers, kcpInformers, globalKcpInformers)(gates)
-	gates = authz.NewDecorator("04-maxpermissionpolicy", gates).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	gates = authz.NewDecorator("gate-maxpermissionpolicy", gates).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// protect status updates to apiexport and apibinding
 	gates = authz.NewSystemCRDAuthorizer(gates)
-	gates = authz.NewDecorator("03-systemcrd", gates).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+	gates = authz.NewDecorator("gate-systemcrd", gates).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// workspaces are annotated to list the groups required on users wishing to access the workspace -
 	// this is mostly useful when adding a core set of groups to an org workspace and having them inherited
 	// by child workspaces; this gives administrators of an org control over which users can be given access
 	// to content in sub-workspaces
 	gates = authz.NewRequiredGroupsAuthorizer(getLogicalCluster)(gates)
-	gates = authz.NewDecorator("01-requiredgroups", gates).AddAuditLogging().AddAnonymization()
+	gates = authz.NewDecorator("gate-requiredgroups", gates).AddAuditLogging().AddAnonymization()
 
 	bypassAuth := union.New(bypass...)
 	grantsAuth := union.New(grants...)
