@@ -51,13 +51,13 @@ for file in ${DESTINATION}/*.md; do
     mv "${file}" "${DESTINATION}/${apigroup}/${crdname}.md"
 done
 
-# Generate a .nav.yml config file to override title case being applied to
+# Generate a .pages config file to override title case being applied to
 # folder names by default (https://github.com/mkdocs/mkdocs/issues/2086)
-echo "nav:" > ${DESTINATION}/.nav.yml
+echo "nav:" > ${DESTINATION}/.pages
 for dir in ${DESTINATION}/*/; do
     if [ -d "${dir}" ]; then
         echo ${dir}
     fi
     apigroup=$(basename $dir)
-    echo "  - ${apigroup}: ${apigroup}" >> ${DESTINATION}/.nav.yml
+    echo "  - ${apigroup}: ${apigroup}" >> ${DESTINATION}/.pages
 done
