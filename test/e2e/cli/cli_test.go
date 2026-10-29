@@ -63,6 +63,14 @@ func eventually(ctx context.Context) func(*testscript.TestScript, bool, []string
 // filename, omitting the `.txtar` suffix:
 //
 //	-run TestScript/create_workspace
+//
+// The test expects that the plugins are built and placed in `./bin`.
+// The Makefile recipe for the e2e tests ensures this.
+// Accordingly the `./bin` directory is added to the `PATH` env var as
+// the first segment for the tests.
+//
+// Running the tests via `go test` is also possible if the plugins are
+// built first via `make build`.
 func TestScript(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, "cli")
