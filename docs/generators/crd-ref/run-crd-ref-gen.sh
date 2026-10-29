@@ -22,7 +22,7 @@ set -o xtrace
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 
 CONTAINER_ENGINE=${CONTAINER_ENGINE:-podman}
-CRD_DOCS_GENERATOR_VERSION=0.10.0
+CRD_DOCS_GENERATOR_VERSION=0.11.0
 
 #TODO(ncdc): i18n
 DESTINATION="${REPO_ROOT}/docs/content/reference/crd"
@@ -37,7 +37,7 @@ fi
 $CONTAINER_ENGINE run --rm \
     -v "${DESTINATION}":/opt/crd-docs-generator/output"${BIND_MOUNT_OPTS}" \
     -v "${REPO_ROOT}"/docs/generators/crd-ref:/opt/crd-docs-generator/config"${BIND_MOUNT_OPTS}" \
-    quay.io/giantswarm/crd-docs-generator:${CRD_DOCS_GENERATOR_VERSION} \
+    gsoci.azurecr.io/giantswarm/crd-docs-generator:${CRD_DOCS_GENERATOR_VERSION} \
     --config /opt/crd-docs-generator/config/config.yaml
 
 # Organise CRDs by API group
@@ -51,13 +51,13 @@ for file in ${DESTINATION}/*.md; do
     mv "${file}" "${DESTINATION}/${apigroup}/${crdname}.md"
 done
 
-# Generate a .pages config file to override title case being applied to
+# Generate a .nav.yml config file to override title case being applied to
 # folder names by default (https://github.com/mkdocs/mkdocs/issues/2086)
-echo "nav:" > ${DESTINATION}/.pages
+echo "nav:" > ${DESTINATION}/.nav.yml
 for dir in ${DESTINATION}/*/; do
     if [ -d "${dir}" ]; then
         echo ${dir}
     fi
     apigroup=$(basename $dir)
-    echo "  - ${apigroup}: ${apigroup}" >> ${DESTINATION}/.pages
+    echo "  - ${apigroup}: ${apigroup}" >> ${DESTINATION}/.nav.yml
 done
