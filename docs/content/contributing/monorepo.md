@@ -113,6 +113,4 @@ Adding a completely new staging repository to the monorepo must follow this proc
 
 Adding an existing standalone repository to the monorepo is generally discouraged and will be considered on
 a case-by-case basis by Maintainers. This case requires following different steps that are documented as part of the
-monorepo proposal: https://github.com/kcp-dev/enhancements/pull/7
-
-<!-- TODO(xmudrii): replace the PR link with a link to the document once merged -->
+monorepo proposal: https://github.com/kcp-dev/enhancements/blob/main/keps/process/0003_monorepo.md

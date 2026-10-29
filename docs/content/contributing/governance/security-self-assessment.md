@@ -105,7 +105,7 @@ kcp provides resources dedicated to managing available APIs in a Workspace.
 #### Security Goals
 
 * **Strict Workspace Isolation:** Ensure that tenants in one Workspace cannot see, access, or affect resources in another Workspace unless explicitly authorized. This is the core security boundary of the system.
-* **Scoped Permissions:** The permissions granted to a Syncer on both the kcp server and the physical cluster must be limited to the minimum required for its function (Principle of Least Privilege). - TODO remove Syncer
+* **Scoped Permissions:** The permissions granted to API providers through APIExport permission claims, and to kcp's own controllers, must be limited to the minimum required for their function (Principle of Least Privilege).
 * **Standard Kubernetes Auth:** Leverage and extend Kubernetes authentication and authorization (RBAC) mechanisms for access control to the kcp server and within Workspaces.
 
 ### Non-goals

@@ -262,7 +262,27 @@ roleRef:
     The same authorization scheme is enforced when executing the request of a claimed resource via the virtual APIExport API server,
     i.e. a claimed resource is bound to the same maximal permission policy. Only the actual owner of that resources can go beyond that policy.
 
-TBD: Example
+The policy is enabled by setting `maximalPermissionPolicy` on the `APIExport` in the `provider` workspace:
+
+```yaml
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIExport
+metadata:
+  name: foo.api
+spec:
+  resources:
+  - group: foo.api
+    name: foos
+    schema: v220801.foos.foo.api
+    storage:
+      crd: {}
+  maximalPermissionPolicy:
+    local: {}
+```
+
+Together with the Role and RoleBinding above, `user-1` can create `foos` in the `default` namespace of every workspace
+that binds to this export, provided that workspace's own RBAC allows it as well. Any other verb, or the same verb in
+another namespace, is rejected by this authorizer no matter what the consuming workspace grants.
 
 #### Local Policy Authorizer
 
