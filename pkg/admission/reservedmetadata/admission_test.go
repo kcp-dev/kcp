@@ -163,6 +163,10 @@ func TestLabelReservation(t *testing.T) {
 		{key: "internal.apis.kcp.io/not-export", reservation: systemReserved},
 		{key: logicalcluster.AnnotationKey, reservation: systemReserved},
 
+		// Admin-managed labels, written by kcp-operator as system:kcp:admin
+		{key: "operator.kcp.io/kubeconfig", reservation: adminReserved},
+		{key: "operator.kcp.io/rootshard", reservation: adminReserved},
+
 		// Unknown kcp.io-domain keys default to system-reserved including top-level domain
 		{key: "foo.kcp.io/bar", reservation: systemReserved},
 		{key: "kcp.io/some-future-label", reservation: systemReserved},
@@ -220,6 +224,7 @@ func TestValidate(t *testing.T) {
 	}
 	systemOnly := map[string]string{"unit.kcp.io/reserved": "x"}
 	adminOnly := map[string]string{corev1alpha1.LogicalClusterMaxTotalObjectsAnnotationKey: "100"}
+	adminOnlyLabels := map[string]string{"operator.kcp.io/kubeconfig": "7ad8b3e6-3a27-4c3a-9d2c-0b1f7e2f1c11"}
 	open := map[string]string{"unreserved": "x"}
 
 	for _, tc := range []struct {
@@ -281,6 +286,16 @@ func TestValidate(t *testing.T) {
 			name:    "regular users may not modify system-reserved annotations",
 			attr:    newAttr(pod(systemOnly, nil), pod(nil, nil), admission.Update, &user.DefaultInfo{}),
 			wantErr: "forbidden: modification of system-reserved annotation: \"unit.kcp.io/reserved\"",
+		},
+		{
+			name: "kcp-admin may modify admin-reserved labels",
+			attr: newAttr(pod(nil, adminOnlyLabels), pod(nil, nil), admission.Update,
+				&user.DefaultInfo{Groups: []string{bootstrap.SystemKcpAdminGroup}}),
+		},
+		{
+			name:    "regular users may not modify admin-reserved labels",
+			attr:    newAttr(pod(nil, adminOnlyLabels), pod(nil, nil), admission.Update, &user.DefaultInfo{}),
+			wantErr: "forbidden: modification of admin-reserved label: \"operator.kcp.io/kubeconfig\"",
 		},
 		{
 			name:    "regular users may not modify system-reserved labels",
