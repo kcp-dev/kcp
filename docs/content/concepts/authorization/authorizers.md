@@ -347,21 +347,37 @@ The extra field will contain the logical cluster _name_ (e.g. o43u2gh528rtfg721r
 
 ### Authorizer Order
 
-By default, the authorizers are evaluated in the following order:
+The authorizers are evaluated in four fixed groups:
 
-1. **Always Allow Groups Authorizer** (`AlwaysAllowGroups`)
-2. **Always Allow Paths Authorizer** (`AlwaysAllowPaths`)
-3. **RBAC Chain** (`RBAC`)
-4. **Webhook Authorizer** (`Webhook`)
+1. **Bypass**: These let e.g. system identities pass the authorization
+   checks and grant access to the paths listed in
+   `--authorization-always-allow-paths` for e.g. metrics endpoints.
+2. **Pre-gate**: Basic checks validating if a request is valid in the
+   first place, e.g. whether the logical cluster a request is made for
+   exists.
+3. **Grant**: User-configurable authorizers, namely the kube RBAC chain
+   (`RBAC`) and the configurable authorization webhook (`Webhook`),
+   order is configurable via the `--authorization-order` flag.
+4. **Gate**: Final checks that may restrict access that was granted by
+   either RBAC or the authorization webhook.
+   This applies the filter for the required-groups annotation on
+   workspaces and the maximal permission policy of providers.
 
-The order in which authorizers are evaluated can be configured. This allows administrators to customize the authorization flow.
-It can be done by setting `--authorization-order` flag in the kcp server. This flag accepts a comma-separated list of authorizer names, which will be evaluated in the specified order.
+`--authorization-order` only selects and orders the grant authorizers. The bypass, pre-gate
+and gate authorizers always run in their fixed position, so an authorization webhook can
+neither be moved in front of the bypass authorizers nor behind the gates.
 
-Here is an example on how to enable the Webhook to be the first one in the authorizers chain:
+Here is an example that lets the Webhook decide before the RBAC chain:
 
 ```sh
---authorization-order=Webhook,AlwaysAllowGroups,AlwaysAllowPaths,RBAC
+--authorization-order=Webhook,RBAC
 ```
+
+!!! note
+    `AlwaysAllowGroups` and `AlwaysAllowPaths` used to be values of `--authorization-order`.
+    They are still accepted, but they are ignored:
+    those authorizers are built from `--authorization-always-allow-paths` and the configured
+    always-allow groups and always run first now.
 
 ### Scopes
 
