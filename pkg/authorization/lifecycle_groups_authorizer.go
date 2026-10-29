@@ -44,6 +44,11 @@ type lifecycleGroupsAuthorizer struct {
 }
 
 func (a *lifecycleGroupsAuthorizer) Authorize(ctx context.Context, attr authorizer.Attributes) (authorizer.Decision, string, error) {
+	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
+		// a deep SAR asks what the policy would decide, not what a pre-authorized proxy may do
+		return authorizer.DecisionNoOpinion, "deep SAR request", nil
+	}
+
 	cluster := genericapirequest.ClusterFrom(ctx)
 	if cluster == nil || cluster.Name.Empty() {
 		return authorizer.DecisionNoOpinion, "empty cluster name", nil
