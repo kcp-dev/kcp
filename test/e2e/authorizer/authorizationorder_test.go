@@ -24,6 +24,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubernetesscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -104,18 +105,39 @@ func TestAuthorizationOrder(t *testing.T) {
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		t.Cleanup(cancelFunc)
 
-		webhook := framework.StartAuthzWebhook(ctx, t, server.Deny)
+		webhook := framework.StartAuthzWebhook(ctx, t, server.Allow)
 
-		// Locks in that the pre-reorder flag values from the docs keep working: the always-allow
-		// names are accepted as no-ops because those authorizers always run first now.
+		// Locks in that the pre-reorder flag values keep working: the always-allow names are
+		// accepted as no-ops because those authorizers always run first now.
 		srv, kcpClusterClient, _ := setupTest(t, "Webhook,AlwaysAllowGroups,AlwaysAllowPaths,RBAC", webhook)
 
 		t.Log("Verify that it is allowed to access one of AllowAllPaths endpoints.")
 		verifyEndpointAccess(ctx, t, srv, "/healthz", true)
 
-		t.Log("Admin should not be allowed to list Workspaces.")
+		t.Log("Admin should be allowed to list Workspaces.")
 		_, err := kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+		require.NoError(t, err)
+	})
+
+	t.Run("Pre-gate denies what a granting webhook would allow", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		t.Cleanup(cancelFunc)
+
+		webhook := framework.StartAuthzWebhook(ctx, t, server.Allow)
+
+		// Locks in that the LogicalCluster existence pre-gate runs before the grants: a webhook
+		// that allows everything must not get to answer for a workspace that does not exist.
+		_, kcpClusterClient, _ := setupTest(t, "Webhook,RBAC", webhook)
+
+		t.Log("Admin should be allowed to list Workspaces in an existing workspace.")
+		_, err := kcpClusterClient.Cluster(logicalcluster.NewPath("root")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
+		require.NoError(t, err, "the webhook allows everything, so an existing workspace must work")
+
+		t.Log("Admin should not be allowed to list Workspaces in a non-existent workspace.")
+		_, err = kcpClusterClient.Cluster(logicalcluster.NewPath("non-existent")).TenancyV1alpha1().Workspaces().List(ctx, metav1.ListOptions{})
 		require.Error(t, err)
+		require.True(t, apierrors.IsForbidden(err), "expected the pre-gate to deny, got: %v", err)
 	})
 
 	t.Run("Default authorization order", func(t *testing.T) {
