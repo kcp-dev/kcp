@@ -236,9 +236,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			// rbacAccess determines if users have access to the workspace itself - by default, in Kube there is a set
 			// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
 			// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
-			// mean nothing unless they also have `verb=access` on `/`. It is asked of the workspace RBAC and of the grants,
-			// which it wraps: an authorization webhook standing in for RBAC can open a workspace, but only by answering
-			// that question, and it never gets to answer a request in a workspace the identity may not enter.
+			// mean nothing unless they also have `verb=access` on `/`.
 			rbacAccess := authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister)(rbacAuth)
 			rbacAccess = authz.NewDecorator("02-content", rbacAccess).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
