@@ -113,7 +113,16 @@ func TestLifecycleGroupsAuthorizer(t *testing.T) {
 			wantDecision: authorizer.DecisionNoOpinion,
 			wantReason:   "no lifecycle group",
 		},
-		"lifecycle group without logical cluster is not allowed": {
+		"deep SAR is skipped": {
+			requested:    logicalcluster.Name("root:ws"),
+			phase:        corev1alpha1.LogicalClusterPhaseDeleting,
+			terminators:  []corev1alpha1.LogicalClusterTerminator{terminator},
+			groups:       []string{TerminatorGroup(terminator)},
+			deepSAR:      true,
+			wantDecision: authorizer.DecisionNoOpinion,
+			wantReason:   "deep SAR request",
+		},
+		"lifecycle group without logical cluster": {
 			requested:    logicalcluster.Name("root:gone"),
 			phase:        corev1alpha1.LogicalClusterPhaseInitializing,
 			initializers: []corev1alpha1.LogicalClusterInitializer{initializer},
