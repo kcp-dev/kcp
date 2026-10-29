@@ -22,6 +22,7 @@ import (
 
 	"github.com/spf13/pflag"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -35,6 +36,8 @@ import (
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
+	"github.com/kcp-dev/logicalcluster/v3"
+	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	authz "github.com/kcp-dev/kcp/pkg/authorization"
@@ -173,16 +176,21 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Config, kubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory) error {
-	// authorizers are sorted into three distinct groups:
+	// authorizers are sorted into four distinct groups:
 	// 1. bypass: These _must_ be consulted first and if they Allow
 	//       access MUST be allowed, as they e.g. let system identities
 	//       bypass authorization checks.
-	// 2. grant: These are user configurable. At the time of writing
+	// 2. pre-gates: Structural gates are checks that can run before
+	//       even handing the request to the user-configured
+	//       authorizers, e.g. to validate that a LogicalCluster exists
+	//       and is in an accessible phase.
+	//       If they Deny access MUST be denied.
+	// 3. grant: These are user configurable. At the time of writing
 	//       this is kube RBAC and the authz webhook.
 	//       These may Allow or Deny.
 	//       If they Deny access MUST be denied.
 	//       If they Allow or NoOpinion the gates are checked.
-	// 3. gates: These are vital authorization checks for kcp
+	// 4. gates: These are vital authorization checks for kcp
 	//       functionality. E.g. they protect system CRD
 	//       APIExports/-Bindings and enforce the
 	//       MaximalPermissionPolicy.
@@ -217,6 +225,12 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 		}
 		bypass = append(bypass, union.NamedAuthorizer{AuthorizerName: authorizerAlwaysAllowPaths, Authorizer: a})
 	}
+
+	// Allow the synthetic intializing and terminating pre-authorized requests through.
+	bypass = append(bypass, authz.NewLifecycleGroupsAuthorizer(getLogicalCluster))
+
+	// pre-gates run before any grant
+	preGate := authz.NewDecorator("00-existence", authz.NewLogicalClusterExistenceAuthorizer(getLogicalCluster)).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// grants are the configured authorizers.
 	// They may grant or deny access.
@@ -335,6 +349,13 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			return dec, reason, nil
 		}
 
+		// check pre-gates
+		if dec, reason, err := preGate.Authorize(ctx, attr); err != nil {
+			return authorizer.DecisionNoOpinion, reason, err
+		} else if dec == authorizer.DecisionDeny {
+			return dec, reason, nil
+		}
+
 		// check grants
 		dec, reason, err := grantsAuth.Authorize(ctx, attr)
 		if err != nil {
@@ -344,12 +365,14 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			return dec, reason, nil
 		}
 
-		// grants either Allow or NoOpinion, validate against gates.
+		// grants either Allow or NoOpinion
+
+		// gates may still Deny
 		gateDec, gateReason, err := gates.Authorize(ctx, attr)
 		if err != nil {
 			return authorizer.DecisionNoOpinion, gateReason, err
 		}
-		if gateDec != authorizer.DecisionNoOpinion {
+		if gateDec == authorizer.DecisionDeny {
 			return gateDec, gateReason, nil
 		}
 
