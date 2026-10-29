@@ -180,11 +180,12 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	// 1. bypass: These _must_ be consulted first and if they Allow
 	//       access MUST be allowed, as they e.g. let system identities
 	//       bypass authorization checks.
+	//       Any other decision is ignored.
 	// 2. pre-gates: Structural gates are checks that can run before
 	//       even handing the request to the user-configured
-	//       authorizers, e.g. to validate that a LogicalCluster exists
-	//       and is in an accessible phase.
+	//       authorizers, e.g. to validate that a LogicalCluster exists.
 	//       If they Deny access MUST be denied.
+	//       Any other decision is ignored.
 	// 3. grant: These are user configurable. At the time of writing
 	//       this is kube RBAC and the authz webhook.
 	//       These may Allow or Deny.
@@ -194,8 +195,8 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	//       functionality. E.g. they protect system CRD
 	//       APIExports/-Bindings and enforce the
 	//       MaximalPermissionPolicy.
-	//       If they Allow or Deny access MUST be allowed or denied.
-	//       If they NoOpinion the decision of the grants is returned.
+	//       If they Deny access MUST be denied.
+	//       Any other decision is ignored.
 
 	localLogicalClusterLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 	globalLogicalClusterLister := globalKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
