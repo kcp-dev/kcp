@@ -49,7 +49,7 @@ func (a *lifecycleGroupsAuthorizer) Authorize(ctx context.Context, attr authoriz
 		return authorizer.DecisionNoOpinion, "empty cluster name", nil
 	}
 
-	if attr.GetUser() == nil || !HasLifecycleGroup(attr.GetUser().GetGroups()) {
+	if attr.GetUser() == nil || !hasLifecycleGroup(attr.GetUser().GetGroups()) {
 		return authorizer.DecisionNoOpinion, "no lifecycle group", nil
 	}
 
@@ -61,19 +61,18 @@ func (a *lifecycleGroupsAuthorizer) Authorize(ctx context.Context, attr authoriz
 		return authorizer.DecisionNoOpinion, "error getting LogicalCluster", err
 	}
 
-	// The synthetic groups cannot be forged (the front-proxy strips them on ingress) and are
-	// only honored while the workspace is actually in a lifecycle phase - a leftover group on
-	// a caller of a Ready workspace must not grant unconditional access.
+	// Validate that the request carries a synthetic group for a valid
+	// registered intiializer/terminator.
 	switch logicalCluster.Status.Phase {
 	case corev1alpha1.LogicalClusterPhaseInitializing:
-		if HasInitializerGroup(attr.GetUser().GetGroups()) {
+		if isRegisteredInitializer(attr.GetUser().GetGroups(), logicalCluster) {
 			return authorizer.DecisionAllow, "initializing lifecycle VW pre-authorized access", nil
 		}
 	case corev1alpha1.LogicalClusterPhaseTerminating, corev1alpha1.LogicalClusterPhaseDeleting:
-		if HasTerminatorGroup(attr.GetUser().GetGroups()) {
+		if isRegisteredTerminator(attr.GetUser().GetGroups(), logicalCluster) {
 			return authorizer.DecisionAllow, "terminating lifecycle VW pre-authorized access", nil
 		}
 	}
 
-	return authorizer.DecisionNoOpinion, fmt.Sprintf("lifecycle group in phase %q", logicalCluster.Status.Phase), nil
+	return authorizer.DecisionNoOpinion, fmt.Sprintf("no registered lifecycle group in phase %q", logicalCluster.Status.Phase), nil
 }
