@@ -103,14 +103,6 @@ func TestLogicalClusterExistenceAuthorizer(t *testing.T) {
 			wantReason:   "error getting LogicalCluster",
 			wantError:    "lister is down",
 		},
-		// Locks in that logical-cluster-admins may create and delete logical clusters, whose
-		// LogicalCluster object the pre-gate cannot find while it is being created.
-		"logical cluster admin is skipped": {
-			requested:    logicalcluster.Name("root:gone"),
-			groups:       []string{"system:kcp:logical-cluster-admin"},
-			wantDecision: authorizer.DecisionNoOpinion,
-			wantReason:   "logical cluster admin access",
-		},
 	}
 
 	for title, cas := range cases {

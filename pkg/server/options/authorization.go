@@ -226,6 +226,14 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 		bypass = append(bypass, a)
 	}
 
+	// bootstrap rules defined once for every workspace
+	bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(kubeInformers)
+	bootstrapAuth = authz.NewDecorator("grant-bootstrap", bootstrapAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+	// The logical cluster management identities operate on logical clusters themselves - in
+	// every phase and before any content exists.
+	bypass = append(bypass, authz.NewDecorator("bypass-logicalclustermanagement", authz.NewLogicalClusterManagementBypassAuthorizer(bootstrapAuth)).AddAuditLogging().AddAnonymization())
+
 	// Allow the synthetic intializing and terminating pre-authorized requests through.
 	bypass = append(bypass, authz.NewLifecycleGroupsAuthorizer(getLogicalCluster))
 
@@ -242,9 +250,6 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	for _, authorizer := range s.AuthorizationOrder {
 		switch authorizer {
 		case authorizerRBAC:
-			// bootstrap rules defined once for every workspace
-			bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(kubeInformers)
-			bootstrapAuth = authz.NewDecorator("grant-bootstrap", bootstrapAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 			// resolves RBAC resources in the workspace
 			localAuth, localResolver := authz.NewLocalAuthorizer(kubeInformers)

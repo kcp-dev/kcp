@@ -23,12 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-
-	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
 // LogicalClusterGetter returns the LogicalCluster object backing a logical cluster.
@@ -56,11 +53,6 @@ func (a *logicalClusterExistenceAuthorizer) Authorize(ctx context.Context, attr 
 	// not backed by a LogicalCluster object - same skip as the workspace content authorizer.
 	if cluster == nil || cluster.Name.Empty() || strings.HasPrefix(cluster.Name.String(), "system:") {
 		return authorizer.DecisionNoOpinion, "empty or system workspace", nil
-	}
-
-	// Skip LC existence check for LC admin, which is used for creating LCs in the first place.
-	if rbacregistryvalidation.EffectiveGroups(ctx, attr.GetUser()).Has(bootstrap.SystemLogicalClusterAdmin) {
-		return authorizer.DecisionNoOpinion, "logical cluster admin access", nil
 	}
 
 	if _, err := a.getLogicalCluster(cluster.Name); err != nil {
