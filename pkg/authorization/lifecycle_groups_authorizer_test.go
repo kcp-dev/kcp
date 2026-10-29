@@ -17,6 +17,7 @@ limitations under the License.
 package authorization
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -40,43 +41,74 @@ func TestLifecycleGroupsAuthorizer(t *testing.T) {
 	cases := map[string]struct {
 		requested    logicalcluster.Name
 		phase        corev1alpha1.LogicalClusterPhaseType
+		initializers []corev1alpha1.LogicalClusterInitializer
+		terminators  []corev1alpha1.LogicalClusterTerminator
 		groups       []string
+		deepSAR      bool
 		wantDecision authorizer.Decision
 		wantReason   string
 	}{
-		"initializer group in initializing phase is allowed": {
+		"registered initializer in initializing phase is allowed": {
 			requested:    logicalcluster.Name("root:ws"),
 			phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+			initializers: []corev1alpha1.LogicalClusterInitializer{initializer},
 			groups:       []string{InitializerGroup(initializer)},
 			wantDecision: authorizer.DecisionAllow,
 			wantReason:   "initializing lifecycle VW pre-authorized access",
 		},
-		"terminator group in terminating phase is allowed": {
+		"registered terminator in terminating phase is allowed": {
 			requested:    logicalcluster.Name("root:ws"),
 			phase:        corev1alpha1.LogicalClusterPhaseTerminating,
+			terminators:  []corev1alpha1.LogicalClusterTerminator{terminator},
 			groups:       []string{TerminatorGroup(terminator)},
 			wantDecision: authorizer.DecisionAllow,
 			wantReason:   "terminating lifecycle VW pre-authorized access",
 		},
-		"terminator group in deleting phase is allowed": {
+		"registered terminator in deleting phase is allowed": {
 			requested:    logicalcluster.Name("root:ws"),
 			phase:        corev1alpha1.LogicalClusterPhaseDeleting,
+			terminators:  []corev1alpha1.LogicalClusterTerminator{terminator},
 			groups:       []string{TerminatorGroup(terminator)},
 			wantDecision: authorizer.DecisionAllow,
 			wantReason:   "terminating lifecycle VW pre-authorized access",
 		},
-		// Locks in that a forged or leftover lifecycle group on a caller of a workspace that
-		// is not in a lifecycle phase does not grant access.
-		"initializer group in ready phase is not allowed": {
+		"unregistered terminator in deleting phase is not allowed": {
+			requested:    logicalcluster.Name("root:ws"),
+			phase:        corev1alpha1.LogicalClusterPhaseDeleting,
+			terminators:  []corev1alpha1.LogicalClusterTerminator{terminator},
+			groups:       []string{TerminatorGroup("probe")},
+			wantDecision: authorizer.DecisionNoOpinion,
+			wantReason:   `no registered lifecycle group in phase "Deleting"`,
+		},
+		"registered initializer in ready phase is not allowed": {
 			requested:    logicalcluster.Name("root:ws"),
 			phase:        corev1alpha1.LogicalClusterPhaseReady,
+			initializers: []corev1alpha1.LogicalClusterInitializer{initializer},
 			groups:       []string{InitializerGroup(initializer)},
 			wantDecision: authorizer.DecisionNoOpinion,
-			wantReason:   `lifecycle group in phase "Ready"`,
+			wantReason:   `no registered lifecycle group in phase "Ready"`,
 		},
-		"no lifecycle group is not allowed": {
+		"initializer group in terminating phase is not allowed": {
+			requested:    logicalcluster.Name("root:ws"),
+			phase:        corev1alpha1.LogicalClusterPhaseTerminating,
+			initializers: []corev1alpha1.LogicalClusterInitializer{initializer},
+			terminators:  []corev1alpha1.LogicalClusterTerminator{terminator},
+			groups:       []string{InitializerGroup(initializer)},
+			wantDecision: authorizer.DecisionNoOpinion,
+			wantReason:   `no registered lifecycle group in phase "Terminating"`,
+		},
+		"name registered as terminator is not accepted as initializer group": {
 			requested:    logicalcluster.Name("root:ws"),
 			phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+			terminators:  []corev1alpha1.LogicalClusterTerminator{terminator},
+			groups:       []string{InitializerGroup(corev1alpha1.LogicalClusterInitializer(terminator))},
+			wantDecision: authorizer.DecisionNoOpinion,
+			wantReason:   `no registered lifecycle group in phase "Initializing"`,
+		},
+		"no lifecycle group": {
+			requested:    logicalcluster.Name("root:ws"),
+			phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+			initializers: []corev1alpha1.LogicalClusterInitializer{initializer},
 			groups:       []string{"system:authenticated"},
 			wantDecision: authorizer.DecisionNoOpinion,
 			wantReason:   "no lifecycle group",
@@ -84,6 +116,7 @@ func TestLifecycleGroupsAuthorizer(t *testing.T) {
 		"lifecycle group without logical cluster is not allowed": {
 			requested:    logicalcluster.Name("root:gone"),
 			phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+			initializers: []corev1alpha1.LogicalClusterInitializer{initializer},
 			groups:       []string{InitializerGroup(initializer)},
 			wantDecision: authorizer.DecisionNoOpinion,
 			wantReason:   "LogicalCluster not found",
@@ -91,6 +124,7 @@ func TestLifecycleGroupsAuthorizer(t *testing.T) {
 		"empty cluster is skipped": {
 			requested:    logicalcluster.Name(""),
 			phase:        corev1alpha1.LogicalClusterPhaseInitializing,
+			initializers: []corev1alpha1.LogicalClusterInitializer{initializer},
 			groups:       []string{InitializerGroup(initializer)},
 			wantDecision: authorizer.DecisionNoOpinion,
 			wantReason:   "empty cluster name",
@@ -103,9 +137,15 @@ func TestLifecycleGroupsAuthorizer(t *testing.T) {
 
 			ctx := t.Context()
 			ctx = genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: cas.requested})
+			if cas.deepSAR {
+				ctx = context.WithValue(ctx, deepSARKey, true)
+			}
 
-			getter := stubLogicalClusterGetter(newLogicalCluster(logicalcluster.Name("root:ws"), cas.phase))
-			a := NewLifecycleGroupsAuthorizer(getter)
+			logicalCluster := newLogicalCluster(logicalcluster.Name("root:ws"), cas.phase)
+			logicalCluster.Status.Initializers = cas.initializers
+			logicalCluster.Status.Terminators = cas.terminators
+
+			a := NewLifecycleGroupsAuthorizer(stubLogicalClusterGetter(logicalCluster))
 
 			attr := authorizer.AttributesRecord{User: &user.DefaultInfo{Name: "lifecycle-caller", Groups: cas.groups}}
 

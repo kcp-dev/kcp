@@ -17,6 +17,7 @@ limitations under the License.
 package authorization
 
 import (
+	"slices"
 	"strings"
 
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -31,10 +32,20 @@ func InitializerGroup(initializer corev1alpha1.LogicalClusterInitializer) string
 	return bootstrap.SystemKcpInitializerGroupPrefix + string(initializer)
 }
 
-// HasInitializerGroup returns true if any group has the initializer synthetic prefix.
-func HasInitializerGroup(groups []string) bool {
+// isRegisteredInitializer returns true if a group names an initializer that the
+// LogicalCluster has registered in Status.Initializers.
+func isRegisteredInitializer(groups []string, logicalCluster *corev1alpha1.LogicalCluster) bool {
 	for _, group := range groups {
-		if strings.HasPrefix(group, bootstrap.SystemKcpInitializerGroupPrefix) {
+		name, found := strings.CutPrefix(group, bootstrap.SystemKcpInitializerGroupPrefix)
+		if !found {
+			continue
+		}
+		if slices.ContainsFunc(
+			logicalCluster.Status.Initializers,
+			func(i corev1alpha1.LogicalClusterInitializer) bool {
+				return string(i) == name
+			},
+		) {
 			return true
 		}
 	}
@@ -48,21 +59,29 @@ func TerminatorGroup(terminator corev1alpha1.LogicalClusterTerminator) string {
 	return bootstrap.SystemKcpTerminatorGroupPrefix + string(terminator)
 }
 
-// HasTerminatorGroup returns true if any group has the terminator synthetic prefix.
-func HasTerminatorGroup(groups []string) bool {
+// isRegisteredTerminator returns true if a group names a terminator that the LogicalCluster
+// has registered in Status.Terminators.
+func isRegisteredTerminator(groups []string, logicalCluster *corev1alpha1.LogicalCluster) bool {
 	for _, group := range groups {
-		if strings.HasPrefix(group, bootstrap.SystemKcpTerminatorGroupPrefix) {
+		name, found := strings.CutPrefix(group, bootstrap.SystemKcpTerminatorGroupPrefix)
+		if !found {
+			continue
+		}
+		if slices.ContainsFunc(
+			logicalCluster.Status.Terminators,
+			func(t corev1alpha1.LogicalClusterTerminator) bool {
+				return string(t) == name
+			},
+		) {
 			return true
 		}
 	}
 	return false
 }
 
-// HasLifecycleGroup returns true if any of the supplied groups is a synthetic
-// initializer/terminator group injected by a lifecycle VW content proxy. The presence
-// of such a group is a "pre-authorized by VW" marker; clients cannot forge it because
-// the front-proxy strips these prefixes from all incoming requests.
-func HasLifecycleGroup(groups []string) bool {
+// hasLifecycleGroup returns true if any of the supplied groups is a synthetic
+// initializer or terminator group injected by a lifecycle VW content proxy.
+func hasLifecycleGroup(groups []string) bool {
 	for _, g := range groups {
 		if isLifecycleGroup(g) {
 			return true
