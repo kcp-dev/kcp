@@ -231,15 +231,16 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	bootstrapAuth, bootstrapRules := authz.NewBootstrapPolicyAuthorizer(kubeInformers)
 	bootstrapAuth = authz.NewDecorator("grant-bootstrap", bootstrapAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
-	// The logical cluster management identities operate on logical clusters themselves - in
-	// every phase and before any content exists.
-	bypass = append(bypass, union.NamedAuthorizer{
-		AuthorizerName: "bypass-logicalclustermanagement",
-		Authorizer:     authz.NewDecorator("bypass-logicalclustermanagement", authz.NewLogicalClusterManagementBypassAuthorizer(bootstrapAuth)).AddAuditLogging().AddAnonymization(),
-	})
-
-	// Allow the synthetic intializing and terminating pre-authorized requests through.
-	bypass = append(bypass, union.NamedAuthorizer{AuthorizerName: "bypass-lifecyclegroups", Authorizer: authz.NewLifecycleGroupsAuthorizer(getLogicalCluster)})
+	bypass = append(bypass,
+		// The logical cluster management identities operate on logical clusters themselves - in
+		// every phase and before any content exists.
+		union.NamedAuthorizer{
+			AuthorizerName: "bypass-logicalclustermanagement",
+			Authorizer:     authz.NewDecorator("bypass-logicalclustermanagement", authz.NewLogicalClusterManagementBypassAuthorizer(bootstrapAuth)).AddAuditLogging().AddAnonymization(),
+		},
+		// Allow the synthetic intializing and terminating pre-authorized requests through.
+		union.NamedAuthorizer{AuthorizerName: "bypass-lifecyclegroups", Authorizer: authz.NewLifecycleGroupsAuthorizer(getLogicalCluster)},
+	)
 
 	// pre-gates run before any grant
 	preGate := authz.NewDecorator("pregate-existence", authz.NewLogicalClusterExistenceAuthorizer(getLogicalCluster)).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
