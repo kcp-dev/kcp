@@ -189,6 +189,21 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	//       If they Allow or Deny access MUST be allowed or denied.
 	//       If they NoOpinion the decision of the grants is returned.
 
+	localLogicalClusterLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
+	globalLogicalClusterLister := globalKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
+
+	// logical clusters not served by this shard are only visible through the global informers
+	getLogicalCluster := func(cluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
+		obj, err := localLogicalClusterLister.Cluster(cluster).Get(corev1alpha1.LogicalClusterName)
+		if errors.IsNotFound(err) {
+			return globalLogicalClusterLister.Cluster(cluster).Get(corev1alpha1.LogicalClusterName)
+		}
+		if err != nil {
+			return nil, err
+		}
+		return obj, nil
+	}
+
 	// Always allow groups and paths must run before other checks.
 	// Otherwise a webhook could deny access to e.g. health endpoints.
 	var bypass []union.NamedAuthorizer
@@ -209,9 +224,6 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	// overrule, e.g. to let a MaximalPermissionPolicy deny access
 	// a webhook (which has no knowledge of the MPP) may grant.
 	var grants []union.NamedAuthorizer
-
-	localLogicalClusterLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
-	globalLogicalClusterLister := globalKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 
 	for _, authorizer := range s.AuthorizationOrder {
 		switch authorizer {
@@ -244,7 +256,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
 			// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
 			// mean nothing unless they also have `verb=access` on `/`.
-			rbacAccess := authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister)(rbacAuth)
+			rbacAccess := authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, getLogicalCluster)(rbacAuth)
 			rbacAccess = authz.NewDecorator("02-content", rbacAccess).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 			grants = append(grants, union.NamedAuthorizer{AuthorizerName: authorizerRBAC, Authorizer: rbacAccess})
@@ -303,7 +315,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	// this is mostly useful when adding a core set of groups to an org workspace and having them inherited
 	// by child workspaces; this gives administrators of an org control over which users can be given access
 	// to content in sub-workspaces
-	gates = authz.NewRequiredGroupsAuthorizer(localLogicalClusterLister, globalLogicalClusterLister)(gates)
+	gates = authz.NewRequiredGroupsAuthorizer(getLogicalCluster)(gates)
 	gates = authz.NewDecorator("01-requiredgroups", gates).AddAuditLogging().AddAnonymization()
 
 	bypassAuth, err := union.New(bypass...)
