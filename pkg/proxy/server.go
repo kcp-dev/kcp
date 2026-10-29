@@ -106,10 +106,10 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// APIExports. They are read from the APIIdentity registry, which the
 	// Admin workspace of every peer serves from the cache server, so the
 	// root shard is not needed for them: an own factory, restricted to the
-	// entries owned by exports in root, feeds the identity handler.
+	// entries flagged as core, feeds the identity handler.
 	s.CoreIdentityInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(peersClient.Cluster(core.RootCluster.Path()), 30*time.Minute,
 		kcpinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			options.LabelSelector = labels.SelectorFromSet(labels.Set{adminv1alpha1.APIIdentityOwnerClusterLabel: core.RootCluster.String()}).String()
+			options.LabelSelector = labels.SelectorFromSet(labels.Set{adminv1alpha1.APIIdentityCoreLabel: "true"}).String()
 		}))
 	_, _ = s.CoreIdentityInformerFactory.Admin().V1alpha1().APIIdentities().Informer().AddEventHandler(s.CompletedConfig.CoreIdentityHandler)
 
@@ -221,8 +221,8 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// shard), so it needs its own authentication and authorization: without it
 	// the endpoint is world-readable and leaks shard-wide operational data
 	// (logical-cluster counts, client-cert expiry, request patterns). Members
-	// of the system:kcp:admin, system:masters and system:kcp:metrics-reader
-	// groups may scrape; with --root-kubeconfig a :root SubjectAccessReview
+	// of the system:kcp:admin and system:kcp:metrics-reader groups may
+	// scrape; with --root-kubeconfig a :root SubjectAccessReview
 	// is consulted as well, so the system:kcp:metrics-reader binding that
 	// authorizes scraping on the shards keeps working here during the
 	// deprecation. Registered before "/" so it takes precedence over the proxy

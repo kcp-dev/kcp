@@ -37,7 +37,7 @@ func TestMetricsGroupAuthorizer(t *testing.T) {
 		want   authorizer.Decision
 	}{
 		{name: "kcp admin may scrape", groups: []string{bootstrappolicy.SystemKcpAdminGroup, user.AllAuthenticated}, want: authorizer.DecisionAllow},
-		{name: "system:masters may scrape", groups: []string{bootstrappolicy.SystemMastersGroup}, want: authorizer.DecisionAllow},
+		{name: "system:masters gets no opinion", groups: []string{bootstrappolicy.SystemMastersGroup}, want: authorizer.DecisionNoOpinion},
 		{name: "the metrics-reader group may scrape", groups: []string{bootstrappolicy.SystemKcpMetricsReader}, want: authorizer.DecisionAllow},
 		// no opinion, not deny: a further authorizer in the union (the :root
 		// SubjectAccessReview while --root-kubeconfig is given) may still allow.

@@ -27,12 +27,13 @@ import (
 
 // metricsReaderGroups may read the front-proxy's /metrics. The proxy has
 // no RBAC of its own and must not depend on the root shard, so access is
-// decided from the caller's groups: the administrator groups that the Admin
-// workspace accepts, and system:kcp:metrics-reader, the name of the
-// ClusterRole that authorizes scraping on the shards, used as a group here.
+// decided from the caller's groups: system:kcp:admin, and
+// system:kcp:metrics-reader, the name of the ClusterRole that authorizes
+// scraping on the shards, used as a group here. system:masters is not
+// listed: the proxy drops it on ingress (see --authentication-drop-groups),
+// so it never reaches this authorizer.
 var metricsReaderGroups = []string{
 	bootstrappolicy.SystemKcpAdminGroup,
-	bootstrappolicy.SystemMastersGroup,
 	bootstrappolicy.SystemKcpMetricsReader,
 }
 

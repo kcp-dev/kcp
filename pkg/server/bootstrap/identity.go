@@ -64,6 +64,25 @@ var (
 	}
 )
 
+// IsCoreExport reports whether the APIExport named by cluster and name is
+// one of the core APIExports in the root workspace, those listed in
+// KcpRootGroupExportNames and KcpRootGroupResourceExportNames, whose
+// identities every shard and the front-proxy need before they can serve.
+func IsCoreExport(cluster logicalcluster.Name, name string) bool {
+	return cluster == core.RootCluster && coreExportNames.Has(name)
+}
+
+var coreExportNames = func() sets.Set[string] {
+	names := sets.New[string]()
+	for _, name := range KcpRootGroupExportNames {
+		names.Insert(name)
+	}
+	for _, name := range KcpRootGroupResourceExportNames {
+		names.Insert(name)
+	}
+	return names
+}()
+
 type identities struct {
 	lock sync.RWMutex
 
@@ -262,14 +281,13 @@ func NewCoreWildcardIdentities(groupExportNames map[string]string,
 // identity. Every other entry is ignored, and so are deletions: an identity
 // in use is only ever replaced by a new one.
 func coreIdentityHandler(ids *identities) cache.ResourceEventHandler {
-	exportNames := coreExportNames(ids)
 	update := func(obj interface{}) {
 		entry, ok := obj.(*adminv1alpha1.APIIdentity)
 		if !ok {
 			return
 		}
 		owner := entry.Status.Owner
-		if owner.Cluster != core.RootCluster.String() || !exportNames.Has(owner.Name) {
+		if !IsCoreExport(logicalcluster.Name(owner.Cluster), owner.Name) {
 			return
 		}
 		ids.set(owner.Name, entry.Name)
@@ -278,17 +296,6 @@ func coreIdentityHandler(ids *identities) cache.ResourceEventHandler {
 		AddFunc:    func(obj interface{}) { update(obj) },
 		UpdateFunc: func(_, obj interface{}) { update(obj) },
 	}
-}
-
-func coreExportNames(ids *identities) sets.Set[string] {
-	exportNames := sets.New[string]()
-	for _, name := range ids.groupExportNames {
-		exportNames.Insert(name)
-	}
-	for _, name := range ids.groupResourceExportNames {
-		exportNames.Insert(name)
-	}
-	return exportNames
 }
 
 // ready fails while the identity of a core APIExport is unknown.
@@ -325,16 +332,18 @@ func (ids *identities) ready() error {
 // APIExports: the shard's local one, one against the cache server, or a
 // scoped one on the root workspace.
 func apiExportHandler(ids *identities) cache.ResourceEventHandler {
-	exportNames := coreExportNames(ids)
 	update := func(obj interface{}) {
 		export, ok := obj.(*apisv1alpha2.APIExport)
 		if !ok {
 			return
 		}
-		if cluster := logicalcluster.From(export); !cluster.Empty() && cluster != core.RootCluster {
-			return
+		// A scoped informer on the root workspace hands out objects without
+		// the cluster annotation; those are root's.
+		cluster := logicalcluster.From(export)
+		if cluster.Empty() {
+			cluster = core.RootCluster
 		}
-		if !exportNames.Has(export.Name) || export.Status.IdentityHash == "" {
+		if !IsCoreExport(cluster, export.Name) || export.Status.IdentityHash == "" {
 			return
 		}
 		ids.set(export.Name, export.Status.IdentityHash)
