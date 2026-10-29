@@ -20,8 +20,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	v1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	authserviceaccount "k8s.io/apiserver/pkg/authentication/serviceaccount"
@@ -32,12 +30,10 @@ import (
 	"k8s.io/kubernetes/pkg/controller"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
 
-	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpfakeclient "github.com/kcp-dev/client-go/kubernetes/fake"
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 )
 
 func newServiceAccountWithCluster(name string, cluster string, groups ...string) *user.DefaultInfo {
@@ -367,35 +363,16 @@ func TestWorkspaceContentAuthorizer(t *testing.T) {
 			}
 			cache.WaitForCacheSync(ctx.Done(), syncs...)
 
-			localIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
-			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
-				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:authenticated"}},
-				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
-			}))
-			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
-				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:ready"}},
-				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
-			}))
-			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
-				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:scheduling"}},
-				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseScheduling},
-			}))
-			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
-				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "root:initializing"}},
-				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseInitializing},
-			}))
-			require.NoError(t, localIndexer.Add(&corev1alpha1.LogicalCluster{
-				ObjectMeta: metav1.ObjectMeta{Name: corev1alpha1.LogicalClusterName, Annotations: map[string]string{logicalcluster.AnnotationKey: "rootwithoutparent"}},
-				Status:     corev1alpha1.LogicalClusterStatus{Phase: corev1alpha1.LogicalClusterPhaseReady},
-			}))
-			localLogicalClusters := corev1alpha1listers.NewLogicalClusterClusterLister(localIndexer)
-
-			globalIndexer := cache.NewIndexer(kcpcache.MetaClusterNamespaceKeyFunc, cache.Indexers{})
-			// TODO(sttts): add global fixtures
-			globalLogicalClusters := corev1alpha1listers.NewLogicalClusterClusterLister(globalIndexer)
+			getLogicalCluster := stubLogicalClusterGetter(
+				newLogicalCluster(logicalcluster.Name("root:authenticated"), corev1alpha1.LogicalClusterPhaseReady),
+				newLogicalCluster(logicalcluster.Name("root:ready"), corev1alpha1.LogicalClusterPhaseReady),
+				newLogicalCluster(logicalcluster.Name("root:scheduling"), corev1alpha1.LogicalClusterPhaseScheduling),
+				newLogicalCluster(logicalcluster.Name("root:initializing"), corev1alpha1.LogicalClusterPhaseInitializing),
+				newLogicalCluster(logicalcluster.Name("rootwithoutparent"), corev1alpha1.LogicalClusterPhaseReady),
+			)
 
 			recordingAuthorizer := &recordingAuthorizer{decision: authorizer.DecisionAllow, reason: "allowed"}
-			w := NewWorkspaceContentAuthorizer(local, global, localLogicalClusters, globalLogicalClusters)(recordingAuthorizer)
+			w := NewWorkspaceContentAuthorizer(local, global, getLogicalCluster)(recordingAuthorizer)
 
 			requestedCluster := request.Cluster{
 				Name: logicalcluster.Name(tt.requestedWorkspace),
