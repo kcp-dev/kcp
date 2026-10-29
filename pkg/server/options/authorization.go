@@ -203,6 +203,9 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	// a webhook (which has no knowledge of the MPP) may grant.
 	var grants []union.NamedAuthorizer
 
+	localLogicalClusterLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
+	globalLogicalClusterLister := globalKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
+
 	for _, authorizer := range s.AuthorizationOrder {
 		switch authorizer {
 		case authorizerRBAC:
@@ -225,7 +228,21 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			if err != nil {
 				return err
 			}
-			grants = append(grants, union.NamedAuthorizer{AuthorizerName: authorizerRBAC, Authorizer: rbacAuth})
+
+			// rbacAccess checks if the user has the access verb on the workspace.
+			// If it does the rest auf the rbac authz chain is checked.
+			// If it does not it returns NoOpinion - the Webhook may still grant access and aurhorization.
+			//
+			// rbacAccess determines if users have access to the workspace itself - by default, in Kube there is a set
+			// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
+			// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
+			// mean nothing unless they also have `verb=access` on `/`. It is asked of the workspace RBAC and of the grants,
+			// which it wraps: an authorization webhook standing in for RBAC can open a workspace, but only by answering
+			// that question, and it never gets to answer a request in a workspace the identity may not enter.
+			rbacAccess := authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister)(rbacAuth)
+			rbacAccess = authz.NewDecorator("02-content", rbacAccess).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
+
+			grants = append(grants, union.NamedAuthorizer{AuthorizerName: authorizerRBAC, Authorizer: rbacAccess})
 			config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
 		case authorizerWebhook:
 			// Re-use the authorizer from the generic control plane (this is only set for webhooks).
@@ -259,9 +276,6 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 		}
 	}
 
-	localLogicalClusterLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
-	globalLogicalClusterLister := globalKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
-
 	// kcp gate authorizers - skipped for Deep SAR
 	var gates authorizer.Authorizer = authorizer.AuthorizerFunc(func(context.Context, authorizer.Attributes) (authorizer.Decision, string, error) {
 		return authorizer.DecisionNoOpinion, "", nil
@@ -274,13 +288,6 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 	// protect status updates to apiexport and apibinding
 	gates = authz.NewSystemCRDAuthorizer(gates)
 	gates = authz.NewDecorator("03-systemcrd", gates).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
-
-	// content auth deteremines if users have access to the workspace itself - by default, in Kube there is a set
-	// of default permissions given even to system:authenticated (like access to discovery) - this authorizer allows
-	// kcp to make workspaces entirely invisible to users that have not been given access, by making system:authenticated
-	// mean nothing unless they also have `verb=access` on `/`
-	gates = authz.NewWorkspaceContentAuthorizer(kubeInformers, globalKubeInformers, localLogicalClusterLister, globalLogicalClusterLister)(gates)
-	gates = authz.NewDecorator("02-content", gates).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
 	// workspaces are annotated to list the groups required on users wishing to access the workspace -
 	// this is mostly useful when adding a core set of groups to an org workspace and having them inherited
