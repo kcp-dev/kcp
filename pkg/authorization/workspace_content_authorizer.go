@@ -33,7 +33,6 @@ import (
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/virtual-workspace-framework/pkg/wrappers/rbac"
 
-	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/authorization/shardpaths"
 )
 
@@ -92,12 +91,6 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 
 	if IsDeepSubjectAccessReviewFrom(ctx, attr) {
 		return DelegateAuthorization("deep SAR request", a.delegate).Authorize(ctx, attr)
-	}
-
-	// always let logical-cluster-admins through
-	effGroups := rbacregistryvalidation.EffectiveGroups(ctx, attr.GetUser())
-	if effGroups.Has(bootstrap.SystemLogicalClusterAdmin) {
-		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
 	}
 
 	// check the workspace even exists

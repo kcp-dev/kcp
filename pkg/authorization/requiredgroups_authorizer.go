@@ -64,9 +64,6 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 	}
 
 	effGroups := rbacregistryvalidation.EffectiveGroups(ctx, attr.GetUser())
-	if effGroups.Has(bootstrap.SystemLogicalClusterAdmin) {
-		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
-	}
 
 	switch {
 	case rbacregistryvalidation.IsServiceAccount(attr.GetUser()) && rbacregistryvalidation.IsInScope(attr.GetUser(), cluster.Name):
@@ -84,11 +81,6 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 				return authorizer.DecisionNoOpinion, "logical cluster not found", nil
 			}
 			return authorizer.DecisionNoOpinion, "", err
-		}
-
-		// always let external-logical-cluster-admins through
-		if effGroups.Has(bootstrap.SystemExternalLogicalClusterAdmin) {
-			return DelegateAuthorization("external logical cluster admin access", a.delegate).Authorize(ctx, attr)
 		}
 
 		// check required groups
