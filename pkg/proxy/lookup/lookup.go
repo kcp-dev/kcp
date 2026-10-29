@@ -292,10 +292,22 @@ type ShardNameHolder struct {
 }
 
 // WithShardNameHolder stores a ShardNameHolder in the context. The holder can
-// be updated later when WithShardName is called.
+// be updated later when WithShardName is called. If the context already has a
+// holder, it is reused so that nested middlewares all observe the same name.
 func WithShardNameHolder(parent context.Context) (context.Context, *ShardNameHolder) {
+	if holder := ShardNameHolderFrom(parent); holder != nil {
+		return parent, holder
+	}
 	holder := &ShardNameHolder{}
 	return context.WithValue(parent, shardNameHolderContextKey, holder), holder
+}
+
+func ShardNameHolderFrom(ctx context.Context) *ShardNameHolder {
+	holder, ok := ctx.Value(shardNameHolderContextKey).(*ShardNameHolder)
+	if !ok {
+		return nil
+	}
+	return holder
 }
 
 func WithClusterName(parent context.Context, cluster logicalcluster.Name) context.Context {
