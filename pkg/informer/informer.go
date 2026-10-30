@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/features"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
@@ -131,6 +132,10 @@ type GenericDiscoveringDynamicSharedInformerFactory[Informer cache.SharedIndexIn
 	// updateCh receives notifications for all CRD add/update/delete events, so we can start new informers and stop
 	// informers no longer needed.
 	updateCh chan struct{}
+
+	shareInformersAcrossVersions bool
+	servedVersionsLock           sync.RWMutex
+	servedVersions               map[schema.GroupResource][]string
 
 	informersLock    sync.RWMutex
 	informers        map[schema.GroupVersionResource]GenericInformer
@@ -264,9 +269,16 @@ func NewDiscoveringPartialMetadataSharedInformerFactory(
 	gvrSource GVRSource,
 	indexers cache.Indexers,
 ) (*DiscoveringDynamicSharedInformerFactory, error) {
-	return newDiscoveringClusterSharedInformerFactory(
+	var f *DiscoveringDynamicSharedInformerFactory
+	client := &servedVersionMetadataClient{
+		ClusterInterface: metadataClusterClient,
+		servedGVR: func(gvr schema.GroupVersionResource) schema.GroupVersionResource {
+			return f.servedGVR(gvr)
+		},
+	}
+	f, err := newDiscoveringClusterSharedInformerFactory(
 		func(gvr schema.GroupVersionResource, resyncPeriod time.Duration, indexers cache.Indexers) kcpinformers.GenericClusterInformer {
-			return kcpmetadatainformer.NewFilteredMetadataInformer(metadataClusterClient, gvr, resyncPeriod, indexers, tweakListOptions)
+			return kcpmetadatainformer.NewFilteredMetadataInformer(client, gvr, resyncPeriod, indexers, tweakListOptions)
 		},
 		filterFunc,
 		ignoreFunc,
@@ -274,6 +286,20 @@ func NewDiscoveringPartialMetadataSharedInformerFactory(
 		gvrSource,
 		indexers,
 	)
+	if err != nil {
+		return nil, err
+	}
+	f.shareInformersAcrossVersions = true
+	return f, nil
+}
+
+type servedVersionMetadataClient struct {
+	kcpmetadata.ClusterInterface
+	servedGVR func(gvr schema.GroupVersionResource) schema.GroupVersionResource
+}
+
+func (c *servedVersionMetadataClient) Resource(gvr schema.GroupVersionResource) kcpmetadata.ResourceClusterInterface {
+	return c.ClusterInterface.Resource(c.servedGVR(gvr))
 }
 
 func newDiscoveringClusterSharedInformerFactory(
@@ -415,6 +441,15 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	inf := d.informers[gvr]
 	if (genericInformerBase[Informer, Lister])(inf) != nil {
 		return inf
+	}
+
+	if d.shareInformersAcrossVersions {
+		for other, inf := range d.informers {
+			if other.GroupResource() == gvr.GroupResource() {
+				d.informers[gvr] = inf
+				return inf
+			}
+		}
 	}
 
 	klog.Background().V(2).WithValues("gvr", gvr).Info("adding dynamic informer for gvr")
@@ -688,6 +723,8 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 		latest[gvr] = gvrMetadata
 	}
 
+	d.setServedVersions(latest)
+
 	// Grab a read lock to compare against d.informers to see if we need to start or stop any informers
 	d.informersLock.RLock()
 	informersToAdd, informersToRemove := d.calculateInformersLockHeld(latest)
@@ -717,13 +754,18 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 		// We have the write lock, so call the LH variant
 		inf := d.informerForResourceLockHeld(gvr)
 
+		key := d.informerKey(gvr)
+		if d.startedInformers[key] {
+			continue
+		}
+
 		// Set up a stop channel for this specific informer
 		stop := make(chan struct{})
 		go inf.Informer().Run(stop)
 
 		// And store it
-		d.informerStops[gvr] = stop
-		d.startedInformers[gvr] = true
+		d.informerStops[key] = stop
+		d.startedInformers[key] = true
 	}
 
 	for i := range informersToRemove {
@@ -732,16 +774,21 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 
 		logger.V(2).Info("removing dynamic informer for gvr")
 
-		stop, ok := d.informerStops[gvr]
+		delete(d.informers, gvr)
+		if d.shareInformersAcrossVersions && d.hasInformerForGroupResourceLockHeld(gvr.GroupResource()) {
+			continue
+		}
+
+		key := d.informerKey(gvr)
+		stop, ok := d.informerStops[key]
 		if ok {
 			logger.V(4).Info("closing stop channel for dynamic informer for gvr")
 			close(stop)
 		}
 
 		logger.V(4).Info("removing dynamic informer from maps for gvr")
-		delete(d.informers, gvr)
-		delete(d.informerStops, gvr)
-		delete(d.startedInformers, gvr)
+		delete(d.informerStops, key)
+		delete(d.startedInformers, key)
 	}
 
 	d.discoveryData = gvrsToDiscoveryData(latest)
@@ -860,16 +907,60 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 	defer d.informersLock.Unlock()
 
 	for gvr, informer := range d.informers {
-		if !d.startedInformers[gvr] {
+		key := d.informerKey(gvr)
+		if !d.startedInformers[key] {
 			// Set up a stop channel for this specific informer
 			stop := make(chan struct{})
 			go informer.Informer().Run(stop)
 
 			// And store it
-			d.informerStops[gvr] = stop
-			d.startedInformers[gvr] = true
+			d.informerStops[key] = stop
+			d.startedInformers[key] = true
 		}
 	}
+}
+
+func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) informerKey(gvr schema.GroupVersionResource) schema.GroupVersionResource {
+	if d.shareInformersAcrossVersions {
+		return gvr.GroupResource().WithVersion("")
+	}
+	return gvr
+}
+
+func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) hasInformerForGroupResourceLockHeld(gr schema.GroupResource) bool {
+	for gvr := range d.informers {
+		if gvr.GroupResource() == gr {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) setServedVersions(gvrs map[schema.GroupVersionResource]GVRPartialMetadata) {
+	served := make(map[schema.GroupResource][]string, len(gvrs))
+	for gvr := range gvrs {
+		served[gvr.GroupResource()] = append(served[gvr.GroupResource()], gvr.Version)
+	}
+	for _, versions := range served {
+		sort.Slice(versions, func(i, j int) bool {
+			return version.CompareKubeAwareVersionStrings(versions[i], versions[j]) > 0
+		})
+	}
+
+	d.servedVersionsLock.Lock()
+	defer d.servedVersionsLock.Unlock()
+	d.servedVersions = served
+}
+
+func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) servedGVR(gvr schema.GroupVersionResource) schema.GroupVersionResource {
+	d.servedVersionsLock.RLock()
+	defer d.servedVersionsLock.RUnlock()
+
+	versions := d.servedVersions[gvr.GroupResource()]
+	if len(versions) == 0 || slices.Contains(versions, gvr.Version) {
+		return gvr
+	}
+	return gvr.GroupResource().WithVersion(versions[0])
 }
 
 func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) calculateInformersLockHeld(latest map[schema.GroupVersionResource]GVRPartialMetadata) (toAdd, toRemove []schema.GroupVersionResource) {
