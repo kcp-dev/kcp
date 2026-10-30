@@ -240,7 +240,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 }
 
 func newProtectedMetricsHandler(auth authenticator.Request, rootShardConfig *restclient.Config, requestInfoResolver request.RequestInfoResolver) (http.Handler, error) {
-	authorizers := []authorizer.Authorizer{newMetricsGroupAuthorizer()}
+	authorizers := []union.NamedAuthorizer{{AuthorizerName: "MetricsGroups", Authorizer: newMetricsGroupAuthorizer()}}
 	if rootShardConfig != nil {
 		kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardConfig)
 		if err != nil {
@@ -250,10 +250,15 @@ func newProtectedMetricsHandler(auth authenticator.Request, rootShardConfig *res
 		if err != nil {
 			return nil, fmt.Errorf("failed to create metrics authorizer: %w", err)
 		}
-		authorizers = append(authorizers, authz)
+		authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: "RootShardDelegated", Authorizer: authz})
 	}
 
-	return withMetricsAuthorization(legacyregistry.Handler(), auth, union.New(authorizers...), requestInfoResolver), nil
+	unioned, err := union.New(authorizers...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create metrics authorizer union: %w", err)
+	}
+
+	return withMetricsAuthorization(legacyregistry.Handler(), auth, unioned, requestInfoResolver), nil
 }
 
 func withMetricsAuthorization(h http.Handler, auth authenticator.Request, authz authorizer.Authorizer, requestInfoResolver request.RequestInfoResolver) http.Handler {
