@@ -19,3 +19,7 @@ limitations under the License.
 package v1
 
 type CertificateSigningRequestClusterExpansion interface{}
+
+type ClusterTrustBundleClusterExpansion interface{}
+
+type PodCertificateRequestClusterExpansion interface{}

@@ -30,7 +30,7 @@ import (
 //
 // Shard describes a kcp instance on which a number of logical clusters will live
 type ShardApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	Spec                             *ShardSpecApplyConfiguration   `json:"spec,omitempty"`
 	Status                           *ShardStatusApplyConfiguration `json:"status,omitempty"`

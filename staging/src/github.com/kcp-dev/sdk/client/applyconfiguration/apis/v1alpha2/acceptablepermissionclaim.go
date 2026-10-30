@@ -27,7 +27,7 @@ import (
 //
 // AcceptablePermissionClaim is a PermissionClaim that records if the user accepts or rejects it.
 type AcceptablePermissionClaimApplyConfiguration struct {
-	ScopedPermissionClaimApplyConfiguration `json:",inline"`
+	ScopedPermissionClaimApplyConfiguration `json:""`
 	State                                   *apisv1alpha2.AcceptablePermissionClaimState `json:"state,omitempty"`
 }
 

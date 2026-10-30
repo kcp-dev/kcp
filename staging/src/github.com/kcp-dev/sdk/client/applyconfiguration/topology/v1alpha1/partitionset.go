@@ -30,7 +30,7 @@ import (
 //
 // PartitionSet defines a target domain and dimensions to divide a set of shards into 1 or more partitions.
 type PartitionSetApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// spec holds the desired state.
 	Spec *PartitionSetSpecApplyConfiguration `json:"spec,omitempty"`

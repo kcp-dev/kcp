@@ -40,8 +40,16 @@ func (c *SchedulingV1beta1ClusterClient) Cluster(clusterPath logicalcluster.Path
 	return &SchedulingV1beta1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+func (c *SchedulingV1beta1ClusterClient) PodGroups() kcpschedulingv1beta1.PodGroupClusterInterface {
+	return newFakePodGroupClusterClient(c)
+}
+
 func (c *SchedulingV1beta1ClusterClient) PriorityClasses() kcpschedulingv1beta1.PriorityClassClusterInterface {
 	return newFakePriorityClassClusterClient(c)
+}
+
+func (c *SchedulingV1beta1ClusterClient) Workloads() kcpschedulingv1beta1.WorkloadClusterInterface {
+	return newFakeWorkloadClusterClient(c)
 }
 
 type SchedulingV1beta1Client struct {
@@ -49,8 +57,16 @@ type SchedulingV1beta1Client struct {
 	ClusterPath logicalcluster.Path
 }
 
+func (c *SchedulingV1beta1Client) PodGroups(namespace string) schedulingv1beta1.PodGroupInterface {
+	return newFakePodGroupClient(c.Fake, namespace, c.ClusterPath)
+}
+
 func (c *SchedulingV1beta1Client) PriorityClasses() schedulingv1beta1.PriorityClassInterface {
 	return newFakePriorityClassClient(c.Fake, c.ClusterPath)
+}
+
+func (c *SchedulingV1beta1Client) Workloads(namespace string) schedulingv1beta1.WorkloadInterface {
+	return newFakeWorkloadClient(c.Fake, namespace, c.ClusterPath)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

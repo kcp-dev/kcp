@@ -53,7 +53,7 @@ type resourceHandler struct {
 	admission admission.Interface
 
 	// so that we can do create on update.
-	authorizer authorizer.Authorizer
+	authorizer authorizer.UnconditionalAuthorizer
 
 	// request timeout we should delay storage teardown for
 	requestTimeout time.Duration
@@ -73,7 +73,7 @@ func newResourceHandler(
 	rootDiscoveryHandler *rootDiscoveryHandler,
 	delegate http.Handler,
 	admission admission.Interface,
-	authorizer authorizer.Authorizer,
+	authorizer authorizer.UnconditionalAuthorizer,
 	requestTimeout time.Duration,
 	minRequestTimeout time.Duration,
 	maxRequestBodyBytes int64,

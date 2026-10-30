@@ -31,7 +31,7 @@ import (
 // APIExportEndpointSlice is a sink for the endpoints of an APIExport. These endpoints can be filtered by a Partition.
 // They get consumed by the managers to start controllers and informers for the respective APIExport services.
 type APIExportEndpointSliceApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// spec holds the desired state:
 	// - the targeted APIExport

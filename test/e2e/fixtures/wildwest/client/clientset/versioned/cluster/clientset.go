@@ -35,7 +35,7 @@ import (
 
 type ClusterInterface interface {
 	Cluster(logicalcluster.Path) client.Interface
-	Discovery() discovery.DiscoveryInterface
+	Discovery() discovery.DiscoveryInterfaces
 	WildwestV1alpha1() wildwestv1alpha1.WildwestV1alpha1ClusterInterface
 }
 
@@ -47,7 +47,7 @@ type ClusterClientset struct {
 }
 
 // Discovery retrieves the DiscoveryClient.
-func (c *ClusterClientset) Discovery() discovery.DiscoveryInterface {
+func (c *ClusterClientset) Discovery() discovery.DiscoveryInterfaces {
 	if c == nil {
 		return nil
 	}

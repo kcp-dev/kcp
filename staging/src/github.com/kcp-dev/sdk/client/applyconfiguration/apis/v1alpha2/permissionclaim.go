@@ -25,7 +25,7 @@ package v1alpha2
 // Its purpose is to determine the added permissions that a service provider may
 // request and that a consumer may accept and allow the service provider access to.
 type PermissionClaimApplyConfiguration struct {
-	GroupResourceApplyConfiguration `json:",inline"`
+	GroupResourceApplyConfiguration `json:""`
 	// verbs is a list of supported API operation types (this includes
 	// but is not limited to get, list, watch, create, update, patch,
 	// delete, deletecollection, and proxy).

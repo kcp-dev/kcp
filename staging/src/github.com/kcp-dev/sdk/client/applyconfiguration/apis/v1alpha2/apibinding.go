@@ -33,7 +33,7 @@ import (
 //
 // The service provider uses an APIExport to expose the API.
 type APIBindingApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// Spec holds the desired state.
 	Spec *APIBindingSpecApplyConfiguration `json:"spec,omitempty"`

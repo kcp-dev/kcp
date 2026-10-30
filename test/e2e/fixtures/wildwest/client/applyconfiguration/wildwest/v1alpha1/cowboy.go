@@ -30,7 +30,7 @@ import (
 //
 // Cowboy is part of the wild west
 type CowboyApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	Spec                             *CowboySpecApplyConfiguration   `json:"spec,omitempty"`
 	Status                           *CowboyStatusApplyConfiguration `json:"status,omitempty"`

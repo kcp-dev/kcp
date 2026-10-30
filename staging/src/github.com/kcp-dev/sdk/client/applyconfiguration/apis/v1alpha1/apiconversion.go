@@ -31,7 +31,7 @@ import (
 // APIConversion contains rules to convert between different API versions in an APIResourceSchema. The name must match
 // the name of the APIResourceSchema for the conversions to take effect.
 type APIConversionApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// Spec holds the desired state.
 	Spec *APIConversionSpecApplyConfiguration `json:"spec,omitempty"`

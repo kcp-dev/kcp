@@ -31,7 +31,7 @@ import (
 // Partition defines the selection of a set of shards along multiple dimensions.
 // Partitions can get automatically generated through a partitioner or manually crafted.
 type PartitionApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	// spec holds the desired state.
 	Spec *PartitionSpecApplyConfiguration `json:"spec,omitempty"`

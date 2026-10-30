@@ -30,6 +30,9 @@ set -o xtrace
 GITHUB_USER=${GITHUB_USER:-kcp-dev}
 GITHUB_REPO=${GITHUB_REPO:-kubernetes}
 BRANCH=${BRANCH:-kcp-1.31.0}
+# Set this to "true" to move the staging module replacements to branch. Mostly used during rebase to
+# bump to a fork that does not contain the currently pinned commit.
+BUMP_STAGING_MODULES=${BUMP_STAGING_MODULES:-false}
 
 bump_root() {
     local current_version="$( GOPROXY=direct go mod edit -json | jq '.Replace[] | select(.Old.Path=="k8s.io/kubernetes") | .New.Version' --raw-output )"
@@ -41,6 +44,10 @@ bump_root() {
         sed_args+=( "" )
     fi
     sed "${sed_args[@]}" -e "s|${current_version}|${BRANCH}|g" -E -e "s,=> github.com/kcp-dev/kubernetes,=> github.com/${GITHUB_USER}/${GITHUB_REPO},g" go.mod
+
+    if [[ "${BUMP_STAGING_MODULES}" == "true" ]]; then
+        sed "${sed_args[@]}" -E -e "s,(=> github.com/${GITHUB_USER}/${GITHUB_REPO}/staging/src/k8s.io/[^ ]+) [^ ]+$,\1 ${BRANCH},g" go.mod
+    fi
 
     GOPROXY=direct go mod tidy
 }

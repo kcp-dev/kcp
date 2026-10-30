@@ -155,6 +155,8 @@ func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *generi
 			tokenGetterClient,
 			versionedInformers.Core().V1().Secrets().Lister(),
 			versionedInformers.Core().V1().ServiceAccounts().Lister(),
+			versionedInformers.Admissionregistration().V1().ValidatingWebhookConfigurations().Lister(),
+			versionedInformers.Admissionregistration().V1().MutatingWebhookConfigurations().Lister(),
 		)
 		authenticatorConfig.SecretsWriter = tokenGetterClient.CoreV1().Secrets()
 

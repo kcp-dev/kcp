@@ -21,6 +21,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/pflag"
+
+	"k8s.io/code-generator/pkg/apidefinitions"
 )
 
 // Args is used by the gengo framework to pass args specific to this generator.
@@ -41,6 +43,8 @@ type Args struct {
 	// PluralExceptions define a list of pluralizer exceptions in Type:PluralType format.
 	// The default list is "Endpoints:Endpoints"
 	PluralExceptions []string
+
+	apidefinitions.LintArgs
 }
 
 // New returns default arguments for the generator.
@@ -68,6 +72,7 @@ func (args *Args) AddFlags(fs *pflag.FlagSet) {
 		"package path to the generated Kubernetes single-cluster listers package (optional)")
 	fs.StringSliceVar(&args.PluralExceptions, "plural-exceptions", args.PluralExceptions,
 		"list of comma separated plural exception definitions in Type:PluralizedType format")
+	apidefinitions.AddFlags(&args.LintArgs, fs)
 }
 
 // Validate checks the given arguments.
@@ -87,5 +92,5 @@ func (args *Args) Validate() error {
 	if len(args.SingleClusterVersionedClientSetPackage) == 0 {
 		return fmt.Errorf("--single-cluster-versioned-clientset-pkg must be specified")
 	}
-	return nil
+	return apidefinitions.ValidateFlags(args.LintRules)
 }

@@ -43,6 +43,7 @@ import (
 	kcpextensions "github.com/kcp-dev/client-go/informers/extensions"
 	kcpflowcontrol "github.com/kcp-dev/client-go/informers/flowcontrol"
 	kcpinternalinterfaces "github.com/kcp-dev/client-go/informers/internalinterfaces"
+	kcplifecycle "github.com/kcp-dev/client-go/informers/lifecycle"
 	kcpnetworking "github.com/kcp-dev/client-go/informers/networking"
 	kcpnode "github.com/kcp-dev/client-go/informers/node"
 	kcppolicy "github.com/kcp-dev/client-go/informers/policy"
@@ -246,7 +247,7 @@ type ScopedDynamicSharedInformerFactory interface {
 //	ctx, cancel := context.WithCancel(context.Background())
 //	defer cancel()
 //	factory := NewSharedInformerFactory(client, resyncPeriod)
-//	defer factory.WaitForStop()    // Returns immediately if nothing was started.
+//	defer factory.Shutdown()    // Returns immediately if nothing was started.
 //	genericInformer := factory.ForResource(resource)
 //	typedInformer := factory.SomeAPIGroup().V1().SomeType()
 //	factory.Start(ctx.Done())      // Start processing these informers.
@@ -307,6 +308,7 @@ type SharedInformerFactory interface {
 	Events() kcpevents.ClusterInterface
 	Extensions() kcpextensions.ClusterInterface
 	Flowcontrol() kcpflowcontrol.ClusterInterface
+	Lifecycle() kcplifecycle.ClusterInterface
 	Networking() kcpnetworking.ClusterInterface
 	Node() kcpnode.ClusterInterface
 	Policy() kcppolicy.ClusterInterface
@@ -363,6 +365,10 @@ func (f *sharedInformerFactory) Extensions() kcpextensions.ClusterInterface {
 
 func (f *sharedInformerFactory) Flowcontrol() kcpflowcontrol.ClusterInterface {
 	return kcpflowcontrol.New(f, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Lifecycle() kcplifecycle.ClusterInterface {
+	return kcplifecycle.New(f, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Networking() kcpnetworking.ClusterInterface {

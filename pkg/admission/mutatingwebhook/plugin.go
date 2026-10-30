@@ -32,7 +32,9 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/mutating"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/kubernetes/pkg/kubeapiserver/admission/exclusion"
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
@@ -43,6 +45,7 @@ import (
 
 	"github.com/kcp-dev/kcp/pkg/admission/clusterannotation"
 	kcpinitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
+	"github.com/kcp-dev/kcp/pkg/admission/validatingwebhook"
 )
 
 const (
@@ -123,6 +126,8 @@ func (p *Plugin) Admit(ctx context.Context, attr admission.Attributes, o admissi
 	plugin.SetExternalKubeClientSet(p.kubeClusterClient.Cluster(clusterName.Path()))
 	plugin.SetNamespaceInformer(p.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
 	plugin.SetAPISource(hookSource)
+	plugin.SetExcludedAdmissionResources(exclusion.Excluded())
+	plugin.InspectFeatureGates(utilfeature.DefaultFeatureGate)
 
 	if err := plugin.ValidateInitialization(); err != nil {
 		return fmt.Errorf("error validating MutatingWebhook initialization: %w", err)
@@ -148,6 +153,7 @@ func (p *Plugin) getHookSource(clusterName logicalcluster.Name, groupResource sc
 		ctx, cancel := context.WithCancel(wait.ContextForChannel(p.serverStopChannel))
 		p.managersCache[clusterNameForGroupResource] = configuration.NewMutatingWebhookConfigurationManagerForInformer(
 			p.globalKubeSharedInformerFactory.Admissionregistration().V1().MutatingWebhookConfigurations().ClusterWithContext(ctx, clusterNameForGroupResource),
+			validatingwebhook.ExcludedResources(),
 		)
 		p.managersCancel[clusterNameForGroupResource] = cancel
 	}

@@ -24,7 +24,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	"k8s.io/apiserver/pkg/authorization/path"
 	"k8s.io/apiserver/pkg/authorization/union"
@@ -166,7 +165,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 }
 
 func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Config, kubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory) error {
-	var authorizers []authorizer.Authorizer
+	var authorizers []union.NamedAuthorizer
 
 	localLogicalClusterLister := kcpInformers.Core().V1alpha1().LogicalClusters().Lister()
 	globalLogicalClusterLister := globalKcpInformers.Core().V1alpha1().LogicalClusters().Lister()
@@ -177,7 +176,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			// group authorizer
 			if len(s.AlwaysAllowGroups) > 0 {
 				privGroups := authorizerfactory.NewPrivilegedGroups(s.AlwaysAllowGroups...)
-				authorizers = append(authorizers, privGroups)
+				authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: authorizerAlwaysAllowGroups, Authorizer: privGroups})
 			}
 		case authorizerAlwaysAllowPaths:
 			// path authorizer
@@ -186,7 +185,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 				if err != nil {
 					return err
 				}
-				authorizers = append(authorizers, a)
+				authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: authorizerAlwaysAllowPaths, Authorizer: a})
 			}
 		case authorizerRBAC:
 			// kcp authorizers, these are evaluated in reverse order
@@ -203,7 +202,14 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			globalAuth, _ := authz.NewGlobalAuthorizer(kubeInformers, globalKubeInformers)
 			globalAuth = authz.NewDecorator("05-global", globalAuth).AddAuditLogging().AddAnonymization().AddReasonAnnotation()
 
-			chain := union.New(bootstrapAuth, localAuth, globalAuth)
+			chain, err := union.New(
+				union.NamedAuthorizer{AuthorizerName: "05-bootstrap", Authorizer: bootstrapAuth},
+				union.NamedAuthorizer{AuthorizerName: "05-local", Authorizer: localAuth},
+				union.NamedAuthorizer{AuthorizerName: "05-global", Authorizer: globalAuth},
+			)
+			if err != nil {
+				return err
+			}
 
 			// everything below - skipped for Deep SAR
 
@@ -228,7 +234,7 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 			// to content in sub-workspaces
 			chain = authz.NewRequiredGroupsAuthorizer(localLogicalClusterLister, globalLogicalClusterLister)(chain)
 			chain = authz.NewDecorator("01-requiredgroups", chain).AddAuditLogging().AddAnonymization()
-			authorizers = append(authorizers, chain)
+			authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: authorizerRBAC, Authorizer: chain})
 			config.RuleResolver = union.NewRuleResolvers(bootstrapRules, localResolver)
 		case authorizerWebhook:
 			// Re-use the authorizer from the generic control plane (this is only set for webhooks);
@@ -256,13 +262,17 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 					return err
 				}
 				authorizer = authz.WithWarrantsAndScopes(authorizer)
-				authorizers = append(authorizers, authorizer)
+				authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: authorizerWebhook, Authorizer: authorizer})
 			}
 		default:
 			return fmt.Errorf("invalid authorizer: %q", authorizer)
 		}
 	}
 
-	config.Authorization.Authorizer = union.New(authorizers...)
+	unionAuthz, err := union.New(authorizers...)
+	if err != nil {
+		return err
+	}
+	config.Authorization.Authorizer = unionAuthz
 	return nil
 }

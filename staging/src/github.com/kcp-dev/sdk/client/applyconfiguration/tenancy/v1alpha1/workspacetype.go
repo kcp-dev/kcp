@@ -30,7 +30,7 @@ import (
 //
 // WorkspaceType specifies behaviour of workspaces of this type.
 type WorkspaceTypeApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	Spec                             *WorkspaceTypeSpecApplyConfiguration   `json:"spec,omitempty"`
 	Status                           *WorkspaceTypeStatusApplyConfiguration `json:"status,omitempty"`

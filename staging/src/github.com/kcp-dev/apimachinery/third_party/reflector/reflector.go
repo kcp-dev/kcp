@@ -15,6 +15,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// This file is a full fork of k8s.io/client-go/tools/cache/reflector.go
+// and is kept textually as close to upstream as possible so it can be
+// updated with a three way merge (see the rebase instructions in
+// https://github.com/kcp-dev/kubernetes-patches).
+//
+// kcp modifications, marked inline with "kcp modification" comments:
+//
+//   - Reflector carries a keyFunction (ReflectorOptions.KeyFunction,
+//     defaulting to kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc)
+//     that is used for the temporary store during WatchList streaming, so
+//     objects from different clusters with the same namespace/name do not
+//     collide.
+//   - WatchErrorHandlerWithContext is a local type taking this package's
+//     *Reflector instead of *cache.Reflector.
+//   - ForceRelist (activeWatch, relistRequested) allows forcing a full
+//     relist on the next list/watch cycle; this does not exist upstream.
+//   - The Reflector*Store/TransformingStore interfaces are not duplicated;
+//     the exported ones from k8s.io/client-go/tools/cache are used instead.
+
 package reflector
 
 import (
@@ -739,7 +758,7 @@ func (r *Reflector) list(ctx context.Context) error {
 	case <-listCh:
 	}
 
-	initTrace.Step("Objects listed", trace.Field{Key: "error", Value: err})
+	initTrace.Step("Objects listed", trace.Field{Key: "error", Value: err}, trace.Field{Key: "count", Value: meta.LenList(list)})
 	if err != nil {
 		return fmt.Errorf("failed to list %v: %w", r.typeDescription, err)
 	}

@@ -25,7 +25,7 @@ package v1alpha1
 // Its purpose is to determine the added permissions that a service provider may
 // request and that a consumer may accept and allow the service provider access to.
 type PermissionClaimApplyConfiguration struct {
-	GroupResourceApplyConfiguration `json:",inline"`
+	GroupResourceApplyConfiguration `json:""`
 	// all claims all resources for the given group/resource.
 	// This is mutually exclusive with resourceSelector.
 	All *bool `json:"all,omitempty"`

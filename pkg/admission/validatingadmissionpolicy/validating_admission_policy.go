@@ -275,7 +275,7 @@ func (k *KubeValidatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, t
 
 	plugin.SetDynamicClient(k.dynamicClusterClient.Cluster(policyClusterName.Path()))
 	plugin.SetDrainedNotification(ctx.Done())
-	plugin.SetAuthorizer(k.authorizer)
+	plugin.SetUnconditionalAuthorizer(k.authorizer)
 	plugin.SetClusterName(policyClusterName)
 	plugin.SetSourceFactory(func(_ informers.SharedInformerFactory, client kubernetes.Interface, dynamicClient dynamic.Interface, restMapper meta.RESTMapper, cn logicalcluster.Name) generic.Source[validating.PolicyHook] {
 		return generic.NewPolicySource(

@@ -226,3 +226,7 @@ func (f *fakeKV) Do(context.Context, clientv3.Op) (clientv3.OpResponse, error) {
 }
 
 func (f *fakeKV) Txn(context.Context) clientv3.Txn { panic("not implemented") }
+
+func (f *fakeKV) GetStream(ctx context.Context, key string, opts ...clientv3.OpOption) (clientv3.GetStreamChan, error) {
+	panic("not implemented")
+}

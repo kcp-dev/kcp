@@ -39,7 +39,7 @@ func TestBuiltInInformableTypes(t *testing.T) {
 	builtInGVRs := map[schema.GroupVersionResource]struct{}{}
 
 	// In the scheme, but not actual resources
-	kindsToIgnore := sets.New[string](
+	kindsToIgnore := sets.New(
 		"List",
 		"CreateOptions",
 		"DeleteOptions",
@@ -85,6 +85,8 @@ func TestBuiltInInformableTypes(t *testing.T) {
 		{Group: "authorization.k8s.io", Version: "v1", Kind: "SelfSubjectRulesReview"}:   {},
 		{Group: "authorization.k8s.io", Version: "v1", Kind: "SubjectAccessReview"}:      {},
 		{Group: "apiextensions.k8s.io", Version: "v1", Kind: "ConversionReview"}:         {},
+		{Group: "certificates.k8s.io", Version: "v1", Kind: "PodCertificateRequest"}:     {}, // we don't serve Pods, so we can ignore these as well
+		{Group: "certificates.k8s.io", Version: "v1", Kind: "ClusterTrustBundle"}:        {}, // used by kubelet volume projections, not relevant
 		{Group: "core.kcp.io", Version: "v1alpha1", Kind: "Shard"}:                       {},
 	}
 

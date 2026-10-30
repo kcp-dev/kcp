@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1beta1
 
+// PodGroupClusterListerExpansion allows custom methods to be added to
+// PodGroupClusterLister.
+type PodGroupClusterListerExpansion interface{}
+
 // PriorityClassClusterListerExpansion allows custom methods to be added to
 // PriorityClassClusterLister.
 type PriorityClassClusterListerExpansion interface{}
+
+// WorkloadClusterListerExpansion allows custom methods to be added to
+// WorkloadClusterLister.
+type WorkloadClusterListerExpansion interface{}

@@ -23,8 +23,12 @@ import (
 )
 
 type ClusterInterface interface {
+	// PodGroups returns a PodGroupClusterInformer.
+	PodGroups() PodGroupClusterInformer
 	// PriorityClasses returns a PriorityClassClusterInformer.
 	PriorityClasses() PriorityClassClusterInformer
+	// Workloads returns a WorkloadClusterInformer.
+	Workloads() WorkloadClusterInformer
 }
 
 type version struct {
@@ -37,7 +41,17 @@ func New(f kcpinternalinterfaces.SharedInformerFactory, tweakListOptions kcpinte
 	return &version{factory: f, tweakListOptions: tweakListOptions}
 }
 
+// PodGroups returns a PodGroupClusterInformer.
+func (v *version) PodGroups() PodGroupClusterInformer {
+	return &podGroupClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 // PriorityClasses returns a PriorityClassClusterInformer.
 func (v *version) PriorityClasses() PriorityClassClusterInformer {
 	return &priorityClassClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// Workloads returns a WorkloadClusterInformer.
+func (v *version) Workloads() WorkloadClusterInformer {
+	return &workloadClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

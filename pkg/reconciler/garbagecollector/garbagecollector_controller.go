@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
 	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/controller/garbagecollector"
 
@@ -102,7 +103,7 @@ func (c *Controller) Start(ctx context.Context, workers int) {
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
 
-	initialResources, err := garbagecollector.GetDeletableResources(logger, c.factory)
+	initialResources, err := garbagecollector.GetDeletableResources(ctx, discovery.ToServerResourcesInterfaceWithContext(c.factory))
 	if err != nil {
 		utilruntime.HandleError(fmt.Errorf("failed to get initial deletable resources: %w", err))
 	}

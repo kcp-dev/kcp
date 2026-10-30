@@ -24,7 +24,7 @@ package v1alpha2
 // ScopedPermissionClaim embeds a PermissionClaim and adds a selector to
 // scope down access to objects of the claimed resource.
 type ScopedPermissionClaimApplyConfiguration struct {
-	PermissionClaimApplyConfiguration `json:",inline"`
+	PermissionClaimApplyConfiguration `json:""`
 	Selector                          *PermissionClaimSelectorApplyConfiguration `json:"selector,omitempty"`
 }
 

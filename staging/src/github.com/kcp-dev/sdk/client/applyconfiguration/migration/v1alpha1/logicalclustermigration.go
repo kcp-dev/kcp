@@ -30,7 +30,7 @@ import (
 //
 // LogicalClusterMigration describes a migration of a logical cluster from one shard to another.
 type LogicalClusterMigrationApplyConfiguration struct {
-	v1.TypeMetaApplyConfiguration    `json:",inline"`
+	v1.TypeMetaApplyConfiguration    `json:""`
 	*v1.ObjectMetaApplyConfiguration `json:"metadata,omitempty"`
 	Spec                             *LogicalClusterMigrationSpecApplyConfiguration   `json:"spec,omitempty"`
 	Status                           *LogicalClusterMigrationStatusApplyConfiguration `json:"status,omitempty"`
