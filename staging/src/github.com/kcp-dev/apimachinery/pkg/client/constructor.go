@@ -164,6 +164,9 @@ func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
 	}
 
 	cfg := SetCluster(rest.CopyConfig(c.cfg), clusterPath)
+	if limiter, ok := cfg.RateLimiter.(*ClusterRateLimiter); ok {
+		cfg.RateLimiter = limiter.Cluster(clusterPath)
+	}
 	instance, err := c.constructor.NewForConfigAndClient(cfg, c.client)
 	if err != nil {
 		var result R

@@ -67,9 +67,15 @@ func (g *genClientset) Imports(c *generator.Context) (imports []string) {
 			typedClientPath := path.Join(g.clientsetPackage, "typed", strings.ToLower(group.PackageName), strings.ToLower(version.NonEmpty()))
 			groupAlias := strings.ToLower(g.groupGoNames[clientgentypes.GroupVersion{Group: group.Group, Version: version.Version}])
 			imports = append(imports, fmt.Sprintf("%s%s %q", groupAlias, strings.ToLower(version.NonEmpty()), typedClientPath))
+			singleClusterTypedClientPath := path.Join(g.singleClusterClientPkg, "typed", group.PackageName, version.String())
+			imports = append(imports, fmt.Sprintf("%s %q", singleClusterTypedAlias(groupAlias, version.NonEmpty()), singleClusterTypedClientPath))
 		}
 	}
 	return
+}
+
+func singleClusterTypedAlias(groupAlias, version string) string {
+	return "typed" + groupAlias + strings.ToLower(version)
 }
 
 func (g *genClientset) GenerateType(c *generator.Context, _ *types.Type, w io.Writer) error {
@@ -78,6 +84,18 @@ func (g *genClientset) GenerateType(c *generator.Context, _ *types.Type, w io.Wr
 	sw := generator.NewSnippetWriter(w, c, "$", "$")
 
 	allGroups := clientgentypes.ToGroupVersionInfo(g.groups, g.groupGoNames)
+	scopedGroups := make([]map[string]any, 0, len(allGroups))
+	for _, group := range g.groups {
+		for _, version := range group.Versions {
+			groupGoName := g.groupGoNames[clientgentypes.GroupVersion{Group: group.Group, Version: version.Version}]
+			scopedGroups = append(scopedGroups, map[string]any{
+				"GroupGoName":          groupGoName,
+				"Version":              namer.IC(version.Version.String()),
+				"LowerCaseGroupGoName": namer.IL(groupGoName),
+				"TypedAlias":           singleClusterTypedAlias(strings.ToLower(groupGoName), version.NonEmpty()),
+			})
+		}
+	}
 	m := map[string]any{
 		"allGroups":                            allGroups,
 		"fmtErrorf":                            c.Universe.Type(types.Name{Package: "fmt", Name: "Errorf"}),
@@ -90,8 +108,10 @@ func (g *genClientset) GenerateType(c *generator.Context, _ *types.Type, w io.Wr
 		"httpClient":                           c.Universe.Type(types.Name{Package: "net/http", Name: "Client"}),
 		"NewDiscoveryClientForConfigAndClient": c.Universe.Function(types.Name{Package: "k8s.io/client-go/discovery", Name: "NewDiscoveryClientForConfigAndClient"}),
 		"NewDiscoveryClientForConfigOrDie":     c.Universe.Function(types.Name{Package: "k8s.io/client-go/discovery", Name: "NewDiscoveryClientForConfigOrDie"}),
-		"flowcontrolNewTokenBucketRateLimiter": c.Universe.Function(types.Name{Package: "k8s.io/client-go/util/flowcontrol", Name: "NewTokenBucketRateLimiter"}),
+		"kcpNewClusterRateLimiter":             c.Universe.Function(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/client", Name: "NewClusterRateLimiter"}),
 		"kcpclientCache":                       c.Universe.Type(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/client", Name: "Cache"}),
+		"kcpNewCache":                          c.Universe.Function(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/client", Name: "NewCache"}),
+		"kcpClientConstructor":                 c.Universe.Type(types.Name{Package: "github.com/kcp-dev/apimachinery/v2/pkg/client", Name: "Constructor"}),
 	}
 
 	sw.Do(clientsetInterface, m)
@@ -101,6 +121,10 @@ func (g *genClientset) GenerateType(c *generator.Context, _ *types.Type, w io.Wr
 		sw.Do(clientsetInterfaceImplTemplate, g)
 	}
 	sw.Do(getClusterTemplate, m)
+	sw.Do(scopedClientsetTemplate, m)
+	for _, g := range scopedGroups {
+		sw.Do(scopedClientsetGroupTemplate, g)
+	}
 	sw.Do(newClientsetForConfigTemplate, m)
 	sw.Do(newClientsetForConfigAndClientTemplate, m)
 	sw.Do(newClientsetForConfigOrDieTemplate, m)
@@ -122,7 +146,7 @@ var clientsetTemplate = `
 // ClusterClientset contains the cluster clients for groups.
 type ClusterClientset struct {
 	*$.DiscoveryClient|raw$
-	clientCache $.kcpclientCache|raw$[*client.Clientset]
+	discoveryCache $.kcpclientCache|raw$[*$.DiscoveryClient|raw$]
     $range .allGroups$$.LowerCaseGroupGoName$$.Version$ *$.PackageAlias$.$.GroupGoName$$.Version$ClusterClient
     $end$
 }
@@ -151,7 +175,26 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) client.Inter
 	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return c.clientCache.ClusterOrDie(clusterPath)
+	return &scopedClientset{clientset: c, clusterPath: clusterPath}
+}
+`
+
+var scopedClientsetTemplate = `
+type scopedClientset struct {
+	clientset   *ClusterClientset
+	clusterPath logicalcluster.Path
+}
+
+var _ client.Interface = &scopedClientset{}
+
+func (c *scopedClientset) Discovery() $.DiscoveryInterface|raw$ {
+	return c.clientset.discoveryCache.ClusterOrDie(c.clusterPath)
+}
+`
+
+var scopedClientsetGroupTemplate = `
+func (c *scopedClientset) $.GroupGoName$$.Version$() $.TypedAlias$.$.GroupGoName$$.Version$Interface {
+	return c.clientset.$.LowerCaseGroupGoName$$.Version$.Cluster(c.clusterPath)
 }
 `
 
@@ -189,18 +232,16 @@ func NewForConfigAndClient(c *$.Config|raw$, httpClient *$.httpClient|raw$) (*Cl
 		if configShallowCopy.Burst <= 0 {
 			return nil, $.fmtErrorf|raw$("burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
 		}
-		configShallowCopy.RateLimiter = $.flowcontrolNewTokenBucketRateLimiter|raw$(configShallowCopy.QPS, configShallowCopy.Burst)
-	}
-
-	cache := kcpclient.NewCache(c, httpClient, &kcpclient.Constructor[*client.Clientset]{
-		NewForConfigAndClient: client.NewForConfigAndClient,
-	})
-	if _, err := cache.Cluster(logicalcluster.Name("root").Path()); err != nil {
-		return nil, err
+		configShallowCopy.RateLimiter = $.kcpNewClusterRateLimiter|raw$(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 
 	var cs ClusterClientset
-	cs.clientCache = cache
+	cs.discoveryCache = $.kcpNewCache|raw$(&configShallowCopy, httpClient, &$.kcpClientConstructor|raw$[*$.DiscoveryClient|raw$]{
+		NewForConfigAndClient: $.NewDiscoveryClientForConfigAndClient|raw$,
+	})
+	if _, err := cs.discoveryCache.Cluster(logicalcluster.Name("root").Path()); err != nil {
+		return nil, err
+	}
 	var err error
 $range .allGroups$    cs.$.LowerCaseGroupGoName$$.Version$, err =$.PackageAlias$.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err!=nil {
@@ -234,6 +275,13 @@ func New(c *$.RESTConfig|raw$) *ClusterClientset {
 $range .allGroups$    cs.$.LowerCaseGroupGoName$$.Version$ = $.PackageAlias$.NewForConfigOrDie(c)
 $end$
 	cs.DiscoveryClient = $.NewDiscoveryClientForConfigOrDie|raw$(c)
+	httpClient, err := $.RESTHTTPClientFor|raw$(c)
+	if err != nil {
+		panic(err)
+	}
+	cs.discoveryCache = $.kcpNewCache|raw$(c, httpClient, &$.kcpClientConstructor|raw$[*$.DiscoveryClient|raw$]{
+		NewForConfigAndClient: $.NewDiscoveryClientForConfigAndClient|raw$,
+	})
 	return &cs
 }
 `
