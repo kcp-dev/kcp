@@ -18,6 +18,7 @@ package clustercachedresourceendpointslice
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -85,6 +86,12 @@ type Admission struct {
 func (adm *Admission) Validate(ctx context.Context, a admission.Attributes, _ admission.ObjectInterfaces) error {
 	if a.GetResource().GroupResource() != cachev1alpha1.Resource("clustercachedresourceendpointslices") || a.GetOperation() != admission.Create {
 		return nil
+	}
+
+	// The lookup of a referenced ClusterCachedResource goes through informer indexers; fail
+	// closed until they have synced instead of denying a valid reference on a cold cache.
+	if !adm.WaitForReady() {
+		return admission.NewForbidden(a, errors.New("not yet ready to handle request"))
 	}
 
 	clusterName, err := genericapirequest.ClusterNameFrom(ctx)
