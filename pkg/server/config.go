@@ -30,6 +30,7 @@ import (
 
 	certificatesv1 "k8s.io/api/certificates/v1"
 	resourcev1 "k8s.io/api/resource/v1"
+	storagemigrationv1 "k8s.io/api/storagemigration/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -257,6 +258,10 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	// ClusterTrustBundles distribute CA trust anchors to kubelets via projected
 	// volumes, which we don't need.
 	resourceConfig.DisableResources(certificatesv1.SchemeGroupVersion.WithResource("clustertrustbundles"))
+	// StorageVersionMigrations drive the kube storage version migrator, which kcp does not run.
+	resourceConfig.DisableMatchingVersions(func(gv schema.GroupVersion) bool {
+		return gv.Group == storagemigrationv1.GroupName
+	})
 
 	c.GenericConfig, c.KubeSharedInformerFactory, storageFactory, err = controlplaneapiserver.BuildGenericConfig(
 		opts.GenericControlPlane,
