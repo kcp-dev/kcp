@@ -5602,7 +5602,7 @@ about who the rule applies to or which namespace the rule applies to.</p>
 </div>
 
 <div class="property-description">
-<p>APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+<p>apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
 the enumerated resources in any API group will be allowed. &ldquo;&rdquo; represents the core API group and &ldquo;*&rdquo; represents all API groups.</p>
 
 </div>
@@ -5634,7 +5634,7 @@ the enumerated resources in any API group will be allowed. &ldquo;&rdquo; repres
 </div>
 
 <div class="property-description">
-<p>NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+<p>nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
 Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
 Rules can either apply to API resources (such as &ldquo;pods&rdquo; or &ldquo;secrets&rdquo;) or non-resource URL paths (such as &ldquo;/api&rdquo;),  but not both.</p>
 
@@ -5667,7 +5667,7 @@ Rules can either apply to API resources (such as &ldquo;pods&rdquo; or &ldquo;se
 </div>
 
 <div class="property-description">
-<p>ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.</p>
+<p>resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.</p>
 
 </div>
 
@@ -5698,7 +5698,7 @@ Rules can either apply to API resources (such as &ldquo;pods&rdquo; or &ldquo;se
 </div>
 
 <div class="property-description">
-<p>Resources is a list of resources this rule applies to. &lsquo;*&rsquo; represents all resources.</p>
+<p>resources is a list of resources this rule applies to. &lsquo;*&rsquo; represents all resources.</p>
 
 </div>
 
@@ -5729,7 +5729,7 @@ Rules can either apply to API resources (such as &ldquo;pods&rdquo; or &ldquo;se
 </div>
 
 <div class="property-description">
-<p>Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. &lsquo;*&rsquo; represents all verbs.</p>
+<p>verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. &lsquo;*&rsquo; represents all verbs.</p>
 
 </div>
 
@@ -6058,7 +6058,7 @@ about who the rule applies to or which namespace the rule applies to.</p>
 </div>
 
 <div class="property-description">
-<p>APIGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+<p>apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
 the enumerated resources in any API group will be allowed. &ldquo;&rdquo; represents the core API group and &ldquo;*&rdquo; represents all API groups.</p>
 
 </div>
@@ -6090,7 +6090,7 @@ the enumerated resources in any API group will be allowed. &ldquo;&rdquo; repres
 </div>
 
 <div class="property-description">
-<p>NonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+<p>nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
 Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
 Rules can either apply to API resources (such as &ldquo;pods&rdquo; or &ldquo;secrets&rdquo;) or non-resource URL paths (such as &ldquo;/api&rdquo;),  but not both.</p>
 
@@ -6123,7 +6123,7 @@ Rules can either apply to API resources (such as &ldquo;pods&rdquo; or &ldquo;se
 </div>
 
 <div class="property-description">
-<p>ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.</p>
+<p>resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.</p>
 
 </div>
 
@@ -6154,7 +6154,7 @@ Rules can either apply to API resources (such as &ldquo;pods&rdquo; or &ldquo;se
 </div>
 
 <div class="property-description">
-<p>Resources is a list of resources this rule applies to. &lsquo;*&rsquo; represents all resources.</p>
+<p>resources is a list of resources this rule applies to. &lsquo;*&rsquo; represents all resources.</p>
 
 </div>
 
@@ -6185,7 +6185,7 @@ Rules can either apply to API resources (such as &ldquo;pods&rdquo; or &ldquo;se
 </div>
 
 <div class="property-description">
-<p>Verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. &lsquo;*&rsquo; represents all verbs.</p>
+<p>verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. &lsquo;*&rsquo; represents all verbs.</p>
 
 </div>
 
