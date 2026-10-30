@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -47,6 +48,7 @@ import (
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/informer"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/reconciler/committer"
 	"github.com/kcp-dev/kcp/pkg/reconciler/events"
@@ -60,6 +62,10 @@ const (
 	DefaultIdentitySecretNamespace = "kcp-system"
 )
 
+type gvrEventSource interface {
+	AddEventHandler(handler informer.GVREventHandler)
+}
+
 // NewController returns a new controller for APIExports.
 func NewController(
 	kcpClusterClient kcpclientset.ClusterInterface,
@@ -69,6 +75,7 @@ func NewController(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	namespaceInformer kcpcorev1informers.NamespaceClusterInformer,
 	secretInformer kcpcorev1informers.SecretClusterInformer,
+	secretEvents gvrEventSource,
 	shardName string,
 ) (*controller, error) {
 	c := &controller{
@@ -86,7 +93,7 @@ func NewController(
 		listAPIExports: func() ([]*apisv1alpha2.APIExport, error) {
 			return apiExportInformer.Lister().List(labels.Everything())
 		},
-		listAPIExportsForSecret: func(secret *corev1.Secret) ([]*apisv1alpha2.APIExport, error) {
+		listAPIExportsForSecret: func(secret metav1.Object) ([]*apisv1alpha2.APIExport, error) {
 			secretKey, err := kcpcache.DeletionHandlingMetaClusterNamespaceKeyFunc(secret)
 			if err != nil {
 				return nil, err
@@ -164,15 +171,18 @@ func NewController(
 		},
 	})
 
-	_, _ = secretInformer.Informer().AddEventHandler(events.WithoutSyncs(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			c.enqueueSecret(obj.(*corev1.Secret))
+	secretEvents.AddEventHandler(events.WithoutGVRSyncs(informer.GVREventHandlerFuncs{
+		AddFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
+			c.enqueueSecret(gvr, obj)
 		},
-		UpdateFunc: func(_, newObj interface{}) {
-			c.enqueueSecret(newObj.(*corev1.Secret))
+		UpdateFunc: func(gvr schema.GroupVersionResource, _, newObj interface{}) {
+			c.enqueueSecret(gvr, newObj)
 		},
-		DeleteFunc: func(obj interface{}) {
-			c.enqueueSecret(tombstone.Obj[*corev1.Secret](obj))
+		DeleteFunc: func(gvr schema.GroupVersionResource, obj interface{}) {
+			if final, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+				obj = final.Obj
+			}
+			c.enqueueSecret(gvr, obj)
 		},
 	}))
 
@@ -215,7 +225,7 @@ type controller struct {
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface
 
 	listAPIExports          func() ([]*apisv1alpha2.APIExport, error)
-	listAPIExportsForSecret func(secret *corev1.Secret) ([]*apisv1alpha2.APIExport, error)
+	listAPIExportsForSecret func(secret metav1.Object) ([]*apisv1alpha2.APIExport, error)
 	getAPIExport            func(clusterName logicalcluster.Name, name string) (*apisv1alpha2.APIExport, error)
 
 	getAPIExportEndpointSlice    func(clusterName logicalcluster.Name, name string) (*apisv1alpha1.APIExportEndpointSlice, error)
@@ -272,7 +282,14 @@ func (c *controller) enqueueAllAPIExports(shard *corev1alpha1.Shard) {
 	}
 }
 
-func (c *controller) enqueueSecret(secret *corev1.Secret) {
+func (c *controller) enqueueSecret(gvr schema.GroupVersionResource, obj interface{}) {
+	if gvr != corev1.SchemeGroupVersion.WithResource("secrets") {
+		return
+	}
+	secret, ok := obj.(logging.Object)
+	if !ok {
+		return
+	}
 	apiExports, err := c.listAPIExportsForSecret(secret)
 	if err != nil {
 		utilruntime.HandleError(err)

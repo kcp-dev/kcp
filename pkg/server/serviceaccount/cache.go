@@ -49,7 +49,8 @@ type Cache struct {
 	// kcpInformers is used to lookup if the logical cluster a service account originates from the local shard.
 	kcpInformers kcpinformers.SharedInformerFactory
 	// kubeInformers is used to lookup service accounts and secrets from shard-local logical clusters.
-	kubeInformers kcpkubernetesinformers.SharedInformerFactory
+	kubeInformers   kcpkubernetesinformers.SharedInformerFactory
+	secretInformers kcpkubernetesinformers.SharedInformerFactory
 
 	serviceAccounts *shardlookup.TTLCache[*corev1.ServiceAccount]
 	secrets         *shardlookup.TTLCache[*corev1.Secret]
@@ -86,6 +87,12 @@ func (c *Cache) SetInformers(kcpInformers kcpinformers.SharedInformerFactory) {
 	c.kcpInformers = kcpInformers
 }
 
+func (c *Cache) SetSecretInformers(secretInformers kcpkubernetesinformers.SharedInformerFactory) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.secretInformers = secretInformers
+}
+
 // TokenGetter implements the OptionalTokenGetter for the kubeapiserver.
 // It sets the kube informer factory to retrieve service accounts and secrets.
 func (c *Cache) TokenGetter(kubeInformers kcpkubernetesinformers.SharedInformerFactory) serviceaccount.ServiceAccountTokenClusterGetter {
@@ -109,6 +116,9 @@ func (c *Cache) Cluster(clusterName logicalcluster.Name) serviceaccount.ServiceA
 	}
 	if c.kubeInformers == nil {
 		panic("serviceaccount cache kubeInformers is nil")
+	}
+	if c.secretInformers == nil {
+		panic("serviceaccount cache secretInformers is nil")
 	}
 	// If any of these happen verify that the pointers and setup order are still valid.
 	//
@@ -143,7 +153,7 @@ func (c *Cache) Cluster(clusterName logicalcluster.Name) serviceaccount.ServiceA
 	// created and just access the stored informers/clients from the
 	// hooks. Ordering wise that would be probably be fine.
 	serviceAccountsLister := c.kubeInformers.Core().V1().ServiceAccounts().Cluster(clusterName).Lister()
-	secretsLister := c.kubeInformers.Core().V1().Secrets().Cluster(clusterName).Lister()
+	secretsLister := c.secretInformers.Core().V1().Secrets().Cluster(clusterName).Lister()
 	kubeShardClient := c.kubeShardClient.Cluster(clusterName.Path())
 
 	return &serviceAccountTokenGetter{
@@ -163,7 +173,13 @@ func (c *Cache) Cluster(clusterName logicalcluster.Name) serviceaccount.ServiceA
 			c.secrets,
 			isLocal,
 			func(_ logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
-				return secretsLister.Secrets(namespace).Get(name)
+				secret, err := secretsLister.Secrets(namespace).Get(name)
+				if !kerrors.IsNotFound(err) {
+					return secret, err
+				}
+				ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+				defer cancel()
+				return kubeShardClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 			},
 			func(_ logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
 				ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)

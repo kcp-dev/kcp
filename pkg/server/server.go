@@ -471,11 +471,13 @@ func (s *Server) Run(ctx context.Context) error {
 
 		logger.Info("starting kube informers")
 		s.KubeSharedInformerFactory.Start(hookCtx.Done())
+		s.KubeServiceAccountTokenInformerFactory.Start(hookCtx.Done())
 		s.ApiExtensionsSharedInformerFactory.Start(hookCtx.Done())
 		s.CacheKubeSharedInformerFactory.Start(hookCtx.Done())
 		s.CacheApiExtensionsSharedInformerFactory.Start(hookCtx.Done())
 
 		s.KubeSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
+		s.KubeServiceAccountTokenInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.ApiExtensionsSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.CacheKubeSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.CacheApiExtensionsSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
