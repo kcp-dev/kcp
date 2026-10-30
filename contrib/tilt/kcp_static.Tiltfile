@@ -137,6 +137,13 @@ def _shard_common(spec, cfg, shard_name):
     spec["certificates"] = {"issuerRef": cfg["issuer_ref"]}
     spec["cache"] = {"embedded": {"enabled": True}}
     spec["etcd"] = {"endpoints": [cfg["etcd_endpoint"]]}
+    # Files a parent needs in every shard pod (an admission configuration, an
+    # audit backend), in the operator's own extraVolumes/extraVolumeMounts
+    # shapes; the flags that read them go through extra_args.
+    if cfg["extra_volumes"]:
+        spec["extraVolumes"] = cfg["extra_volumes"]
+    if cfg["extra_volume_mounts"]:
+        spec["extraVolumeMounts"] = cfg["extra_volume_mounts"]
     dt = _deployment_template(cfg)
     if dt:
         spec["deploymentTemplate"] = dt
@@ -278,6 +285,8 @@ def _defaults(base_domain, extra_shards):
         "hostalias_ip": "10.96.2.2",
         "feature_gates": "CacheAPIs=true,WorkspaceMounts=true",
         "extra_args": [],
+        "extra_volumes": [],
+        "extra_volume_mounts": [],
         "etcd_endpoint": "http://etcd.kcp-etcd.svc.cluster.local:2379",
         "issuer_ref": {"group": "cert-manager.io", "kind": "Issuer", "name": "selfsigned"},
         "image_repo": "",
@@ -336,7 +345,8 @@ def deploy_kcp(base_domain = "kcp.localhost", extra_shards = [], **overrides):
       **overrides: any key from _defaults(): gateway, route_version,
         authorization_webhook_secret, oidc, image_repo, image_tag, namespace,
         port, etcd_endpoint, issuer_ref, hostalias_ip, feature_gates,
-        extra_args, labels, kubeconfig_dir.
+        extra_args, extra_volumes, extra_volume_mounts, labels,
+        kubeconfig_dir.
 
     The caller is responsible for cert-manager, the Gateway API implementation,
     etcd and the kcp-operator being present before these resources reconcile.

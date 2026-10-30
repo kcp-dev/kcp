@@ -63,8 +63,9 @@ k8s_yaml(kustomize('./kcp-operator'))
 # and pass their own gateway/hostnames/auth — see contrib/tilt/kcp_static.Tiltfile.
 load('./kcp_static.Tiltfile', 'deploy_kcp')
 
-# Optional image pin and static-token auth, kept as env hooks for parents that
-# include this Tiltfile. Empty string → operator defaults / no token auth.
+# Optional image pin, static-token auth and shard configuration, kept as env
+# hooks for parents that include this Tiltfile. Empty string → operator
+# defaults / no token auth / nothing extra on the shards.
 #   KCP_IMAGE_REPO override is for images outside the operator's default repo,
 #   e.g. PR builds in ghcr.io/kcp-dev/kcp-prs.
 #
@@ -99,6 +100,20 @@ if os.getenv('KCP_OIDC_ISSUER_URL', ''):
 hostnames = ['kcp.localhost', 'root.kcp.localhost', 'theseus.kcp.localhost']
 hostnames += [h for h in os.getenv('KCP_EXTRA_HOSTNAMES', '').split(',') if h]
 
+# Optional shard configuration for parents that need files in every shard
+# pod and flags that read them (an admission configuration for the global
+# validating webhook, an audit backend): KCP_SHARD_CONFIG_FILE names a YAML
+# file with any of extraArgs, extraVolumes and extraVolumeMounts in the
+# operator's own field shapes. They go on the root shard and every extra
+# shard alike, so no shard runs without them.
+shard_config = {}
+shard_config_file = os.getenv('KCP_SHARD_CONFIG_FILE', '')
+if shard_config_file:
+    shard_config = decode_yaml(read_file(shard_config_file)) or {}
+    for key in shard_config:
+        if key not in ('extraArgs', 'extraVolumes', 'extraVolumeMounts'):
+            fail('KCP_SHARD_CONFIG_FILE %s: unknown key %s (extraArgs, extraVolumes, extraVolumeMounts)' % (shard_config_file, key))
+
 deploy_kcp(
     base_domain='kcp.localhost',
     extra_shards=['theseus'],
@@ -108,6 +123,9 @@ deploy_kcp(
     token_auth_secret=os.getenv('KCP_TOKEN_AUTH_SECRET', None) or None,
     token_auth_key=os.getenv('KCP_TOKEN_AUTH_KEY', None) or None,
     oidc=oidc,
+    extra_args=shard_config.get('extraArgs', []) or [],
+    extra_volumes=shard_config.get('extraVolumes', []) or [],
+    extra_volume_mounts=shard_config.get('extraVolumeMounts', []) or [],
 )
 
 # Portal (contrib-dashboard) — a web UI for kcp workspaces/APIExports served in
