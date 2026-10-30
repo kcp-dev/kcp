@@ -28,7 +28,10 @@ import (
 	"os"
 	"sync"
 
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsapiserver "k8s.io/apiextensions-apiserver/pkg/apiserver"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -159,6 +162,7 @@ type ExtraConfig struct {
 	// informers
 	KcpSharedInformerFactory                kcpinformers.SharedInformerFactory
 	KubeSharedInformerFactory               kcpkubernetesinformers.SharedInformerFactory
+	KubeServiceAccountTokenInformerFactory  kcpkubernetesinformers.SharedInformerFactory
 	ApiExtensionsSharedInformerFactory      kcpapiextensionsinformers.SharedInformerFactory
 	PartialMetadataDDSIF                    *informer.DiscoveringDynamicSharedInformerFactory
 	CachePartialMetadataDDSIF               *informer.DiscoveringDynamicSharedInformerFactory
@@ -371,6 +375,14 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	}
 	opts.Extra.ServiceAccountCache.SetKubeShardClient(externalKubeClient)
 	opts.Extra.ServiceAccountCache.SetInformers(c.KcpSharedInformerFactory)
+	c.KubeServiceAccountTokenInformerFactory = kcpkubernetesinformers.NewSharedInformerFactoryWithOptions(
+		c.KubeClusterClient,
+		resyncPeriod,
+		kcpkubernetesinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.FieldSelector = fields.OneTermEqualSelector("type", string(corev1.SecretTypeServiceAccountToken)).String()
+		}),
+	)
+	opts.Extra.ServiceAccountCache.SetSecretInformers(c.KubeServiceAccountTokenInformerFactory)
 
 	// Setup apiextensions * informers
 	c.ApiExtensionsClusterClient, err = kcpapiextensionsclientset.NewForConfig(c.GenericConfig.LoopbackClientConfig)
