@@ -26,7 +26,7 @@
 # All COPY paths below are relative to that repository root.
 
 # Build the binaries
-FROM --platform=${BUILDPLATFORM} docker.io/golang:1.26.4 AS builder
+FROM --platform=${BUILDPLATFORM} docker.io/golang:1.26.10 AS builder
 WORKDIR /workspace
 
 # Install dependencies.
