@@ -5588,8 +5588,8 @@ That means the schema is implicit, maintained, and enforced by the shards pushin
 Thanks to that the server can share the same database with the kcp server.</p>
 <p>Ultimately a shard aware resources end up being stored under the following key:</p>
 <p><code>/cache/group/resource/{shard-name}/{cluster-name}/{namespace-name}/{resource-name}</code></p>
-<p>For more information about inner working of the storage layer,
-please visit: TODO: add a link that explains the mapping of a URL to a storage prefix.</p>
+<p>For more information about how kcp lays out keys in the storage layer,
+see <a href="../../../developers/internals/etcd-structure/">etcd structure</a>.</p>
 
 
 

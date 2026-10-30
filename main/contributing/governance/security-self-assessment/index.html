@@ -6487,7 +6487,7 @@
 <h4 id="security-goals">Security Goals<a class="headerlink" href="#security-goals" title="Permanent link">&para;</a></h4>
 <ul>
 <li><strong>Strict Workspace Isolation:</strong> Ensure that tenants in one Workspace cannot see, access, or affect resources in another Workspace unless explicitly authorized. This is the core security boundary of the system.</li>
-<li><strong>Scoped Permissions:</strong> The permissions granted to a Syncer on both the kcp server and the physical cluster must be limited to the minimum required for its function (Principle of Least Privilege). - TODO remove Syncer</li>
+<li><strong>Scoped Permissions:</strong> The permissions granted to API providers through APIExport permission claims, and to kcp's own controllers, must be limited to the minimum required for their function (Principle of Least Privilege).</li>
 <li><strong>Standard Kubernetes Auth:</strong> Leverage and extend Kubernetes authentication and authorization (RBAC) mechanisms for access control to the kcp server and within Workspaces.</li>
 </ul>
 <h3 id="non-goals">Non-goals<a class="headerlink" href="#non-goals" title="Permanent link">&para;</a></h3>
