@@ -24,6 +24,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/require"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -176,21 +177,11 @@ func TestClusterCachedResourceEndpointSliceWithPath(t *testing.T) {
 		},
 	}
 
+	// A path reference is authorized against the referenced ClusterCachedResource's workspace, which
+	// requires the ClusterCachedResource to exist. Admission rejects the reference without leaking
+	// whether the workspace or the object exist.
 	_, err = sliceClient.Cluster(consumerPath).Create(ctx, sliceInvalidReference, metav1.CreateOptions{})
-	require.NoError(t, err, "ClusterCachedResourceEndpointSlice should be created even if ClusterCachedResource doesn't exist yet")
+	require.True(t, apierrors.IsForbidden(err), "expected forbidden for a reference to a nonexistent ClusterCachedResource, got: %v", err)
 
-	kcptestinghelpers.Eventually(t, func() (bool, string) {
-		sliceInvalidReference, err = kcpClusterClient.Cluster(consumerPath).CacheV1alpha1().ClusterCachedResourceEndpointSlices().Get(ctx, sliceInvalidReference.Name, metav1.GetOptions{})
-		if err != nil {
-			return false, err.Error()
-		}
-
-		if conditions.IsFalse(sliceInvalidReference, cachev1alpha1.ClusterCachedResourceValid) &&
-			conditions.GetReason(sliceInvalidReference, cachev1alpha1.ClusterCachedResourceValid) == cachev1alpha1.ClusterCachedResourceNotFoundReason {
-			return true, ""
-		}
-		return false, spew.Sdump(sliceInvalidReference.Status.Conditions)
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "expected invalid ClusterCachedResource reference")
-
-	t.Logf("ClusterCachedResourceEndpointSlice correctly reports invalid reference to nonexistent ClusterCachedResource")
+	t.Logf("ClusterCachedResourceEndpointSlice referencing a nonexistent ClusterCachedResource is rejected")
 }
