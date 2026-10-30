@@ -140,6 +140,13 @@ func (h *transformingHandler) OnAdd(obj any, isInInitialList bool) {
 	// TODO(ntnn): It might be worth it to rewrite the admission at some
 	// so this hack isn't needed - but in reality it doesn't matter.
 	// This drift is only affecting CI.
+	//
+	// TODO(mjudeikis): this synthetic update is still dropped
+	// when it arrives before the quota lister observes the quota's
+	// initial status write, because upstream replenishQuota only
+	// enqueues quotas whose Status.Hard matches the resource. The fork
+	// should match on Spec.Hard as well. Until then such adds are only
+	// counted at the next full resync (see TestKubeQuotaNamespaceIsolation).
 	if !isInInitialList {
 		h.delegate.OnUpdate(transformed, transformed)
 	}

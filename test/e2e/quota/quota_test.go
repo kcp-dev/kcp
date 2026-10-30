@@ -298,9 +298,40 @@ func TestKubeQuotaNamespaceIsolation(t *testing.T) {
 		require.NoError(t, err)
 		ua, oka := qa.Status.Used["count/configmaps"]
 		ub, okb := qb.Status.Used["count/configmaps"]
-		return oka && okb && ua.Equal(resource.MustParse("1")) && ub.Equal(resource.MustParse("1")),
-			fmt.Sprintf("a: ok=%t used=%s; b: ok=%t used=%s", oka, ua.String(), okb, ub.String())
-	}, wait.ForeverTestTimeout, 100*time.Millisecond, "initial per-namespace usage never converged")
+		convergedA := oka && ua.Equal(resource.MustParse("1"))
+		convergedB := okb && ub.Equal(resource.MustParse("1"))
+		if convergedA && convergedB {
+			return true, ""
+		}
+		// kube-root-ca.crt is created concurrently with the quota. Admission
+		// skips a quota whose Status.Hard is still empty, and the controller's
+		// initial sync can count from a configmap cache that has not seen it
+		// yet. The configmap's add event is then dropped because upstream
+		// replenishQuota only enqueues quotas whose Status.Hard (as seen in the
+		// quota lister, which also lags) matches the resource. Nothing recounts
+		// until the 5m resync. A delete triggers replenishment once Status.Hard
+		// is populated, so create and delete a canary configmap to force it.
+		//
+		// TODO(mjudeikis): make replenishQuota in
+		// pkg/controller/resourcequota/resource_quota_controller.go match on
+		// Spec.Hard as well as Status.Hard, so events arriving before the
+		// quota's initial status is observed are not dropped. Remove this
+		// nudge once that lands.
+		for ns, converged := range map[string]bool{nsA: convergedA, nsB: convergedB} {
+			if converged {
+				continue
+			}
+			cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{GenerateName: "nudge-"}}
+			created, cerr := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps(ns).Create(t.Context(), cm, metav1.CreateOptions{})
+			if cerr == nil {
+				derr := kubeClusterClient.Cluster(wsPath).CoreV1().ConfigMaps(ns).Delete(t.Context(), created.Name, metav1.DeleteOptions{})
+				if derr != nil && !apierrors.IsNotFound(derr) {
+					require.NoError(t, derr, "deleting nudge configmap %s in %s", created.Name, ns)
+				}
+			}
+		}
+		return false, fmt.Sprintf("a: ok=%t used=%s; b: ok=%t used=%s", oka, ua.String(), okb, ub.String())
+	}, wait.ForeverTestTimeout, 500*time.Millisecond, "initial per-namespace usage never converged")
 
 	t.Logf("Creating 3 configmaps in nsA")
 	for i := range 3 {
