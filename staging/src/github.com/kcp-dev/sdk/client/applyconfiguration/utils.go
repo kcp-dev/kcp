@@ -19,6 +19,12 @@ limitations under the License.
 package applyconfiguration
 
 import (
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	runtime "k8s.io/apimachinery/pkg/runtime"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
+	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
+
 	v1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	v1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
@@ -39,11 +45,6 @@ import (
 	applyconfigurationmigrationv1alpha1 "github.com/kcp-dev/sdk/client/applyconfiguration/migration/v1alpha1"
 	applyconfigurationtenancyv1alpha1 "github.com/kcp-dev/sdk/client/applyconfiguration/tenancy/v1alpha1"
 	applyconfigurationtopologyv1alpha1 "github.com/kcp-dev/sdk/client/applyconfiguration/topology/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
-	managedfields "k8s.io/apimachinery/pkg/util/managedfields"
-	metav1 "k8s.io/client-go/applyconfigurations/meta/v1"
 )
 
 // ForKind returns an apply configuration type for the given GroupVersionKind, or nil if no

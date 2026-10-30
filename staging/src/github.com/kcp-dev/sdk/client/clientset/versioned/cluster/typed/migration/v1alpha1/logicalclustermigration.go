@@ -21,12 +21,13 @@ package v1alpha1
 import (
 	context "context"
 
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	watch "k8s.io/apimachinery/pkg/watch"
+
 	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v3"
 	kcpmigrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	kcpv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	watch "k8s.io/apimachinery/pkg/watch"
 )
 
 // LogicalClusterMigrationsClusterGetter has a method to return a LogicalClusterMigrationClusterInterface.

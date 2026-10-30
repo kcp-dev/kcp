@@ -24,10 +24,11 @@ package v1alpha2
 import (
 	unsafe "unsafe"
 
-	v1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
-	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 	conversion "k8s.io/apimachinery/pkg/conversion"
 	runtime "k8s.io/apimachinery/pkg/runtime"
+
+	v1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
 )
 
 func init() {

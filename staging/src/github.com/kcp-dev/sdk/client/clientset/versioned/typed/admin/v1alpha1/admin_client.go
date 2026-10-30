@@ -21,9 +21,10 @@ package v1alpha1
 import (
 	http "net/http"
 
+	rest "k8s.io/client-go/rest"
+
 	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	scheme "github.com/kcp-dev/sdk/client/clientset/versioned/scheme"
-	rest "k8s.io/client-go/rest"
 )
 
 type AdminV1alpha1Interface interface {

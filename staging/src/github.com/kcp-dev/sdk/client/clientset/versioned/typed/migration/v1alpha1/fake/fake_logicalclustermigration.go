@@ -19,10 +19,11 @@ limitations under the License.
 package fake
 
 import (
+	gentype "k8s.io/client-go/gentype"
+
 	v1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/client/applyconfiguration/migration/v1alpha1"
 	typedmigrationv1alpha1 "github.com/kcp-dev/sdk/client/clientset/versioned/typed/migration/v1alpha1"
-	gentype "k8s.io/client-go/gentype"
 )
 
 // fakeLogicalClusterMigrations implements LogicalClusterMigrationInterface

@@ -19,11 +19,13 @@ limitations under the License.
 package fake
 
 import (
+	rest "k8s.io/client-go/rest"
+
 	kcptesting "github.com/kcp-dev/client-go/third_party/k8s.io/client-go/testing"
+	"github.com/kcp-dev/logicalcluster/v3"
+
 	kcpwildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster/typed/wildwest/v1alpha1"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
-	"github.com/kcp-dev/logicalcluster/v3"
-	rest "k8s.io/client-go/rest"
 )
 
 var _ kcpwildwestv1alpha1.WildwestV1alpha1ClusterInterface = (*WildwestV1alpha1ClusterClient)(nil)
