@@ -64,17 +64,22 @@ type LogicalClusterMigrationSpec struct {
 
 // LogicalClusterMigrationPhaseType is the type of the current phase of the migration.
 //
-// +kubebuilder:validation:Enum=Preparing;Migrating;OriginCleanup;DestinationFinalize;Aborting;Completed;Failed
+// +kubebuilder:validation:Enum=Preparing;Migrating;OriginCleanup;DestinationFinalize;Aborting;Completed;Failed;CancellationPreparing;Restoring;CancellationCleanup;CancellationFinalize;Cancelled
 type LogicalClusterMigrationPhaseType string
 
 const (
-	LogicalClusterMigrationPhasePreparing           LogicalClusterMigrationPhaseType = "Preparing"
-	LogicalClusterMigrationPhaseMigrating           LogicalClusterMigrationPhaseType = "Migrating"
-	LogicalClusterMigrationPhaseOriginCleanup       LogicalClusterMigrationPhaseType = "OriginCleanup"
-	LogicalClusterMigrationPhaseDestinationFinalize LogicalClusterMigrationPhaseType = "DestinationFinalize"
-	LogicalClusterMigrationPhaseAborting            LogicalClusterMigrationPhaseType = "Aborting"
-	LogicalClusterMigrationPhaseCompleted           LogicalClusterMigrationPhaseType = "Completed"
-	LogicalClusterMigrationPhaseFailed              LogicalClusterMigrationPhaseType = "Failed"
+	LogicalClusterMigrationPhasePreparing             LogicalClusterMigrationPhaseType = "Preparing"
+	LogicalClusterMigrationPhaseMigrating             LogicalClusterMigrationPhaseType = "Migrating"
+	LogicalClusterMigrationPhaseOriginCleanup         LogicalClusterMigrationPhaseType = "OriginCleanup"
+	LogicalClusterMigrationPhaseDestinationFinalize   LogicalClusterMigrationPhaseType = "DestinationFinalize"
+	LogicalClusterMigrationPhaseAborting              LogicalClusterMigrationPhaseType = "Aborting"
+	LogicalClusterMigrationPhaseCompleted             LogicalClusterMigrationPhaseType = "Completed"
+	LogicalClusterMigrationPhaseFailed                LogicalClusterMigrationPhaseType = "Failed"
+	LogicalClusterMigrationPhaseCancellationPreparing LogicalClusterMigrationPhaseType = "CancellationPreparing"
+	LogicalClusterMigrationPhaseRestoring             LogicalClusterMigrationPhaseType = "Restoring"
+	LogicalClusterMigrationPhaseCancellationCleanup   LogicalClusterMigrationPhaseType = "CancellationCleanup"
+	LogicalClusterMigrationPhaseCancellationFinalize  LogicalClusterMigrationPhaseType = "CancellationFinalize"
+	LogicalClusterMigrationPhaseCancelled             LogicalClusterMigrationPhaseType = "Cancelled"
 )
 
 // LogicalClusterMigrationStatus communicates the observed state of the migration.
@@ -142,6 +147,9 @@ const (
 	// LCMigrationAborted indicates the migration was aborted (e.g. due to
 	// workspace deletion) and both shards have cleaned up their data.
 	LCMigrationAborted conditionsv1alpha1.ConditionType = "Aborted"
+
+	// LCMigrationCancelled indicates that cancellation restored the workspace on its origin.
+	LCMigrationCancelled conditionsv1alpha1.ConditionType = "Cancelled"
 )
 
 func (in *LogicalClusterMigration) SetConditions(c conditionsv1alpha1.Conditions) {

@@ -113,6 +113,39 @@ kubectl wait apibinding migration --for=jsonpath='{.status.phase}'=Bound --timeo
 
 ## Observing Migration Behavior
 
+### Cancelling an In-progress Migration
+
+In the workspace containing the migration resource, request cancellation with:
+
+```bash
+kubectl delete logicalclustermigration test-migration --wait=false
+```
+
+The finalizer keeps the resource until the workspace is restored on its origin
+shard. Watch progress with `kubectl get logicalclustermigrations -w`.
+
+During preparation, cancellation restores access on the origin. During copying,
+the destination first removes its partial copy. If origin cleanup has started,
+cancellation freezes the destination and copies its complete dataset back to the
+origin before removing the destination copy. The workspace remains unavailable
+until cancellation finishes. A failed copy or cleanup is retried; do not remove
+the finalizer manually to bypass it.
+
+Deleting a completed migration only removes the migration resource. To move a
+completed migration's workspace back, create another migration.
+
+The decision is made when the controller observes the deletion request. An
+operation already in flight may finish first, so a sufficiently late request can
+observe a completed migration rather than cancel it.
+
+For a deterministic test of cancellation during an in-flight copy, run:
+
+```bash
+go test ./test/e2e/logicalclustermigration -run '^TestMigrationCancellationDuringCopy$' -count=1 -v
+```
+
+Use shards running the same version with support for cancellation phases.
+
 ### Watching Connection Termination
 
 To observe how active connections are handled during migration, set up a watch before starting the
