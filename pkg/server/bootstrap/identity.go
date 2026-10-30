@@ -37,6 +37,7 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -237,6 +238,78 @@ func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]strin
 		apiExportHandler(ids)
 }
 
+// NewRegistryWildcardIdentities creates the identity-injecting round tripper
+// for a component that learns the identities of the core APIExports from
+// the APIIdentity registry instead of from the root shard: the front-proxy,
+// which reads the registry through the Admin workspace of its peer shards.
+//
+// The returned handler is registered on an informer of the APIIdentity
+// entries; it feeds the identities as the entries arrive. The returned ready
+// func fails while any core identity is still unknown and is meant as a
+// readiness check: requests that need an identity fail until it arrives,
+// nothing blocks startup on it.
+func NewRegistryWildcardIdentities(groupExportNames map[string]string,
+	groupResourceExportNames map[schema.GroupResource]string) (wrap func(rt http.RoundTripper) http.RoundTripper, handler cache.ResourceEventHandler, ready func() error) {
+	ids := newIdentities(groupExportNames, groupResourceExportNames)
+	return injectKcpIdentities(ids), apiIdentityHandler(ids), ids.ready
+}
+
+// apiIdentityHandler returns an informer event handler that keeps the
+// identities in sync with the APIIdentity registry: an entry owned by one of
+// the core APIExports in the root workspace names that export's identity.
+// Entries of other exports and deleted entries are ignored: an identity in
+// use is only ever replaced by a new one.
+func apiIdentityHandler(ids *identities) cache.ResourceEventHandler {
+	exportNames := coreExportNames(ids)
+	update := func(obj interface{}) {
+		entry, ok := obj.(*adminv1alpha1.APIIdentity)
+		if !ok {
+			return
+		}
+		owner := entry.Status.Owner
+		if owner.Cluster != core.RootCluster.String() || !exportNames.Has(owner.Name) {
+			return
+		}
+		ids.set(owner.Name, entry.Name)
+	}
+	return cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { update(obj) },
+		UpdateFunc: func(_, obj interface{}) { update(obj) },
+	}
+}
+
+func coreExportNames(ids *identities) sets.Set[string] {
+	exportNames := sets.New[string]()
+	for _, name := range ids.groupExportNames {
+		exportNames.Insert(name)
+	}
+	for _, name := range ids.groupResourceExportNames {
+		exportNames.Insert(name)
+	}
+	return exportNames
+}
+
+// ready fails while the identity of a core APIExport is unknown.
+func (ids *identities) ready() error {
+	ids.lock.RLock()
+	defer ids.lock.RUnlock()
+	missing := sets.New[string]()
+	for group, id := range ids.groupIdentities {
+		if id == "" {
+			missing.Insert(ids.groupExportNames[group])
+		}
+	}
+	for gr, id := range ids.groupResourceIdentities {
+		if id == "" {
+			missing.Insert(ids.groupResourceExportNames[gr])
+		}
+	}
+	if missing.Len() == 0 {
+		return nil
+	}
+	return fmt.Errorf("the identities of the core APIExports %v are not known yet", sets.List(missing))
+}
+
 // apiExportHandler returns an informer event handler that keeps the
 // identities in sync with status.identityHash of the APIExports in the root
 // workspace. An identity rotation flips that hash; the handler swaps the
@@ -250,14 +323,7 @@ func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]strin
 // APIExports: the shard's local one, one against the cache server, or a
 // scoped one on the root workspace.
 func apiExportHandler(ids *identities) cache.ResourceEventHandler {
-	exportNames := sets.New[string]()
-	for _, name := range ids.groupExportNames {
-		exportNames.Insert(name)
-	}
-	for _, name := range ids.groupResourceExportNames {
-		exportNames.Insert(name)
-	}
-
+	exportNames := coreExportNames(ids)
 	update := func(obj interface{}) {
 		export, ok := obj.(*apisv1alpha2.APIExport)
 		if !ok {

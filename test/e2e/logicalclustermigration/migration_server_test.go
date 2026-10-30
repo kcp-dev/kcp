@@ -144,7 +144,7 @@ func privateMigrationServerWithArgs(t *testing.T, shardArgs map[string][]string)
 	command = append(command,
 		"--bind-address=127.0.0.1", "--secure-port="+proxyPort,
 		"--root-directory="+filepath.Join(dataDir, "proxy"),
-		"--root-kubeconfig="+rootConfig, "--shard-peer-kubeconfig="+rootConfig,
+		"--shard-peer-kubeconfig="+rootConfig,
 		"--shards-kubeconfig="+rootConfig, "--mapping-file="+mappingFile,
 		"--client-ca-file="+clientCAFile,
 		"--tls-cert-file="+certFile, "--tls-private-key-file="+keyFile,

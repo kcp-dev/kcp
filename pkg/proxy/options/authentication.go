@@ -20,27 +20,29 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/keyutil"
-	serviceaccountcontroller "k8s.io/kubernetes/pkg/controller/serviceaccount"
 	kubeoptions "k8s.io/kubernetes/pkg/kubeapiserver/options"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
-	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	kcpcorev1client "github.com/kcp-dev/client-go/kubernetes/typed/core/v1"
 
 	kcpauthentication "github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
-const resyncPeriod = 10 * time.Hour
+// ServiceAccountLookup resolves the service accounts and token secrets that
+// service account tokens name, on whichever shard hosts them, and gives the
+// legacy token validator a writer for its last-used annotations.
+type ServiceAccountLookup interface {
+	serviceaccount.ServiceAccountTokenClusterGetter
+	SecretsWriter() kcpcorev1client.SecretClusterInterface
+}
 
 // Authentication wraps BuiltInAuthenticationOptions so we can minimize the
 // dependencies on apiserver auth machinery, specifically by overriding the
@@ -100,7 +102,11 @@ func (c *Authentication) serviceAccountAuthEnabled() bool {
 	return c.BuiltInOptions.ServiceAccounts != nil && len(c.BuiltInOptions.ServiceAccounts.KeyFiles) != 0
 }
 
-func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo, rootShardConfig *rest.Config) error {
+// ApplyTo builds the authenticator. serviceAccounts resolves the service
+// accounts and token secrets that service account tokens name, on whichever
+// shard hosts them; it is only consulted when service account authentication
+// is enabled.
+func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *genericapiserver.AuthenticationInfo, servingInfo *genericapiserver.SecureServingInfo, serviceAccounts ServiceAccountLookup) error {
 	// Note BuiltInAuthenticationOptions.ApplyTo is not called, so we
 	// can reduce the dependencies pulled in from auth methods which aren't enabled
 	authenticatorConfig, err := c.BuiltInOptions.ToAuthenticationConfig()
@@ -129,25 +135,16 @@ func (c *Authentication) ApplyTo(ctx context.Context, authenticationInfo *generi
 
 	// Set for service account auth, if enabled
 	if c.serviceAccountAuthEnabled() {
+		if serviceAccounts == nil {
+			return fmt.Errorf("service account authentication needs a service account lookup")
+		}
 		authenticationInfo.APIAudiences = c.BuiltInOptions.APIAudiences
 		if len(c.BuiltInOptions.ServiceAccounts.Issuers) != 0 && len(c.BuiltInOptions.APIAudiences) == 0 {
 			authenticationInfo.APIAudiences = c.BuiltInOptions.ServiceAccounts.Issuers
 		}
 
-		config := rest.CopyConfig(rootShardConfig)
-		tokenGetterClient, err := kcpkubernetesclientset.NewForConfig(config)
-		if err != nil {
-			return fmt.Errorf("failed to create client for ServiceAccountTokenGetter: %w", err)
-		}
-
-		versionedInformers := kcpkubernetesinformers.NewSharedInformerFactory(tokenGetterClient, resyncPeriod)
-
-		authenticatorConfig.ServiceAccountTokenGetter = serviceaccountcontroller.NewClusterGetterFromClient(
-			tokenGetterClient,
-			versionedInformers.Core().V1().Secrets().Lister(),
-			versionedInformers.Core().V1().ServiceAccounts().Lister(),
-		)
-		authenticatorConfig.SecretsWriter = tokenGetterClient.CoreV1().Secrets()
+		authenticatorConfig.ServiceAccountTokenGetter = serviceAccounts
+		authenticatorConfig.SecretsWriter = serviceAccounts.SecretsWriter()
 
 		if len(c.BuiltInOptions.ServiceAccounts.KeyFiles) > 0 {
 			// Load and set the public keys.
