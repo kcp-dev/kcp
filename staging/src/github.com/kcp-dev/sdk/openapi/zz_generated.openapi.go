@@ -46,6 +46,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1alpha1.APIIdentityStatus{}.OpenAPIModelName():                               schema_sdk_apis_admin_v1alpha1_APIIdentityStatus(ref),
 		v1alpha1.ExportReference{}.OpenAPIModelName():                                 schema_sdk_apis_admin_v1alpha1_ExportReference(ref),
 		v1alpha1.Holder{}.OpenAPIModelName():                                          schema_sdk_apis_admin_v1alpha1_Holder(ref),
+		v1alpha1.PermissionClaimPolicy{}.OpenAPIModelName():                           schema_sdk_apis_admin_v1alpha1_PermissionClaimPolicy(ref),
+		v1alpha1.PermissionClaimPolicyList{}.OpenAPIModelName():                       schema_sdk_apis_admin_v1alpha1_PermissionClaimPolicyList(ref),
+		v1alpha1.PermissionClaimPolicySpec{}.OpenAPIModelName():                       schema_sdk_apis_admin_v1alpha1_PermissionClaimPolicySpec(ref),
+		v1alpha1.PermissionClaimPolicySubject{}.OpenAPIModelName():                    schema_sdk_apis_admin_v1alpha1_PermissionClaimPolicySubject(ref),
+		v1alpha1.PermissionClaimRule{}.OpenAPIModelName():                             schema_sdk_apis_admin_v1alpha1_PermissionClaimRule(ref),
 		apisv1alpha1.APIBinding{}.OpenAPIModelName():                                  schema_sdk_apis_apis_v1alpha1_APIBinding(ref),
 		apisv1alpha1.APIBindingList{}.OpenAPIModelName():                              schema_sdk_apis_apis_v1alpha1_APIBindingList(ref),
 		apisv1alpha1.APIBindingSpec{}.OpenAPIModelName():                              schema_sdk_apis_apis_v1alpha1_APIBindingSpec(ref),
@@ -471,6 +476,227 @@ func schema_sdk_apis_admin_v1alpha1_Holder(ref common.ReferenceCallback) common.
 		},
 		Dependencies: []string{
 			v1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_admin_v1alpha1_PermissionClaimPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PermissionClaimPolicy is an installation-wide policy, stored in the Admin workspace (`/services/admin`), that lets a family of APIExports claim each other's resources without knowing their identity hashes.\n\nIt does two things at once:\n\n  - It reserves every API group it mentions (claimers and claimed groups\n    alike): only the subjects listed under spec.providers may create an\n    APIExport that exports resources in a reserved group. This is what makes\n    \"an APIExport that exports group X\" a trustworthy identity for X, and\n    what makes a binding of a reserved group in any workspace a genuine one.\n  - It grants, per claimer group, an explicit list of groups that an\n    APIExport exporting that claimer group may claim with an empty\n    identityHash. No wildcards: every group is named.\n\nAt runtime such a claim resolves, in every consumer workspace, to whatever APIExport that workspace's APIBinding for the claimed resource points at. Nobody has to know or enumerate identity hashes, and rotation or multiple genuine producers of the same group are handled per workspace.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "spec holds the desired state.",
+							Default:     map[string]interface{}{},
+							Ref:         ref(v1alpha1.PermissionClaimPolicySpec{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"spec"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.PermissionClaimPolicySpec{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_admin_v1alpha1_PermissionClaimPolicyList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PermissionClaimPolicyList is a list of PermissionClaimPolicy resources.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha1.PermissionClaimPolicy{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.PermissionClaimPolicy{}.OpenAPIModelName(), v1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_admin_v1alpha1_PermissionClaimPolicySpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PermissionClaimPolicySpec defines the desired state of a PermissionClaimPolicy.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"providers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "atomic",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "providers are the subjects allowed to create or extend an APIExport that exports resources in any API group reserved by this policy. A group is reserved as soon as it appears anywhere in spec.claims, as a claimer or as a claimed group.\n\nIf providers is empty, no APIExport can be created for the reserved groups at all, which effectively freezes the set of existing exports.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha1.PermissionClaimPolicySubject{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"claims": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"claimer",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "claims lists, per claimer API group, the API groups an APIExport exporting that claimer group may claim without an identityHash.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref(v1alpha1.PermissionClaimRule{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"claims"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha1.PermissionClaimPolicySubject{}.OpenAPIModelName(), v1alpha1.PermissionClaimRule{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_admin_v1alpha1_PermissionClaimPolicySubject(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PermissionClaimPolicySubject identifies a user or a group. Service accounts are matched through their user name (system:serviceaccount:<namespace>:<name>) or their groups (system:serviceaccounts, system:serviceaccounts:<namespace>).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "kind is the kind of subject: User or Group.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the user name or group name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"kind", "name"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_admin_v1alpha1_PermissionClaimRule(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PermissionClaimRule grants one claimer group an explicit list of claimable groups.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claimer": {
+						SchemaProps: spec.SchemaProps{
+							Description: "claimer is the API group an APIExport must export, in at least one of its resources, to be granted the claims listed in groups. No wildcards.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"groups": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "groups are the API groups the claimer may claim without an identityHash. Every entry is a full group name. No wildcards.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"claimer", "groups"},
+			},
+		},
 	}
 }
 
@@ -3037,7 +3263,7 @@ func schema_sdk_apis_apis_v1alpha2_ResourceSchema(ref common.ReferenceCallback) 
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Name is the name of the resource.",
+							Description: "Name is the name of the resource.\n\nA custom subresource is declared as its own entry, named \"<resource>/<subresource>\" in the style of an RBAC rule, e.g. \"virtualmachines/ssh\". Such an entry must use virtual storage, and the resource it names must be exported by this APIExport too. It is independent of how that resource is stored: a resource kept in a CRD may carry subresources that are not.\n\nstatus and scale are never declared this way. They belong to the object's shape and are declared on the APIResourceSchema.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -3249,6 +3475,34 @@ func schema_sdk_apis_apis_v1alpha2_VirtualWorkspace(ref common.ReferenceCallback
 				Required: []string{"url"},
 			},
 		},
+	}
+}
+
+func schema_sdk_apis_apis_v1alpha2_overhangingResourceSchema(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "overhangingResourceSchema is a ResourceSchema plus the position it held in spec.resources.\n\nAn entry that v1alpha1 cannot represent survives a round-trip only in an annotation, and merging it back in without its index appends it to the end. Order carries no meaning for a listType=map, but a round-trip that reorders makes every equality check on the object lie.\n\nThe ResourceSchema is embedded, so this marshals exactly as a ResourceSchema did with one extra key. An annotation written before this field existed unmarshals with a nil index and is appended, as it was.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ResourceSchema": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1alpha2.ResourceSchema{}.OpenAPIModelName()),
+						},
+					},
+					"index": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+				Required: []string{"ResourceSchema"},
+			},
+		},
+		Dependencies: []string{
+			v1alpha2.ResourceSchema{}.OpenAPIModelName()},
 	}
 }
 

@@ -18,6 +18,7 @@ package apiserver
 
 import (
 	"fmt"
+	"sort"
 
 	"sigs.k8s.io/structured-merge-diff/v6/fieldpath"
 
@@ -384,6 +385,14 @@ func (apiDef *servingInfo) GetStorage() rest.Storage {
 }
 func (apiDef *servingInfo) GetSubResourceStorage(subresource string) rest.Storage {
 	return apiDef.subresourceStorages[subresource]
+}
+func (apiDef *servingInfo) GetSubResourceNames() []string {
+	names := make([]string, 0, len(apiDef.subresourceStorages))
+	for name := range apiDef.subresourceStorages {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 func (apiDef *servingInfo) GetRequestScope() *handlers.RequestScope {
 	return apiDef.requestScope

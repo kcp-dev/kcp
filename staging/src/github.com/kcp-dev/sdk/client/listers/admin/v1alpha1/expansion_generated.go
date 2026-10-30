@@ -25,3 +25,11 @@ type APIIdentityClusterListerExpansion interface{}
 // APIIdentityListerExpansion allows custom methods to be added to
 // APIIdentityLister.
 type APIIdentityListerExpansion interface{}
+
+// PermissionClaimPolicyClusterListerExpansion allows custom methods to be added to
+// PermissionClaimPolicyClusterLister.
+type PermissionClaimPolicyClusterListerExpansion interface{}
+
+// PermissionClaimPolicyListerExpansion allows custom methods to be added to
+// PermissionClaimPolicyLister.
+type PermissionClaimPolicyListerExpansion interface{}

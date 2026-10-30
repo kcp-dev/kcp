@@ -344,14 +344,28 @@ func tryDecorateCRDWithSchemaStorage(in *apiextensionsv1.CustomResourceDefinitio
 
 	var (
 		resourceStorage apisv1alpha2.ResourceSchemaStorage
+		hasSubresources bool
 		foundResource   bool
 	)
 	for _, resource := range apiExport.Spec.Resources {
-		if resource.Group == in.Spec.Group && resource.Name == in.Status.AcceptedNames.Plural {
-			resourceStorage = resource.Storage
-			foundResource = true
-			break
+		// A custom subresource is a separate entry named "<resource>/<subresource>".
+		// It has no CustomResourceDefinition of its own, so it never matches the CRD
+		// being decorated; it only tells us that the CRD's resource has one.
+		if resource.Group != in.Spec.Group {
+			continue
 		}
+		parent, subresource := resource.SplitName()
+		if parent != in.Status.AcceptedNames.Plural {
+			continue
+		}
+
+		if subresource != "" {
+			hasSubresources = true
+			continue
+		}
+
+		resourceStorage = resource.Storage
+		foundResource = true
 	}
 	if !foundResource {
 		return nil, fmt.Errorf("APIExport %s|%s does not export resource %s.%s", logicalcluster.From(apiExport), apiExport.Name, in.Status.AcceptedNames.Plural, in.Spec.Group)
@@ -360,6 +374,14 @@ func tryDecorateCRDWithSchemaStorage(in *apiextensionsv1.CustomResourceDefinitio
 
 	if resourceStorage.Virtual != nil {
 		out.Annotations[apisv1alpha1.AnnotationSchemaStorageKey] = fmt.Sprintf("virtual:%s", vrhelpers.Fingerprint(apiExport, resourceStorage.Virtual))
+	}
+
+	// Custom subresources are declared on the APIExport, not on the CRD, and they are
+	// independent of how the parent is stored. Point back at the declaring export so
+	// discovery can resolve them even when the parent uses ordinary CRD storage and
+	// therefore carries no schema-storage annotation.
+	if hasSubresources {
+		out.Annotations[apisv1alpha1.AnnotationSubresourcesKey] = fmt.Sprintf("%s|%s", logicalcluster.From(apiExport), apiExport.Name)
 	}
 
 	return out, nil

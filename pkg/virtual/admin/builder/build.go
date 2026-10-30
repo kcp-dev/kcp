@@ -182,10 +182,17 @@ func (p *adminAPIDefinitionSetProvider) GetAPIDefinitionSet(_ context.Context, k
 		shardsDef.TearDown()
 		return nil, false, err
 	}
+	policiesDef, err := providePermissionClaimPoliciesRestStorage(p.config, p.cacheDynamicClusterClient)
+	if err != nil {
+		shardsDef.TearDown()
+		apiIdentitiesDef.TearDown()
+		return nil, false, err
+	}
 
 	p.cached = apidefinition.APIDefinitionSet{
-		corev1alpha1.SchemeGroupVersion.WithResource("shards"):         shardsDef,
-		adminv1alpha1.SchemeGroupVersion.WithResource("apiidentities"): apiIdentitiesDef,
+		corev1alpha1.SchemeGroupVersion.WithResource("shards"):                   shardsDef,
+		adminv1alpha1.SchemeGroupVersion.WithResource("apiidentities"):           apiIdentitiesDef,
+		adminv1alpha1.SchemeGroupVersion.WithResource("permissionclaimpolicies"): policiesDef,
 	}
 	return p.cached, true, nil
 }

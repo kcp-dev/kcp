@@ -33,6 +33,11 @@ import (
 // annotations).
 type adminAuthorizer struct{}
 
+// adminOwnedResources are the resources the Admin workspace stores itself, in
+// the cache under system:global-admin, and therefore accepts create and delete
+// for.
+var adminOwnedResources = []string{"permissionclaimpolicies"}
+
 // NewAdminAuthorizer creates an authorizer for the Admin workspace. Access is
 // allowed to the external administrator group system:kcp:admin and to the
 // internal system:masters group.
@@ -44,10 +49,19 @@ func (a *adminAuthorizer) Authorize(_ context.Context, attr authorizer.Attribute
 	switch attr.GetVerb() {
 	case "get", "list", "watch":
 	case "update", "patch":
-		// only Shard objects accept (allow-listed) writes; every other view
-		// is derived state and read-only.
-		if attr.GetAPIGroup() != corev1alpha1.SchemeGroupVersion.Group || attr.GetResource() != "shards" {
+		// Shard objects accept (allow-listed) writes and the objects the Admin
+		// workspace itself owns are fully writable; every other view is
+		// derived state and read-only.
+		isShard := attr.GetAPIGroup() == corev1alpha1.SchemeGroupVersion.Group && attr.GetResource() == "shards"
+		if !isShard && !slices.Contains(adminOwnedResources, attr.GetResource()) {
 			return authorizer.DecisionDeny, "resource is read-only in the admin workspace", nil
+		}
+	case "create", "delete", "deletecollection":
+		// Only objects the Admin workspace itself owns (installation-wide
+		// objects stored in the cache under system:global-admin) can be created and
+		// deleted here. Shards register themselves and own their objects.
+		if !slices.Contains(adminOwnedResources, attr.GetResource()) {
+			return authorizer.DecisionDeny, "verb not supported by the admin workspace for this resource", nil
 		}
 	default:
 		return authorizer.DecisionDeny, "verb not supported by the admin workspace", nil
