@@ -380,6 +380,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	c.ApiExtensionsSharedInformerFactory = kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(
 		c.ApiExtensionsClusterClient,
 		resyncPeriod,
+		kcpapiextensionsinformers.WithTransform(informer.StripManagedFields),
 	)
 
 	c.CacheApiExtensionsClusterClient, err = kcpapiextensionsclientset.NewForConfig(cacheClientConfig)
@@ -389,6 +390,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	c.CacheApiExtensionsSharedInformerFactory = kcpapiextensionsinformers.NewSharedInformerFactoryWithOptions(
 		c.CacheApiExtensionsClusterClient,
 		resyncPeriod,
+		kcpapiextensionsinformers.WithTransform(informer.StripManagedFields),
 	)
 
 	// Setup dynamic client
