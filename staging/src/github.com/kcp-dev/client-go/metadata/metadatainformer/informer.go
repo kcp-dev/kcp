@@ -22,7 +22,6 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
@@ -141,7 +140,7 @@ func NewFilteredMetadataInformer(client kcpmetadata.ClusterInterface, gvr schema
 					return client.Resource(gvr).Watch(ctx, options)
 				},
 			},
-			&unstructured.Unstructured{},
+			&metav1.PartialObjectMetadata{},
 			resyncPeriod,
 			indexers,
 		),
