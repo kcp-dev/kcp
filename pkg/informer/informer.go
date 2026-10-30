@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -50,6 +51,8 @@ import (
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpdynamicinformer "github.com/kcp-dev/client-go/dynamic/dynamicinformer"
 	kcpinformers "github.com/kcp-dev/client-go/informers"
+	kcpmetadata "github.com/kcp-dev/client-go/metadata"
+	kcpmetadatainformer "github.com/kcp-dev/client-go/metadata/metadatainformer"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
@@ -241,23 +244,62 @@ func NewDiscoveringDynamicSharedInformerFactory(
 	gvrSource GVRSource,
 	indexers cache.Indexers,
 ) (*DiscoveringDynamicSharedInformerFactory, error) {
+	return newDiscoveringClusterSharedInformerFactory(
+		func(gvr schema.GroupVersionResource, resyncPeriod time.Duration, indexers cache.Indexers) kcpinformers.GenericClusterInformer {
+			return kcpdynamicinformer.NewFilteredDynamicInformer(dynamicClusterClient, gvr, resyncPeriod, indexers, tweakListOptions)
+		},
+		filterFunc,
+		ignoreFunc,
+		nil,
+		gvrSource,
+		indexers,
+	)
+}
+
+func NewDiscoveringPartialMetadataSharedInformerFactory(
+	metadataClusterClient kcpmetadata.ClusterInterface,
+	filterFunc func(obj interface{}) bool,
+	ignoreFunc func(obj interface{}) bool,
+	tweakListOptions metadatainformer.TweakListOptionsFunc,
+	gvrSource GVRSource,
+	indexers cache.Indexers,
+) (*DiscoveringDynamicSharedInformerFactory, error) {
+	return newDiscoveringClusterSharedInformerFactory(
+		func(gvr schema.GroupVersionResource, resyncPeriod time.Duration, indexers cache.Indexers) kcpinformers.GenericClusterInformer {
+			return kcpmetadatainformer.NewFilteredMetadataInformer(metadataClusterClient, gvr, resyncPeriod, indexers, tweakListOptions)
+		},
+		filterFunc,
+		ignoreFunc,
+		StripManagedFields,
+		gvrSource,
+		indexers,
+	)
+}
+
+func newDiscoveringClusterSharedInformerFactory(
+	newInformer func(gvr schema.GroupVersionResource, resyncPeriod time.Duration, indexers cache.Indexers) kcpinformers.GenericClusterInformer,
+	filterFunc func(obj interface{}) bool,
+	ignoreFunc func(obj interface{}) bool,
+	transform cache.TransformFunc,
+	gvrSource GVRSource,
+	indexers cache.Indexers,
+) (*DiscoveringDynamicSharedInformerFactory, error) {
 	ddsif := &DiscoveringDynamicSharedInformerFactory{}
 
 	f, err := NewGenericDiscoveringDynamicSharedInformerFactory[kcpcache.ScopeableSharedIndexInformer, kcpcache.GenericClusterLister](
 		func(gvr schema.GroupVersionResource, resyncPeriod time.Duration, indexers cache.Indexers) kcpinformers.GenericClusterInformer {
 			indexers[kcpcache.ClusterIndexName] = kcpcache.ClusterIndexFunc
 			indexers[kcpcache.ClusterAndNamespaceIndexName] = kcpcache.ClusterAndNamespaceIndexFunc
-			inf := kcpdynamicinformer.NewFilteredDynamicInformer(
-				dynamicClusterClient,
-				gvr,
-				resyncPeriod,
-				indexers,
-				tweakListOptions,
-			)
+			inf := newInformer(gvr, resyncPeriod, indexers)
 			if err := inf.Informer().SetIgnoreFunc(ignoreFunc); err != nil {
 				// This should never happen - .SetIgnoreFunc only errors when the informer
 				// is already running which shouldn't be the case here.
 				panic(fmt.Errorf("failed to set ignore func for %v: %w", gvr, err))
+			}
+			if transform != nil {
+				if err := inf.Informer().SetTransform(transform); err != nil {
+					panic(fmt.Errorf("failed to set transform for %v: %w", gvr, err))
+				}
 			}
 			return inf
 		},

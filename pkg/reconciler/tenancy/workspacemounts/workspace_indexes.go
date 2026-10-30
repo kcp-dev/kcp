@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
@@ -117,7 +117,7 @@ func newIndexWorkspaceByMountObject(dynamicRESTMapper *dynamicrestmapper.Dynamic
 	}
 }
 
-func indexWorkspaceByMountObjectValue(gvr schema.GroupVersionResource, obj *unstructured.Unstructured) (string, error) {
+func indexWorkspaceByMountObjectValue(gvr schema.GroupVersionResource, obj metav1.Object) (string, error) {
 	key := workspaceMountsReferenceKey{
 		ClusterName: logicalcluster.From(obj).String(),
 		Group:       gvr.Group,
