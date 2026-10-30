@@ -205,5 +205,5 @@ Ultimately a shard aware resources end up being stored under the following key:
 
 `/cache/group/resource/{shard-name}/{cluster-name}/{namespace-name}/{resource-name}`
 
-For more information about inner working of the storage layer,
-please visit: TODO: add a link that explains the mapping of a URL to a storage prefix.
+For more information about how kcp lays out keys in the storage layer,
+see [etcd structure](../../developers/internals/etcd-structure.md).
