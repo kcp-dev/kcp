@@ -129,10 +129,11 @@ Access requires membership in the `system:kcp:admin` group; the serving
 path does not depend on the root shard. To reach the view through a
 front-proxy, add a `/services/` path mapping; any shard can be the backend.
 
-The front-proxy itself discovers shards through the Admin workspace: the
-kubeconfigs given via `--shard-peer-kubeconfig` (falling back to the
-`--root-kubeconfig` server) are seeds, used to bootstrap discovery and as a
-last-resort fallback only. Every shard observed through the view joins the
+The front-proxy itself discovers shards through the Admin workspace, and
+reads the identities of the core APIs from the `apiidentities` registry
+there, so it starts and runs without the root shard: the kubeconfigs given
+via `--shard-peer-kubeconfig` are seeds, used to bootstrap discovery and as
+a last-resort fallback only. Every shard observed through the view joins the
 failover peer set at runtime and decommissioned shards leave it; requests are
 distributed across the discovered shards, not the seeds. With short-lived
 shards the discovery channel therefore keeps working as long as any currently
@@ -436,7 +437,7 @@ Wildcard informers require the `APIExport` identity. This identity varies by
 installation as it is cryptographically created during creation of the `APIExport`.
 
 The core and tenancy APIs have their `APIExport` in the root logical cluster.
-A new shard will connect to that root logical cluster in order to extract the
-identities for these APIs. It will cache these for later use in case of a network
-partition or unavailability of the root shard. After retrieving these identities
-the informers can be started.
+Their identities are published in the `APIIdentity` registry on the cache
+server (see [the Admin workspace](#the-admin-workspace-admin)), which is where a starting
+shard reads them. The root shard is not contacted. Once they are known the
+informers can be started.

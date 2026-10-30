@@ -78,7 +78,6 @@ import (
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/apiexportendpointsliceurls"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/crdcleanup"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/extraannotationsync"
-	"github.com/kcp-dev/kcp/pkg/reconciler/apis/identitycache"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/logicalclustercleanup"
 	"github.com/kcp-dev/kcp/pkg/reconciler/apis/permissionclaimlabel"
 	apisreplicateclusterrole "github.com/kcp-dev/kcp/pkg/reconciler/apis/replicateclusterrole"
@@ -1789,34 +1788,6 @@ func (s *Server) installKubeQuotaController(
 		},
 		Runner: func(ctx context.Context) {
 			c.Start(ctx, workers)
-		},
-	})
-}
-
-func (s *Server) installApiExportIdentityController(ctx context.Context, config *rest.Config) error {
-	if s.Options.Extra.ShardName == corev1alpha1.RootShard {
-		return nil
-	}
-	config = rest.CopyConfig(config)
-	config = rest.AddUserAgent(config, identitycache.ControllerName)
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-	c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(), s.KubeSharedInformerFactory.Core().V1().ConfigMaps())
-	if err != nil {
-		return err
-	}
-
-	return s.registerController(&controllerWrapper{
-		Name: identitycache.ControllerName,
-		Wait: func(ctx context.Context, s *Server) error {
-			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() && s.KubeSharedInformerFactory.Core().V1().ConfigMaps().Informer().HasSynced(), nil
-			})
-		},
-		Runner: func(ctx context.Context) {
-			c.Start(ctx, 1)
 		},
 	})
 }

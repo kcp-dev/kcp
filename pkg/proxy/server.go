@@ -20,14 +20,15 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"reflect"
 	"slices"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
@@ -39,14 +40,13 @@ import (
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	"github.com/kcp-dev/kcp/pkg/authentication"
-	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
@@ -64,10 +64,10 @@ type Server struct {
 	IndexController          *index.Controller
 	AuthController           *authentication.Controller
 	KcpSharedInformerFactory kcpinformers.SharedScopedInformerFactory
-	// RootAPIExportInformerFactory watches the APIExports of the root workspace
-	// on the root shard. Their identities are injected into wildcard
-	// requests and follow an identity rotation through this informer.
-	RootAPIExportInformerFactory kcpinformers.SharedScopedInformerFactory
+	// CoreIdentityInformerFactory watches the APIIdentity registry entries
+	// owned by the root workspace's APIExports, through the Admin workspace
+	// of the peers. Their identities are injected into wildcard requests.
+	CoreIdentityInformerFactory kcpinformers.SharedScopedInformerFactory
 }
 
 func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
@@ -94,22 +94,22 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// the root workspace is not read for discovery. The Admin workspace
 	// accepts /clusters/<name>/ paths, so the standard scoped informer
 	// factory works against it unchanged.
-	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.CompletedConfig.PeersConfig)
+	peersClient, err := kcpclientset.NewForConfig(s.CompletedConfig.PeersConfig)
 	if err != nil {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}
-	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
+	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(peersClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
 
 	// The identities of the core APIs are those of the root workspace's
-	// APIExports, which only the root shard serves. An identity rotation
-	// flips an export's status.identityHash; the handler swaps the injected
-	// identity as the change arrives.
-	rootShardKcpClient, err := kcpclientset.NewForConfig(s.CompletedConfig.RootShardConfig)
-	if err != nil {
-		return s, fmt.Errorf("failed to create root shard client: %w", err)
-	}
-	s.RootAPIExportInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardKcpClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
-	_, _ = s.RootAPIExportInformerFactory.Apis().V1alpha2().APIExports().Informer().AddEventHandler(s.CompletedConfig.CoreIdentityHandler)
+	// APIExports. They are read from the APIIdentity registry, which the
+	// Admin workspace of every peer serves from the cache server, so the
+	// root shard is not needed for them: an own factory, restricted to the
+	// entries owned by exports in root, feeds the identity handler.
+	s.CoreIdentityInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(peersClient.Cluster(core.RootCluster.Path()), 30*time.Minute,
+		kcpinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.LabelSelector = labels.SelectorFromSet(labels.Set{adminv1alpha1.APIIdentityOwnerClusterLabel: core.RootCluster.String()}).String()
+		}))
+	_, _ = s.CoreIdentityInformerFactory.Admin().V1alpha1().APIIdentities().Informer().AddEventHandler(s.CompletedConfig.CoreIdentityHandler)
 
 	// Feed every discovered shard into the peer failover set: the configured
 	// peers are seeds for bootstrapping and last-resort fallback only, and
@@ -157,6 +157,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// watching a number of resources on each. The controller is then also satisfying the Index
 	// interface.
 	s.IndexController = index.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc)
+	s.CompletedConfig.ServiceAccounts.SetIndex(s.IndexController)
 
 	handler, err := NewHandler(ctx, mappings)
 	if err != nil {
@@ -209,22 +210,20 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	handler = genericfilters.WithCORS(handler, c.Options.CorsAllowedOriginList, nil, nil, nil, "true")
 
 	mux := http.NewServeMux()
-	healthz.InstallReadyzHandler(mux, healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory))
+	healthz.InstallReadyzHandler(mux,
+		healthz.NewInformerSyncHealthz(cacheSyncWaiters{s.KcpSharedInformerFactory, s.CoreIdentityInformerFactory}),
+		healthz.NamedCheck("core-identities", func(*http.Request) error { return s.CompletedConfig.CoreIdentitiesReady() }),
+	)
 	healthz.InstallLivezHandler(mux, healthz.PingHealthz)
 
 	// /metrics is served locally by the front proxy (it is not proxied to a
 	// shard), so it needs its own authentication and authorization: without it
 	// the endpoint is world-readable and leaks shard-wide operational data
-	// (logical-cluster counts, client-cert expiry, request patterns). Access is
-	// delegated to :root via SubjectAccessReview, so the same
-	// system:kcp:metrics-reader binding that authorizes scraping on the shards
-	// authorizes it here too. Registered before "/" so it takes precedence over
+	// (logical-cluster counts, client-cert expiry, request patterns). Members
+	// of the system:kcp:admin, system:masters and system:kcp:metrics-reader
+	// groups may scrape. Registered before "/" so it takes precedence over
 	// the proxy handler for this exact path.
-	metricsHandler, err := newProtectedMetricsHandler(c.AuthenticationInfo.Authenticator, c.RootShardConfig, requestInfoFactory)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create protected metrics handler: %w", err)
-	}
-	mux.Handle("/metrics", metricsHandler)
+	mux.Handle("/metrics", withMetricsAuthorization(legacyregistry.Handler(), c.AuthenticationInfo.Authenticator, newMetricsGroupAuthorizer(), requestInfoFactory))
 
 	mux.Handle("/", handler)
 	s.Handler = mux
@@ -232,17 +231,20 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	return s, nil
 }
 
-func newProtectedMetricsHandler(auth authenticator.Request, rootShardConfig *restclient.Config, requestInfoResolver request.RequestInfoResolver) (http.Handler, error) {
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create root shard client for metrics authorization: %w", err)
-	}
-	authz, err := delegated.NewDelegatedAuthorizer(core.RootCluster, kubeClusterClient, delegated.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create metrics authorizer: %w", err)
-	}
+// cacheSyncWaiters combines informer factories into one informer-sync
+// readiness check.
+type cacheSyncWaiters []interface {
+	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
+}
 
-	return withMetricsAuthorization(legacyregistry.Handler(), auth, authz, requestInfoResolver), nil
+func (w cacheSyncWaiters) WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool {
+	merged := map[reflect.Type]bool{}
+	for _, waiter := range w {
+		for informerType, synced := range waiter.WaitForCacheSync(stopCh) {
+			merged[informerType] = synced
+		}
+	}
+	return merged
 }
 
 func withMetricsAuthorization(h http.Handler, auth authenticator.Request, authz authorizer.Authorizer, requestInfoResolver request.RequestInfoResolver) http.Handler {
@@ -268,33 +270,25 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 func (s preparedServer) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "proxy")
 
-	var identityErr error
-	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
-		if err := s.CompletedConfig.ResolveIdentities(ctx); err != nil {
-			logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
-			identityErr = err
-			return false, nil
-		}
-		return true, nil
-	}); err != nil {
-		err = fmt.Errorf("failed to get or create identities: %w", err)
-		if identityErr != nil {
-			err = fmt.Errorf("%v: %w", err, identityErr)
-		}
-		return err
-	}
-	// start indexes
+	// Both factories read the Admin workspace of the peers: any reachable
+	// shard suffices, the root shard is not special. Nothing is awaited
+	// before serving: /readyz reports the informers' sync and the core
+	// identities, and requests that need either fail until they are there.
+	s.KcpSharedInformerFactory.Start(ctx.Done())
+	s.CoreIdentityInformerFactory.Start(ctx.Done())
 	go s.IndexController.Start(ctx, 2)
-
 	if s.AuthController != nil {
 		go s.AuthController.Start(ctx, 2)
 	}
-
-	s.KcpSharedInformerFactory.Start(ctx.Done())
-	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
-	// not waited for: the identities are resolved already, and the proxy
-	// must not depend on the root shard to become ready.
-	s.RootAPIExportInformerFactory.Start(ctx.Done())
+	go func() {
+		s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+		s.CoreIdentityInformerFactory.WaitForCacheSync(ctx.Done())
+		if err := s.CompletedConfig.CoreIdentitiesReady(); err != nil {
+			logger.Info("informers synced, core identities not all known yet", "reason", err.Error())
+			return
+		}
+		logger.Info("informers synced, core identities known")
+	}()
 
 	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
 	if err != nil {

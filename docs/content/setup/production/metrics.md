@@ -134,3 +134,10 @@ scrape_configs:
       - targets:
           - cache.kcp.svc:6443
 ```
+
+## Scraping the front-proxy
+
+The front-proxy's own `/metrics` is authorized by group: members of
+`system:kcp:metrics-reader`, `system:kcp:admin` or `system:masters` may read
+it. Give the scraper identity the `system:kcp:metrics-reader` group, for
+example as a client certificate organization or an OIDC group claim.

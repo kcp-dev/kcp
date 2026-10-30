@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 )
 
@@ -53,14 +54,6 @@ var (
 	testGroupResourceExportNames = map[schema.GroupResource]string{{Group: "core.kcp.io", Resource: "shards"}: "shards.core.kcp.io"}
 )
 
-type fakeProvider struct {
-	hashes map[string]string
-}
-
-func (p *fakeProvider) get(_ context.Context, name string) (string, error) {
-	return p.hashes[name], nil
-}
-
 // export is an APIExport of the given workspace with the given identity.
 func export(cluster, name, hash string) *apisv1alpha2.APIExport {
 	return &apisv1alpha2.APIExport{
@@ -69,13 +62,24 @@ func export(cluster, name, hash string) *apisv1alpha2.APIExport {
 	}
 }
 
-func resolvedIdentities(t *testing.T, provider *fakeProvider) *identities {
+// knownIdentities returns identities fed from registry entries of the
+// given exports in root.
+func knownIdentities(t *testing.T, hashes map[string]string) *identities {
 	t.Helper()
 	ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
-	if err := wildcardIdentitiesResolver(ids, testGroupExportNames, testGroupResourceExportNames, provider.get)(context.Background()); err != nil {
-		t.Fatalf("failed to resolve identities: %v", err)
+	for name, hash := range hashes {
+		apiIdentityHandler(ids).OnAdd(entry("root", name, hash), true)
+	}
+	if err := ids.ready(); err != nil {
+		t.Fatalf("expected the identities to be known: %v", err)
 	}
 	return ids
+}
+
+// rotate replaces the identity of the export in root through the registry
+// handler, as a new entry owned by it would.
+func rotate(ids *identities, exportName, oldHash, newHash string) {
+	apiIdentityHandler(ids).OnUpdate(entry("root", exportName, oldHash), entry("root", exportName, newHash))
 }
 
 func decorate(t *testing.T, ids *identities, urlPath string) string {
@@ -87,49 +91,60 @@ func decorate(t *testing.T, ids *identities, urlPath string) string {
 	return got
 }
 
-func TestAPIExportHandler(t *testing.T) {
+func TestAPIIdentityHandler(t *testing.T) {
 	t.Parallel()
 
 	tenancyPath := "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces"
 	shardsPath := "/clusters/*/apis/core.kcp.io/v1alpha1/shards"
 
+	t.Run("feeds the identities of the core exports in root and reports readiness", func(t *testing.T) {
+		t.Parallel()
+		wrap, handler, ready := NewRegistryWildcardIdentities(testGroupExportNames, testGroupResourceExportNames)
+		require.NotNil(t, wrap)
+		require.Error(t, ready(), "nothing is known yet")
+
+		handler.OnAdd(entry("root", "tenancy.kcp.io", oldHash), true)
+		require.Error(t, ready(), "the shards identity is still unknown")
+
+		handler.OnAdd(entry("root", "shards.core.kcp.io", newHash), true)
+		require.NoError(t, ready())
+	})
+
 	ignored := []struct {
 		name string
 		obj  interface{}
 	}{
-		{name: "the same identity", obj: export("root", "tenancy.kcp.io", oldHash)},
-		{name: "an export that serves no core API", obj: export("root", "cowboys", newHash)},
-		{name: "a same-named export of another workspace", obj: export("root:org", "tenancy.kcp.io", newHash)},
-		{name: "an export without identity", obj: export("root", "tenancy.kcp.io", "")},
-		{name: "a tombstone", obj: cache.DeletedFinalStateUnknown{Key: "root|tenancy.kcp.io", Obj: export("root", "tenancy.kcp.io", newHash)}},
+		{name: "an entry owned by an export of another workspace", obj: entry("root:org", "tenancy.kcp.io", newHash)},
+		{name: "an entry owned by an export that serves no core API", obj: entry("root", "cowboys", newHash)},
+		{name: "a tombstone", obj: cache.DeletedFinalStateUnknown{Key: newHash, Obj: entry("root", "tenancy.kcp.io", newHash)}},
+		{name: "another object", obj: export("root", "tenancy.kcp.io", newHash)},
 	}
 	for _, scenario := range ignored {
 		t.Run("ignores "+scenario.name, func(t *testing.T) {
 			t.Parallel()
-			ids := resolvedIdentities(t, &fakeProvider{hashes: map[string]string{"tenancy.kcp.io": oldHash, "shards.core.kcp.io": oldHash}})
-			watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
-			ids.trackWatch(oldHash, watch)
+			ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
+			apiIdentityHandler(ids).OnAdd(entry("root", "tenancy.kcp.io", oldHash), true)
 
-			handler := apiExportHandler(ids)
+			handler := apiIdentityHandler(ids)
 			handler.OnAdd(scenario.obj, false)
 			handler.OnUpdate(scenario.obj, scenario.obj)
 
 			if got, want := decorate(t, ids, tenancyPath), tenancyPath+":"+oldHash; got != want {
 				t.Errorf("expected %q, got %q", want, got)
 			}
-			if watch.expired {
-				t.Error("watches must not be expired when no identity changed")
-			}
 		})
 	}
 
 	t.Run("replaces the identity of the changed export only", func(t *testing.T) {
 		t.Parallel()
-		ids := resolvedIdentities(t, &fakeProvider{hashes: map[string]string{"tenancy.kcp.io": oldHash, "shards.core.kcp.io": oldHash}})
+		ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
+		handler := apiIdentityHandler(ids)
+		handler.OnAdd(entry("root", "tenancy.kcp.io", oldHash), true)
+		handler.OnAdd(entry("root", "shards.core.kcp.io", oldHash), true)
 		watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
 		ids.trackWatch(oldHash, watch)
 
-		apiExportHandler(ids).OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
+		handler.OnUpdate(entry("root", "tenancy.kcp.io", oldHash), entry("root", "tenancy.kcp.io", newHash))
 
 		if got, want := decorate(t, ids, tenancyPath), tenancyPath+":"+newHash; got != want {
 			t.Errorf("expected %q, got %q", want, got)
@@ -141,25 +156,15 @@ func TestAPIExportHandler(t *testing.T) {
 			t.Error("watches using the replaced identity must be expired")
 		}
 	})
+}
 
-	t.Run("sets an identity that is not resolved yet without expiring anything", func(t *testing.T) {
-		t.Parallel()
-		ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
-		watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
-		ids.trackWatch(oldHash, watch)
-
-		apiExportHandler(ids).OnAdd(export("root", "shards.core.kcp.io", newHash), true)
-
-		if got, want := decorate(t, ids, shardsPath), shardsPath+":"+newHash; got != want {
-			t.Errorf("expected %q, got %q", want, got)
-		}
-		if _, _, err := decorateWildcardPathsWithResourceIdentities(tenancyPath, ids); err == nil {
-			t.Error("expected the unresolved tenancy identity to still be unknown")
-		}
-		if watch.expired {
-			t.Error("learning an identity must not expire watches")
-		}
-	})
+// entry is a registry entry named after the identity and owned by the
+// export of the given name in the given cluster.
+func entry(cluster, exportName, identity string) *adminv1alpha1.APIIdentity {
+	return &adminv1alpha1.APIIdentity{
+		ObjectMeta: metav1.ObjectMeta{Name: identity},
+		Status:     adminv1alpha1.APIIdentityStatus{Owner: adminv1alpha1.ExportReference{Cluster: cluster, Name: exportName}},
+	}
 }
 
 // TestWatchExpiresOnIdentityChange runs a real watch through the round
@@ -179,8 +184,7 @@ func TestWatchExpiresOnIdentityChange(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	provider := &fakeProvider{hashes: map[string]string{"tenancy.kcp.io": oldHash, "shards.core.kcp.io": oldHash}}
-	ids := resolvedIdentities(t, provider)
+	ids := knownIdentities(t, map[string]string{"tenancy.kcp.io": oldHash, "shards.core.kcp.io": oldHash})
 
 	config := &rest.Config{Host: server.URL + "/clusters/*"}
 	config.Wrap(injectKcpIdentities(ids))
@@ -204,7 +208,7 @@ func TestWatchExpiresOnIdentityChange(t *testing.T) {
 		t.Fatalf("expected an ADDED event, got %s", event.Type)
 	}
 
-	apiExportHandler(ids).OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
+	rotate(ids, "tenancy.kcp.io", oldHash, newHash)
 
 	event := next(ctx, t, w)
 	if event.Type != watch.Error {
@@ -237,7 +241,7 @@ func TestWatchExpiresOnIdentityChange(t *testing.T) {
 func TestWatchExpiresWhenIdentityChangesMidRequest(t *testing.T) {
 	t.Parallel()
 
-	ids := resolvedIdentities(t, &fakeProvider{hashes: map[string]string{"tenancy.kcp.io": oldHash, "shards.core.kcp.io": otherHash}})
+	ids := knownIdentities(t, map[string]string{"tenancy.kcp.io": oldHash, "shards.core.kcp.io": otherHash})
 	pr, pw := io.Pipe()
 	t.Cleanup(func() { _ = pw.Close() })
 
@@ -246,7 +250,7 @@ func TestWatchExpiresWhenIdentityChangesMidRequest(t *testing.T) {
 		if got, want := req.URL.Path, "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces:"+oldHash; got != want {
 			t.Errorf("expected the request to be sent to %q, got %q", want, got)
 		}
-		apiExportHandler(ids).OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
+		rotate(ids, "tenancy.kcp.io", oldHash, newHash)
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     http.Header{"Content-Type": []string{"application/json"}},

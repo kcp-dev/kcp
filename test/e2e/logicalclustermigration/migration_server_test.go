@@ -144,7 +144,7 @@ func privateMigrationServerWithArgs(t *testing.T, shardArgs map[string][]string)
 	command = append(command,
 		"--bind-address=127.0.0.1", "--secure-port="+proxyPort,
 		"--root-directory="+filepath.Join(dataDir, "proxy"),
-		"--root-kubeconfig="+rootConfig, "--shard-peer-kubeconfig="+rootConfig,
+		"--shard-peer-kubeconfig="+rootConfig,
 		"--shards-kubeconfig="+rootConfig, "--mapping-file="+mappingFile,
 		"--client-ca-file="+clientCAFile,
 		"--tls-cert-file="+certFile, "--tls-private-key-file="+keyFile,
@@ -200,7 +200,7 @@ func privateMigrationServerWithArgs(t *testing.T, shardArgs map[string][]string)
 		)
 	}
 	startShard("root", rootPort)
-	destination := startShard("shard-1", destinationPort, "--root-shard-kubeconfig-file="+rootConfig, "--cache-kubeconfig="+rootConfig)
+	destination := startShard("shard-1", destinationPort, "--cache-kubeconfig="+rootConfig)
 	// Cleanup runs in reverse order: delete workspaces first, then stop the
 	// proxy's wildcard watches before shutting down the shards they watch.
 	t.Cleanup(stopProxy)
@@ -215,6 +215,6 @@ func privateMigrationServerWithArgs(t *testing.T, shardArgs map[string][]string)
 	return server, func() {
 		t.Helper()
 		destination.Stop()
-		destination = startShard("shard-1", destinationPort, "--root-shard-kubeconfig-file="+rootConfig, "--cache-kubeconfig="+rootConfig)
+		destination = startShard("shard-1", destinationPort, "--cache-kubeconfig="+rootConfig)
 	}
 }

@@ -93,12 +93,6 @@ func newShard(ctx context.Context, n int, args []string, standaloneVW bool, serv
 		)
 	}
 
-	if n > 0 {
-		args = append(args,
-			fmt.Sprintf("--root-shard-kubeconfig-file=%s", filepath.Join(workDirPath, ".kcp-0", "admin.kubeconfig")),
-		)
-	}
-
 	args = append(args,
 		/*fmt.Sprintf("--cluster-workspace-shard-name=kcp-%d", n),*/
 		fmt.Sprintf("--root-directory=%s", filepath.Join(workDirPath, fmt.Sprintf(".kcp-%d", n))),

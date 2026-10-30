@@ -44,21 +44,23 @@ type completedConfig struct {
 }
 
 type ExtraConfig struct {
-	// resolveIdentities is to be called on server start until it succeeds. It injects the kcp
-	// resource identities into the rest.Config used by the client. Only after it succeeds,
-	// the clients can wildcard-list/watch most kcp resources.
-	ResolveIdentities func(ctx context.Context) error
-	// CoreIdentityHandler keeps the identities resolved by ResolveIdentities
-	// in sync with the APIExports in the root workspace, e.g. across an
-	// APIExport identity rotation. Register it on an informer of those
-	// APIExports.
+	// CoreIdentityHandler feeds the identities of the core APIs, which the
+	// clients built from ShardsConfig inject into their wildcard requests,
+	// from the APIIdentity registry that the Admin workspace of the peers
+	// serves. Register it on an informer of those entries.
 	CoreIdentityHandler cache.ResourceEventHandler
-	RootShardConfig     *rest.Config
+	// CoreIdentitiesReady fails while the identity of a core API is still
+	// unknown. It is a readiness check: requests needing an identity fail
+	// until it arrives, nothing blocks startup on it.
+	CoreIdentitiesReady func() error
 	ShardsConfig        *rest.Config
+	// ServiceAccounts resolves service accounts and token secrets on the
+	// shard hosting them, through the index, for service account
+	// authentication.
+	ServiceAccounts *ShardRoutedServiceAccounts
 	// PeersConfig points at the Admin workspace (/services/admin) of the
 	// peer shards with round-robin and per-request failover, and is the only
-	// source for Shard discovery. When no peers are configured, the root
-	// kubeconfig's server acts as the seed peer.
+	// source for Shard discovery and the core identities.
 	PeersConfig *rest.Config
 	// Peers is the failover set behind PeersConfig: the configured seed
 	// peers plus every discovered shard, fed at runtime from the shard
@@ -89,26 +91,18 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 		Options: opts,
 	}
 
-	// get root API identities
-	//nolint:staticcheck // the deprecated root kubeconfig remains the source for identity resolution until identities are resolvable without the root shard.
-	nonIdentityRootConfig, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.RootKubeconfig}, nil).ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load root kubeconfig: %w", err)
-	}
-
+	// The identities of the core APIs come from the APIIdentity registry,
+	// read through the Admin workspace of the peers; the root shard is not
+	// asked for them.
 	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
-	kcpShardIdentityRoundTripper, c.ResolveIdentities, c.CoreIdentityHandler = bootstrap.NewWildcardIdentitiesWrappingRoundTripper(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames, nonIdentityRootConfig, nil)
-	c.RootShardConfig = rest.CopyConfig(nonIdentityRootConfig)
-	c.RootShardConfig.Wrap(kcpShardIdentityRoundTripper)
+	kcpShardIdentityRoundTripper, c.CoreIdentityHandler, c.CoreIdentitiesReady = bootstrap.NewRegistryWildcardIdentities(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames)
 
 	var loopbackClientConfig *rest.Config
 	if err := c.Options.SecureServing.ApplyTo(&c.ServingInfo, &loopbackClientConfig); err != nil {
 		return nil, err
 	}
-	if err := c.Options.Authentication.ApplyTo(ctx, &c.AuthenticationInfo, c.ServingInfo, c.RootShardConfig); err != nil {
-		return nil, err
-	}
 
+	var err error
 	c.ShardsConfig, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
 		&clientcmd.ClientConfigLoadingRules{ExplicitPath: c.Options.ShardsKubeconfig},
 		// We override the Server here so that the user doesn't have to specify unused server value
@@ -119,15 +113,16 @@ func NewConfig(ctx context.Context, opts *proxyoptions.Options) (*Config, error)
 	}
 	c.ShardsConfig.Wrap(kcpShardIdentityRoundTripper)
 
-	// Shard discovery always goes through the Admin workspace of the peers;
-	// the root workspace is no longer read for it. Without configured peers,
-	// the root kubeconfig's server is the seed peer.
-	peerKubeconfigs := c.Options.ShardsPeerKubeconfigs
-	if len(peerKubeconfigs) == 0 {
-		//nolint:staticcheck // the deprecated root kubeconfig doubles as the default seed peer for deployments that predate --shard-peer-kubeconfig.
-		peerKubeconfigs = []string{c.Options.RootKubeconfig}
+	// Service account tokens name their logical cluster; the lookup finds the
+	// hosting shard through the index and asks it, with the shards credential.
+	c.ServiceAccounts = NewShardRoutedServiceAccounts(c.ShardsConfig)
+	if err := c.Options.Authentication.ApplyTo(ctx, &c.AuthenticationInfo, c.ServingInfo, c.ServiceAccounts); err != nil {
+		return nil, err
 	}
-	c.PeersConfig, c.Peers, err = NewPeersConfig(peerKubeconfigs)
+
+	// Shard discovery and the core identities always go through the Admin
+	// workspace of the peers; the root shard is never asked.
+	c.PeersConfig, c.Peers, err = NewPeersConfig(c.Options.ShardsPeerKubeconfigs)
 	if err != nil {
 		return nil, err
 	}
