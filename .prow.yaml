@@ -7,7 +7,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - make
             - verify-boilerplate
@@ -27,7 +27,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - make
             - verify-codegen
@@ -44,7 +44,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - make
             - lint
@@ -110,7 +110,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - make
             - test
@@ -131,7 +131,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - ./hack/run-with-prow.sh
             - ./hack/run-with-prometheus.sh
@@ -158,7 +158,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - ./hack/run-with-prow.sh
             - ./hack/run-with-prometheus.sh
@@ -185,7 +185,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - ./hack/run-with-prow.sh
             - ./hack/run-with-prometheus.sh
@@ -216,7 +216,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - ./hack/run-with-prow.sh
             - ./hack/run-with-prometheus.sh
@@ -243,7 +243,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - ./hack/run-with-prow.sh
             - ./hack/run-with-prometheus.sh
@@ -273,7 +273,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - ./hack/run-with-prow.sh
             - ./hack/run-with-prometheus.sh
@@ -304,7 +304,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - ./hack/run-with-prow.sh
             - ./hack/run-with-prometheus.sh
@@ -335,7 +335,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - ./hack/run-with-prow.sh
             - ./hack/run-with-prometheus.sh
@@ -366,7 +366,7 @@ presubmits:
       preset-goproxy: "true"
     spec:
       containers:
-        - image: ghcr.io/kcp-dev/infra/build:1.26.4-1
+        - image: ghcr.io/kcp-dev/infra/build:1.26.10-1
           command:
             - ./hack/run-with-prow.sh
             - make
