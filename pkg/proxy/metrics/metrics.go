@@ -17,6 +17,7 @@ limitations under the License.
 package metrics
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -45,22 +46,35 @@ const (
 )
 
 // WithLatencyTracking tracks the number of seconds it took the wrapped handler
-// to complete.
+// to complete, partitioned by the shard the request was routed to.
 func WithLatencyTracking(delegate http.Handler) http.Handler {
-	return promhttp.InstrumentHandlerDuration(requestLatencies.HistogramVec, delegate)
+	instrumented := promhttp.InstrumentHandlerDuration(requestLatencies.HistogramVec, delegate,
+		promhttp.WithLabelFromCtx("shard", func(ctx context.Context) string {
+			if holder := lookup.ShardNameHolderFrom(ctx); holder != nil {
+				return holder.Name
+			}
+			return ""
+		}),
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Store a holder in context that inner handlers update with the shard name,
+		// so the label can be resolved after they return. Requests handled locally
+		// by the front-proxy (e.g., /metrics, /readyz) keep an empty shard.
+		ctx, _ := lookup.WithShardNameHolder(r.Context())
+		instrumented.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
-// TODO(csams): enhance metrics to include shard url.
 var (
 	requestLatencies = compbasemetrics.NewHistogramVec(
 		&compbasemetrics.HistogramOpts{
 			Name: "proxy_request_duration_seconds",
-			Help: "Response latency distribution in seconds for each verb and HTTP response code.",
+			Help: "Response latency distribution in seconds for each verb, HTTP response code and shard.",
 			Buckets: []float64{0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 1.0, 1.25, 1.5, 2, 3,
 				4, 5, 6, 8, 10, 15, 20, 30, 45, 60},
 			StabilityLevel: compbasemetrics.ALPHA,
 		},
-		[]string{"method", "code"},
+		[]string{"method", "code", "shard"},
 	)
 
 	tlsConnectionErrors = compbasemetrics.NewCounterVec(

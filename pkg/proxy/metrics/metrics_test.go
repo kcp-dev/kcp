@@ -27,6 +27,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"k8s.io/component-base/metrics/testutil"
+
+	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
 
 func TestCategorizeTLSError(t *testing.T) {
@@ -329,6 +333,63 @@ func TestWithBodyTracking(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithLatencyTracking(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		shard string
+	}{
+		{
+			name:  "request routed to a shard",
+			shard: "shard-1",
+		},
+		{
+			name:  "request handled locally",
+			shard: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Set the shard the way lookup.WithClusterResolver does: on a derived
+			// context that the outer middlewares never see.
+			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tt.shard != "" {
+					lookup.WithShardName(r.Context(), tt.shard)
+				}
+				w.WriteHeader(http.StatusOK)
+			})
+
+			// Wrap in the same order as the proxy server so both middlewares
+			// share one shard name holder.
+			wrapped := WithLatencyTracking(WithBodyTracking(handler))
+
+			before := latencyObservations(t, tt.shard)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", http.NoBody)
+			wrapped.ServeHTTP(httptest.NewRecorder(), req)
+
+			if got := latencyObservations(t, tt.shard) - before; got != 1 {
+				t.Errorf("observations with shard=%q = %d, want 1", tt.shard, got)
+			}
+		})
+	}
+}
+
+// latencyObservations returns the number of samples recorded for a GET request
+// that returned 200 from the given shard.
+func latencyObservations(t *testing.T, shard string) uint64 {
+	t.Helper()
+
+	count, err := testutil.GetHistogramMetricCount(requestLatencies.WithLabelValues("get", "200", shard))
+	if err != nil {
+		t.Fatalf("failed to read proxy_request_duration_seconds: %v", err)
+	}
+	return count
 }
 
 func TestNewProxyErrorHandler(t *testing.T) {
