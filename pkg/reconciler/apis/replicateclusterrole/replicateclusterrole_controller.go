@@ -27,6 +27,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/apis"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/cache"
 
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/labelclusterroles"
 )
@@ -52,19 +53,27 @@ func NewController(
 	)
 }
 
+// HasBindOrContentRule returns true for ClusterRoles that must be replicated to the cache
+// server so that admission on other shards can authorize references into this workspace:
+// "bind" on apiexports (APIBinding, APIExportEndpointSlice), any verb on apiexports/content,
+// and "bind" on clustercachedresources (ClusterCachedResourceEndpointSlice).
 func HasBindOrContentRule(clusterName logicalcluster.Name, cr *rbacv1.ClusterRole) bool {
 	for _, rule := range cr.Rules {
 		apiGroups := sets.New[string](rule.APIGroups...)
-		if !apiGroups.Has(apis.GroupName) && !apiGroups.Has("*") {
-			continue
-		}
 		resources := sets.New[string](rule.Resources...)
 		verbs := sets.New[string](rule.Verbs...)
-		if (resources.Has("apiexports") || resources.Has("*")) && (verbs.Has("bind") || verbs.Has("*")) {
-			return true
+		if apiGroups.Has(apis.GroupName) || apiGroups.Has("*") {
+			if (resources.Has("apiexports") || resources.Has("*")) && (verbs.Has("bind") || verbs.Has("*")) {
+				return true
+			}
+			if resources.Has("apiexports/content") || resources.Has("*") {
+				return true
+			}
 		}
-		if resources.Has("apiexports/content") || resources.Has("*") {
-			return true
+		if apiGroups.Has(cache.GroupName) || apiGroups.Has("*") {
+			if (resources.Has("clustercachedresources") || resources.Has("*")) && (verbs.Has("bind") || verbs.Has("*")) {
+				return true
+			}
 		}
 	}
 	return false
