@@ -32,6 +32,50 @@ OPENAPI_PKG=${OPENAPI_PKG:-$(cd "${SCRIPT_ROOT}"; go list -f '{{.Dir}}' -m k8s.i
 
 go install "${CODEGEN_PKG}"/cmd/applyconfiguration-gen
 go install "${CODEGEN_PKG}"/cmd/client-gen
+go install "${CODEGEN_PKG}"/cmd/deepcopy-gen
+go install "${CODEGEN_PKG}"/cmd/conversion-gen
+
+# gen_helpers generates deepcopy and conversion code for all packages below a directory.
+# Stand-in for kube::codegen::gen_helpers, skips
+# validation-gen/defaulter-gen because kcp doesn't have those markers.
+#
+# The upstream function runs inside k8s.io/code-generator, which
+# replaces k8s.io/apimachinery with ../apimachinery. The upstream
+# publishing bot removes these replacements during the publishing step.
+#
+# $1: input directory
+gen_helpers() {
+  local in_dir="$1"
+  local dir pkg
+
+  local deepcopy_pkgs=()
+  while read -r dir; do
+    pkg="$(cd "${dir}" && go list -find .)"
+    deepcopy_pkgs+=("${pkg}")
+  done < <(grep -rl --include '*.go' -e '^\s*//\s*+k8s:deepcopy-gen=' "${in_dir}" | xargs -r -n1 dirname | LC_ALL=C sort -u)
+
+  if [[ "${#deepcopy_pkgs[@]}" != 0 ]]; then
+    find "${in_dir}" -type f -name zz_generated.deepcopy.go -delete
+    "$GOPATH"/bin/deepcopy-gen \
+      --output-file zz_generated.deepcopy.go \
+      --go-header-file "${BOILERPLATE_HEADER}" \
+      "${deepcopy_pkgs[@]}"
+  fi
+
+  local conversion_pkgs=()
+  while read -r dir; do
+    pkg="$(cd "${dir}" && go list -find .)"
+    conversion_pkgs+=("${pkg}")
+  done < <(grep -rl --include '*.go' -e '^\s*//\s*+k8s:conversion-gen=' "${in_dir}" | xargs -r -n1 dirname | LC_ALL=C sort -u)
+
+  if [[ "${#conversion_pkgs[@]}" != 0 ]]; then
+    find "${in_dir}" -type f -name zz_generated.conversion.go -delete
+    "$GOPATH"/bin/conversion-gen \
+      --output-file zz_generated.conversion.go \
+      --go-header-file "${BOILERPLATE_HEADER}" \
+      "${conversion_pkgs[@]}"
+  fi
+}
 
 # TODO: This is hack to allow CI to pass
 chmod +x "${CODEGEN_PKG}"/generate-internal-groups.sh
@@ -75,9 +119,7 @@ mkdir -p ${SDK_PKG}/client/{clientset,applyconfiguration,listers,informers}
   --apply-configuration-package=github.com/kcp-dev/sdk/client/applyconfiguration \
   --clientset-name "versioned"
 
-kube::codegen::gen_helpers \
-  --boilerplate "${BOILERPLATE_HEADER}" \
-  ./staging/src/github.com/kcp-dev/sdk/apis
+gen_helpers ./staging/src/github.com/kcp-dev/sdk/apis
 
 cd ./staging/src/github.com/kcp-dev/sdk
 cluster::codegen::gen_client \
@@ -110,13 +152,9 @@ cd -
   --apply-configuration-package=github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/applyconfiguration \
   --clientset-name "versioned"
 
-kube::codegen::gen_helpers \
-  --boilerplate "${BOILERPLATE_HEADER}" \
-  ./staging/src/github.com/kcp-dev/sdk/third_party/conditions/apis
+gen_helpers ./staging/src/github.com/kcp-dev/sdk/third_party/conditions/apis
 
-kube::codegen::gen_helpers \
-  --boilerplate "${BOILERPLATE_HEADER}" \
-  ./test/e2e/fixtures/wildwest/apis
+gen_helpers ./test/e2e/fixtures/wildwest/apis
 
 cd ./test/e2e/fixtures/wildwest
 cluster::codegen::gen_client \
