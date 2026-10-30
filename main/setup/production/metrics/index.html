@@ -1191,6 +1191,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#scraping-the-front-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scraping the front-proxy
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5211,6 +5222,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#scraping-the-front-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Scraping the front-proxy
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -5329,6 +5351,11 @@ when the path is added to the always-allow list.</p>
 <a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a><span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">targets</span><span class="p">:</span>
 <a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cache.kcp.svc:6443</span>
 </code></pre></div>
+<h2 id="scraping-the-front-proxy">Scraping the front-proxy<a class="headerlink" href="#scraping-the-front-proxy" title="Permanent link">&para;</a></h2>
+<p>The front-proxy's own <code>/metrics</code> is authorized by group: members of
+<code>system:kcp:metrics-reader</code>, <code>system:kcp:admin</code> or <code>system:masters</code> may read
+it. Give the scraper identity the <code>system:kcp:metrics-reader</code> group, for
+example as a client certificate organization or an OIDC group claim.</p>
 
 
 
