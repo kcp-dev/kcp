@@ -54,6 +54,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/apiexportendpointslice"
 	"github.com/kcp-dev/kcp/pkg/admission/apiresourceschema"
 	"github.com/kcp-dev/kcp/pkg/admission/clustercachedresource"
+	"github.com/kcp-dev/kcp/pkg/admission/clustercachedresourceendpointslice"
 	"github.com/kcp-dev/kcp/pkg/admission/crdnooverlappinggvr"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
 	"github.com/kcp-dev/kcp/pkg/admission/logicalcluster"
@@ -106,6 +107,7 @@ var AllOrderedPlugins = beforeWebhooks(
 	kubequota.PluginName,
 	mutatingadmissionpolicy.PluginName,
 	clustercachedresource.PluginName,
+	clustercachedresourceendpointslice.PluginName,
 )
 
 func beforeWebhooks(recommended []string, plugins ...string) []string {
@@ -148,6 +150,7 @@ func RegisterAllKcpAdmissionPlugins(plugins *admission.Plugins) {
 	objectcountlimit.Register(plugins)
 	kubequota.Register(plugins)
 	clustercachedresource.Register(plugins)
+	clustercachedresourceendpointslice.Register(plugins)
 }
 
 var defaultOnPluginsInKcp = sets.New[string](
@@ -181,6 +184,7 @@ var defaultOnPluginsInKcp = sets.New[string](
 	objectcountlimit.PluginName,
 	kubequota.PluginName,
 	clustercachedresource.PluginName,
+	clustercachedresourceendpointslice.PluginName,
 )
 
 // defaultOnKubePluginsInKube is a copy of kubeapiserveroptions.defaultOnKubePlugins.
