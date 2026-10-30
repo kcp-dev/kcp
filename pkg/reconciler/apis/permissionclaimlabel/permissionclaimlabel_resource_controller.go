@@ -25,7 +25,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -182,15 +181,14 @@ func (c *resourceController) process(ctx context.Context, key string) error {
 		return nil
 	}
 
-	u, ok := obj.(*unstructured.Unstructured)
+	o, ok := obj.(logging.Object)
 	if !ok {
 		logger.Error(nil, "got unexpected type", "type", fmt.Sprintf("%T", obj))
 		return nil // retrying won't help
 	}
-	u = u.DeepCopy()
 
-	logger = logging.WithObject(logger, u)
+	logger = logging.WithObject(logger, o)
 	ctx = klog.NewContext(ctx, logger)
 
-	return c.reconcile(ctx, u, gvr)
+	return c.reconcile(ctx, o, gvr)
 }
