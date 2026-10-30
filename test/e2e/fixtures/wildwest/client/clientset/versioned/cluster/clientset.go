@@ -24,13 +24,13 @@ import (
 
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
-	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
 	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	client "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned"
 	wildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/cluster/typed/wildwest/v1alpha1"
+	typedwildwestv1alpha1 "github.com/kcp-dev/kcp/test/e2e/fixtures/wildwest/client/clientset/versioned/typed/wildwest/v1alpha1"
 )
 
 type ClusterInterface interface {
@@ -42,7 +42,7 @@ type ClusterInterface interface {
 // ClusterClientset contains the cluster clients for groups.
 type ClusterClientset struct {
 	*discovery.DiscoveryClient
-	clientCache      kcpclient.Cache[*client.Clientset]
+	discoveryCache   kcpclient.Cache[*discovery.DiscoveryClient]
 	wildwestV1alpha1 *wildwestv1alpha1.WildwestV1alpha1ClusterClient
 }
 
@@ -64,7 +64,22 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) client.Inter
 	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return c.clientCache.ClusterOrDie(clusterPath)
+	return &scopedClientset{clientset: c, clusterPath: clusterPath}
+}
+
+type scopedClientset struct {
+	clientset   *ClusterClientset
+	clusterPath logicalcluster.Path
+}
+
+var _ client.Interface = &scopedClientset{}
+
+func (c *scopedClientset) Discovery() discovery.DiscoveryInterface {
+	return c.clientset.discoveryCache.ClusterOrDie(c.clusterPath)
+}
+
+func (c *scopedClientset) WildwestV1alpha1() typedwildwestv1alpha1.WildwestV1alpha1Interface {
+	return c.clientset.wildwestV1alpha1.Cluster(c.clusterPath)
 }
 
 // NewForConfig creates a new ClusterClientset for the given config.
@@ -98,18 +113,16 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 		if configShallowCopy.Burst <= 0 {
 			return nil, fmt.Errorf("burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
 		}
-		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
-	}
-
-	cache := kcpclient.NewCache(c, httpClient, &kcpclient.Constructor[*client.Clientset]{
-		NewForConfigAndClient: client.NewForConfigAndClient,
-	})
-	if _, err := cache.Cluster(logicalcluster.Name("root").Path()); err != nil {
-		return nil, err
+		configShallowCopy.RateLimiter = kcpclient.NewClusterRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 
 	var cs ClusterClientset
-	cs.clientCache = cache
+	cs.discoveryCache = kcpclient.NewCache(&configShallowCopy, httpClient, &kcpclient.Constructor[*discovery.DiscoveryClient]{
+		NewForConfigAndClient: discovery.NewDiscoveryClientForConfigAndClient,
+	})
+	if _, err := cs.discoveryCache.Cluster(logicalcluster.Name("root").Path()); err != nil {
+		return nil, err
+	}
 	var err error
 	cs.wildwestV1alpha1, err = wildwestv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -139,5 +152,12 @@ func New(c *rest.Config) *ClusterClientset {
 	cs.wildwestV1alpha1 = wildwestv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
+	httpClient, err := rest.HTTPClientFor(c)
+	if err != nil {
+		panic(err)
+	}
+	cs.discoveryCache = kcpclient.NewCache(c, httpClient, &kcpclient.Constructor[*discovery.DiscoveryClient]{
+		NewForConfigAndClient: discovery.NewDiscoveryClientForConfigAndClient,
+	})
 	return &cs
 }

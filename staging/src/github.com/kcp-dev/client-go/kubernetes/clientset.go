@@ -24,8 +24,60 @@ import (
 
 	discovery "k8s.io/client-go/discovery"
 	client "k8s.io/client-go/kubernetes"
+	typedadmissionregistrationv1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
+	typedadmissionregistrationv1alpha1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"
+	typedadmissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
+	typedinternalv1alpha1 "k8s.io/client-go/kubernetes/typed/apiserverinternal/v1alpha1"
+	typedappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
+	typedappsv1beta1 "k8s.io/client-go/kubernetes/typed/apps/v1beta1"
+	typedappsv1beta2 "k8s.io/client-go/kubernetes/typed/apps/v1beta2"
+	typedauthenticationv1 "k8s.io/client-go/kubernetes/typed/authentication/v1"
+	typedauthenticationv1alpha1 "k8s.io/client-go/kubernetes/typed/authentication/v1alpha1"
+	typedauthenticationv1beta1 "k8s.io/client-go/kubernetes/typed/authentication/v1beta1"
+	typedauthorizationv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
+	typedauthorizationv1beta1 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
+	typedautoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
+	typedautoscalingv2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2"
+	typedbatchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
+	typedbatchv1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
+	typedcertificatesv1 "k8s.io/client-go/kubernetes/typed/certificates/v1"
+	typedcertificatesv1alpha1 "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1"
+	typedcertificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	typedcoordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
+	typedcoordinationv1alpha2 "k8s.io/client-go/kubernetes/typed/coordination/v1alpha2"
+	typedcoordinationv1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	typeddiscoveryv1 "k8s.io/client-go/kubernetes/typed/discovery/v1"
+	typeddiscoveryv1beta1 "k8s.io/client-go/kubernetes/typed/discovery/v1beta1"
+	typedeventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
+	typedeventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
+	typedextensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	typedflowcontrolv1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1"
+	typedflowcontrolv1beta1 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta1"
+	typedflowcontrolv1beta2 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta2"
+	typedflowcontrolv1beta3 "k8s.io/client-go/kubernetes/typed/flowcontrol/v1beta3"
+	typednetworkingv1 "k8s.io/client-go/kubernetes/typed/networking/v1"
+	typednetworkingv1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
+	typednodev1 "k8s.io/client-go/kubernetes/typed/node/v1"
+	typednodev1alpha1 "k8s.io/client-go/kubernetes/typed/node/v1alpha1"
+	typednodev1beta1 "k8s.io/client-go/kubernetes/typed/node/v1beta1"
+	typedpolicyv1 "k8s.io/client-go/kubernetes/typed/policy/v1"
+	typedpolicyv1beta1 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
+	typedrbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
+	typedrbacv1alpha1 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
+	typedrbacv1beta1 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
+	typedresourcev1 "k8s.io/client-go/kubernetes/typed/resource/v1"
+	typedresourcev1alpha3 "k8s.io/client-go/kubernetes/typed/resource/v1alpha3"
+	typedresourcev1beta1 "k8s.io/client-go/kubernetes/typed/resource/v1beta1"
+	typedresourcev1beta2 "k8s.io/client-go/kubernetes/typed/resource/v1beta2"
+	typedschedulingv1 "k8s.io/client-go/kubernetes/typed/scheduling/v1"
+	typedschedulingv1alpha2 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha2"
+	typedschedulingv1beta1 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
+	typedstoragev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
+	typedstoragev1alpha1 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
+	typedstoragev1beta1 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
+	typedstoragemigrationv1beta1 "k8s.io/client-go/kubernetes/typed/storagemigration/v1beta1"
 	rest "k8s.io/client-go/rest"
-	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
 	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	admissionregistrationv1 "github.com/kcp-dev/client-go/kubernetes/typed/admissionregistration/v1"
@@ -145,7 +197,7 @@ type ClusterInterface interface {
 // ClusterClientset contains the cluster clients for groups.
 type ClusterClientset struct {
 	*discovery.DiscoveryClient
-	clientCache                   kcpclient.Cache[*client.Clientset]
+	discoveryCache                kcpclient.Cache[*discovery.DiscoveryClient]
 	admissionregistrationV1       *admissionregistrationv1.AdmissionregistrationV1ClusterClient
 	admissionregistrationV1alpha1 *admissionregistrationv1alpha1.AdmissionregistrationV1alpha1ClusterClient
 	admissionregistrationV1beta1  *admissionregistrationv1beta1.AdmissionregistrationV1beta1ClusterClient
@@ -479,7 +531,230 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) client.Inter
 	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return c.clientCache.ClusterOrDie(clusterPath)
+	return &scopedClientset{clientset: c, clusterPath: clusterPath}
+}
+
+type scopedClientset struct {
+	clientset   *ClusterClientset
+	clusterPath logicalcluster.Path
+}
+
+var _ client.Interface = &scopedClientset{}
+
+func (c *scopedClientset) Discovery() discovery.DiscoveryInterface {
+	return c.clientset.discoveryCache.ClusterOrDie(c.clusterPath)
+}
+
+func (c *scopedClientset) AdmissionregistrationV1() typedadmissionregistrationv1.AdmissionregistrationV1Interface {
+	return c.clientset.admissionregistrationV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AdmissionregistrationV1alpha1() typedadmissionregistrationv1alpha1.AdmissionregistrationV1alpha1Interface {
+	return c.clientset.admissionregistrationV1alpha1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AdmissionregistrationV1beta1() typedadmissionregistrationv1beta1.AdmissionregistrationV1beta1Interface {
+	return c.clientset.admissionregistrationV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) InternalV1alpha1() typedinternalv1alpha1.InternalV1alpha1Interface {
+	return c.clientset.internalV1alpha1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AppsV1() typedappsv1.AppsV1Interface {
+	return c.clientset.appsV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AppsV1beta1() typedappsv1beta1.AppsV1beta1Interface {
+	return c.clientset.appsV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AppsV1beta2() typedappsv1beta2.AppsV1beta2Interface {
+	return c.clientset.appsV1beta2.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AuthenticationV1() typedauthenticationv1.AuthenticationV1Interface {
+	return c.clientset.authenticationV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AuthenticationV1alpha1() typedauthenticationv1alpha1.AuthenticationV1alpha1Interface {
+	return c.clientset.authenticationV1alpha1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AuthenticationV1beta1() typedauthenticationv1beta1.AuthenticationV1beta1Interface {
+	return c.clientset.authenticationV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AuthorizationV1() typedauthorizationv1.AuthorizationV1Interface {
+	return c.clientset.authorizationV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AuthorizationV1beta1() typedauthorizationv1beta1.AuthorizationV1beta1Interface {
+	return c.clientset.authorizationV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AutoscalingV1() typedautoscalingv1.AutoscalingV1Interface {
+	return c.clientset.autoscalingV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) AutoscalingV2() typedautoscalingv2.AutoscalingV2Interface {
+	return c.clientset.autoscalingV2.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) BatchV1() typedbatchv1.BatchV1Interface {
+	return c.clientset.batchV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) BatchV1beta1() typedbatchv1beta1.BatchV1beta1Interface {
+	return c.clientset.batchV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) CertificatesV1() typedcertificatesv1.CertificatesV1Interface {
+	return c.clientset.certificatesV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) CertificatesV1alpha1() typedcertificatesv1alpha1.CertificatesV1alpha1Interface {
+	return c.clientset.certificatesV1alpha1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) CertificatesV1beta1() typedcertificatesv1beta1.CertificatesV1beta1Interface {
+	return c.clientset.certificatesV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) CoordinationV1() typedcoordinationv1.CoordinationV1Interface {
+	return c.clientset.coordinationV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) CoordinationV1alpha2() typedcoordinationv1alpha2.CoordinationV1alpha2Interface {
+	return c.clientset.coordinationV1alpha2.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) CoordinationV1beta1() typedcoordinationv1beta1.CoordinationV1beta1Interface {
+	return c.clientset.coordinationV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) CoreV1() typedcorev1.CoreV1Interface {
+	return c.clientset.coreV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) DiscoveryV1() typeddiscoveryv1.DiscoveryV1Interface {
+	return c.clientset.discoveryV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) DiscoveryV1beta1() typeddiscoveryv1beta1.DiscoveryV1beta1Interface {
+	return c.clientset.discoveryV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) EventsV1() typedeventsv1.EventsV1Interface {
+	return c.clientset.eventsV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) EventsV1beta1() typedeventsv1beta1.EventsV1beta1Interface {
+	return c.clientset.eventsV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) ExtensionsV1beta1() typedextensionsv1beta1.ExtensionsV1beta1Interface {
+	return c.clientset.extensionsV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) FlowcontrolV1() typedflowcontrolv1.FlowcontrolV1Interface {
+	return c.clientset.flowcontrolV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) FlowcontrolV1beta1() typedflowcontrolv1beta1.FlowcontrolV1beta1Interface {
+	return c.clientset.flowcontrolV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) FlowcontrolV1beta2() typedflowcontrolv1beta2.FlowcontrolV1beta2Interface {
+	return c.clientset.flowcontrolV1beta2.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) FlowcontrolV1beta3() typedflowcontrolv1beta3.FlowcontrolV1beta3Interface {
+	return c.clientset.flowcontrolV1beta3.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) NetworkingV1() typednetworkingv1.NetworkingV1Interface {
+	return c.clientset.networkingV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) NetworkingV1beta1() typednetworkingv1beta1.NetworkingV1beta1Interface {
+	return c.clientset.networkingV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) NodeV1() typednodev1.NodeV1Interface {
+	return c.clientset.nodeV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) NodeV1alpha1() typednodev1alpha1.NodeV1alpha1Interface {
+	return c.clientset.nodeV1alpha1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) NodeV1beta1() typednodev1beta1.NodeV1beta1Interface {
+	return c.clientset.nodeV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) PolicyV1() typedpolicyv1.PolicyV1Interface {
+	return c.clientset.policyV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) PolicyV1beta1() typedpolicyv1beta1.PolicyV1beta1Interface {
+	return c.clientset.policyV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) RbacV1() typedrbacv1.RbacV1Interface {
+	return c.clientset.rbacV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) RbacV1alpha1() typedrbacv1alpha1.RbacV1alpha1Interface {
+	return c.clientset.rbacV1alpha1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) RbacV1beta1() typedrbacv1beta1.RbacV1beta1Interface {
+	return c.clientset.rbacV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) ResourceV1() typedresourcev1.ResourceV1Interface {
+	return c.clientset.resourceV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) ResourceV1alpha3() typedresourcev1alpha3.ResourceV1alpha3Interface {
+	return c.clientset.resourceV1alpha3.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) ResourceV1beta1() typedresourcev1beta1.ResourceV1beta1Interface {
+	return c.clientset.resourceV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) ResourceV1beta2() typedresourcev1beta2.ResourceV1beta2Interface {
+	return c.clientset.resourceV1beta2.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) SchedulingV1() typedschedulingv1.SchedulingV1Interface {
+	return c.clientset.schedulingV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) SchedulingV1alpha2() typedschedulingv1alpha2.SchedulingV1alpha2Interface {
+	return c.clientset.schedulingV1alpha2.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) SchedulingV1beta1() typedschedulingv1beta1.SchedulingV1beta1Interface {
+	return c.clientset.schedulingV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) StorageV1() typedstoragev1.StorageV1Interface {
+	return c.clientset.storageV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) StorageV1alpha1() typedstoragev1alpha1.StorageV1alpha1Interface {
+	return c.clientset.storageV1alpha1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) StorageV1beta1() typedstoragev1beta1.StorageV1beta1Interface {
+	return c.clientset.storageV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) StoragemigrationV1beta1() typedstoragemigrationv1beta1.StoragemigrationV1beta1Interface {
+	return c.clientset.storagemigrationV1beta1.Cluster(c.clusterPath)
 }
 
 // NewForConfig creates a new ClusterClientset for the given config.
@@ -513,18 +788,16 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 		if configShallowCopy.Burst <= 0 {
 			return nil, fmt.Errorf("burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
 		}
-		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
-	}
-
-	cache := kcpclient.NewCache(c, httpClient, &kcpclient.Constructor[*client.Clientset]{
-		NewForConfigAndClient: client.NewForConfigAndClient,
-	})
-	if _, err := cache.Cluster(logicalcluster.Name("root").Path()); err != nil {
-		return nil, err
+		configShallowCopy.RateLimiter = kcpclient.NewClusterRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 
 	var cs ClusterClientset
-	cs.clientCache = cache
+	cs.discoveryCache = kcpclient.NewCache(&configShallowCopy, httpClient, &kcpclient.Constructor[*discovery.DiscoveryClient]{
+		NewForConfigAndClient: discovery.NewDiscoveryClientForConfigAndClient,
+	})
+	if _, err := cs.discoveryCache.Cluster(logicalcluster.Name("root").Path()); err != nil {
+		return nil, err
+	}
 	var err error
 	cs.admissionregistrationV1, err = admissionregistrationv1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -814,5 +1087,12 @@ func New(c *rest.Config) *ClusterClientset {
 	cs.storagemigrationV1beta1 = storagemigrationv1beta1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
+	httpClient, err := rest.HTTPClientFor(c)
+	if err != nil {
+		panic(err)
+	}
+	cs.discoveryCache = kcpclient.NewCache(c, httpClient, &kcpclient.Constructor[*discovery.DiscoveryClient]{
+		NewForConfigAndClient: discovery.NewDiscoveryClientForConfigAndClient,
+	})
 	return &cs
 }

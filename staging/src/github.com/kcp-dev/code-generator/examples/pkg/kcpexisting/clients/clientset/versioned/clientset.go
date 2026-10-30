@@ -23,6 +23,14 @@ import (
 	http "net/http"
 
 	client "acme.corp/pkg/generated/clientset/versioned"
+	typedexamplev1 "acme.corp/pkg/generated/clientset/versioned/typed/example/v1"
+	typedexamplev1alpha1 "acme.corp/pkg/generated/clientset/versioned/typed/example/v1alpha1"
+	typedexamplev1beta1 "acme.corp/pkg/generated/clientset/versioned/typed/example/v1beta1"
+	typedexamplev2 "acme.corp/pkg/generated/clientset/versioned/typed/example/v2"
+	typedexample3v1 "acme.corp/pkg/generated/clientset/versioned/typed/example3/v1"
+	typedexampledashedv1 "acme.corp/pkg/generated/clientset/versioned/typed/exampledashed/v1"
+	typedexistinginterfacesv1 "acme.corp/pkg/generated/clientset/versioned/typed/existinginterfaces/v1"
+	typedsecondexamplev1 "acme.corp/pkg/generated/clientset/versioned/typed/secondexample/v1"
 	examplev1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/example/v1"
 	examplev1alpha1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/example/v1alpha1"
 	examplev1beta1 "acme.corp/pkg/kcpexisting/clients/clientset/versioned/typed/example/v1beta1"
@@ -34,7 +42,6 @@ import (
 
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
-	flowcontrol "k8s.io/client-go/util/flowcontrol"
 
 	kcpclient "github.com/kcp-dev/apimachinery/v2/pkg/client"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -56,7 +63,7 @@ type ClusterInterface interface {
 // ClusterClientset contains the cluster clients for groups.
 type ClusterClientset struct {
 	*discovery.DiscoveryClient
-	clientCache          kcpclient.Cache[*client.Clientset]
+	discoveryCache       kcpclient.Cache[*discovery.DiscoveryClient]
 	exampleV1            *examplev1.ExampleV1ClusterClient
 	exampleV1alpha1      *examplev1alpha1.ExampleV1alpha1ClusterClient
 	exampleV1beta1       *examplev1beta1.ExampleV1beta1ClusterClient
@@ -120,7 +127,50 @@ func (c *ClusterClientset) Cluster(clusterPath logicalcluster.Path) client.Inter
 	if clusterPath == logicalcluster.Wildcard {
 		panic("A specific cluster must be provided when scoping, not the wildcard.")
 	}
-	return c.clientCache.ClusterOrDie(clusterPath)
+	return &scopedClientset{clientset: c, clusterPath: clusterPath}
+}
+
+type scopedClientset struct {
+	clientset   *ClusterClientset
+	clusterPath logicalcluster.Path
+}
+
+var _ client.Interface = &scopedClientset{}
+
+func (c *scopedClientset) Discovery() discovery.DiscoveryInterface {
+	return c.clientset.discoveryCache.ClusterOrDie(c.clusterPath)
+}
+
+func (c *scopedClientset) ExampleV1() typedexamplev1.ExampleV1Interface {
+	return c.clientset.exampleV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) ExampleV1alpha1() typedexamplev1alpha1.ExampleV1alpha1Interface {
+	return c.clientset.exampleV1alpha1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) ExampleV1beta1() typedexamplev1beta1.ExampleV1beta1Interface {
+	return c.clientset.exampleV1beta1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) ExampleV2() typedexamplev2.ExampleV2Interface {
+	return c.clientset.exampleV2.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) Example3V1() typedexample3v1.Example3V1Interface {
+	return c.clientset.example3V1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) ExampleDashedV1() typedexampledashedv1.ExampleDashedV1Interface {
+	return c.clientset.exampleDashedV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) ExistinginterfacesV1() typedexistinginterfacesv1.ExistinginterfacesV1Interface {
+	return c.clientset.existinginterfacesV1.Cluster(c.clusterPath)
+}
+
+func (c *scopedClientset) SecondexampleV1() typedsecondexamplev1.SecondexampleV1Interface {
+	return c.clientset.secondexampleV1.Cluster(c.clusterPath)
 }
 
 // NewForConfig creates a new ClusterClientset for the given config.
@@ -154,18 +204,16 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*ClusterCli
 		if configShallowCopy.Burst <= 0 {
 			return nil, fmt.Errorf("burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
 		}
-		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
-	}
-
-	cache := kcpclient.NewCache(c, httpClient, &kcpclient.Constructor[*client.Clientset]{
-		NewForConfigAndClient: client.NewForConfigAndClient,
-	})
-	if _, err := cache.Cluster(logicalcluster.Name("root").Path()); err != nil {
-		return nil, err
+		configShallowCopy.RateLimiter = kcpclient.NewClusterRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 
 	var cs ClusterClientset
-	cs.clientCache = cache
+	cs.discoveryCache = kcpclient.NewCache(&configShallowCopy, httpClient, &kcpclient.Constructor[*discovery.DiscoveryClient]{
+		NewForConfigAndClient: discovery.NewDiscoveryClientForConfigAndClient,
+	})
+	if _, err := cs.discoveryCache.Cluster(logicalcluster.Name("root").Path()); err != nil {
+		return nil, err
+	}
 	var err error
 	cs.exampleV1, err = examplev1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
@@ -230,5 +278,12 @@ func New(c *rest.Config) *ClusterClientset {
 	cs.secondexampleV1 = secondexamplev1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
+	httpClient, err := rest.HTTPClientFor(c)
+	if err != nil {
+		panic(err)
+	}
+	cs.discoveryCache = kcpclient.NewCache(c, httpClient, &kcpclient.Constructor[*discovery.DiscoveryClient]{
+		NewForConfigAndClient: discovery.NewDiscoveryClientForConfigAndClient,
+	})
 	return &cs
 }
