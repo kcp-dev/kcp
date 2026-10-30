@@ -108,7 +108,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 
 	totalCacheHits, cowboysCacheHit := collectCacheHitsFor(t.Context(), t, server.RootShardSystemMasterBaseConfig(t), "wildwest.dev", "cowboys")
 	if totalCacheHits == 0 {
-		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
+		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", watchCacheListMetric)
 	}
 	if cowboysCacheHit < 10 {
 		t.Fatalf("expected to get cowboys.wildwest.dev CRD from the cache at least 10 times, got %v", cowboysCacheHit)
@@ -158,7 +158,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 
 	totalCacheHits, sheriffsCacheHit := collectCacheHitsFor(t.Context(), t, server.RootShardSystemMasterBaseConfig(t), "newyork.io", "sheriffs")
 	if totalCacheHits == 0 {
-		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
+		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", watchCacheListMetric)
 	}
 	if sheriffsCacheHit < 10 {
 		t.Fatalf("expected to get sheriffs.newyork.io from the cache at least 10 times, got %v", sheriffsCacheHit)
@@ -216,12 +216,16 @@ func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 
 	totalCacheHits, secretsCacheHit := collectCacheHitsFor(t.Context(), t, server.RootShardSystemMasterBaseConfig(t), "", "secrets")
 	if totalCacheHits == 0 {
-		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", "apiserver_cache_list_total")
+		t.Fatalf("the watch cache is turned off, didn't find instances of %q metrics", watchCacheListMetric)
 	}
 	if secretsCacheHit < 115 {
 		t.Fatalf("expected to get core.secrets from the cache at least 115 times, got %v", secretsCacheHit)
 	}
 }
+
+// watchCacheListMetric counts LIST requests per storage backend.
+// apiserver_cache_list_total is deprecated and hidden since 1.37.
+const watchCacheListMetric = "apiserver_storage_list_total"
 
 func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config, group, resource string) (int, int) {
 	t.Helper()
@@ -229,8 +233,8 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 	rootShardKubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootCfg)
 	require.NoError(t, err)
 
-	// metrics example: "apiserver_cache_list_total{group=\"\",index=\"\",resource=\"secrets\"} 118
-	t.Logf("Reading %q metrics from the API server via %q endpoint for group %q and resource %q", "apiserver_cache_list_total", "/metrics", group, resource)
+	// metrics example: "apiserver_storage_list_total{group=\"\",index=\"\",resource=\"secrets\",storage=\"watchcache\"} 118
+	t.Logf("Reading %q metrics from the API server via %q endpoint for group %q and resource %q", watchCacheListMetric, "/metrics", group, resource)
 	rsp := rootShardKubeClusterClient.RESTClient().Get().AbsPath("/metrics").Do(t.Context())
 	raw, err := rsp.Raw()
 	require.NoError(t, err)
@@ -238,7 +242,7 @@ func collectCacheHitsFor(ctx context.Context, t *testing.T, rootCfg *rest.Config
 	var totalCacheHits, prefixCacheHit int
 	for scanner.Scan() {
 		txt := scanner.Text()
-		if strings.Contains(txt, "apiserver_cache_list_total") {
+		if strings.Contains(txt, watchCacheListMetric) && strings.Contains(txt, `storage="watchcache"`) {
 			totalCacheHits++
 			if strings.Contains(txt, fmt.Sprintf(`group=%q`, group)) &&
 				strings.Contains(txt, fmt.Sprintf(`resource=%q`, resource)) {
