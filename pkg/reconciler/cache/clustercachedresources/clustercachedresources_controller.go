@@ -85,6 +85,7 @@ func NewController(
 
 	clusterCachedResourceInformer cacheinformers.ClusterCachedResourceClusterInformer,
 ) (*Controller, error) {
+	secretLister := secretInformer.Lister()
 	c := &Controller{
 		shardName: shardName,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -121,7 +122,7 @@ func NewController(
 			return err
 		},
 		getSecret: func(ctx context.Context, clusterName logicalcluster.Name, ns, name string) (*corev1.Secret, error) {
-			secret, err := secretInformer.Lister().Cluster(clusterName).Secrets(ns).Get(name)
+			secret, err := secretLister.Cluster(clusterName).Secrets(ns).Get(name)
 			if err == nil {
 				return secret, nil
 			}

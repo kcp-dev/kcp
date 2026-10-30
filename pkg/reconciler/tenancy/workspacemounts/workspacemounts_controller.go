@@ -22,6 +22,7 @@ import (
 	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -262,8 +263,12 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 
 // enqueuePotentiallyMountResource looks for workspaces referencing this kind.
 func (c *Controller) enqueuePotentiallyMountResource(gvr schema.GroupVersionResource, obj interface{}) {
-	u := obj.(*unstructured.Unstructured)
-	key, err := indexWorkspaceByMountObjectValue(gvr, u)
+	o, err := meta.Accessor(obj)
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	key, err := indexWorkspaceByMountObjectValue(gvr, o)
 	if err != nil {
 		utilruntime.HandleError(err)
 		return

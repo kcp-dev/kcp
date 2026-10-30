@@ -46,6 +46,7 @@ import (
 	autoscalingrest "k8s.io/kubernetes/pkg/registry/autoscaling/rest"
 	flowcontrolrest "k8s.io/kubernetes/pkg/registry/flowcontrol/rest"
 
+	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -60,7 +61,6 @@ import (
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/informer"
-	metadataclient "github.com/kcp-dev/kcp/pkg/metadata"
 	"github.com/kcp-dev/kcp/pkg/reconciler/cache/replication"
 	"github.com/kcp-dev/kcp/pkg/reconciler/kubequota"
 	"github.com/kcp-dev/kcp/pkg/server/aggregatingcrdversiondiscovery"
@@ -174,7 +174,7 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		),
 	)
 
-	metadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(
+	metadataClusterClient, err := kcpmetadata.NewForConfig(
 		rest.AddUserAgent(rest.CopyConfig(s.MiniAggregator.GenericAPIServer.LoopbackClientConfig), "kcp-partial-metadata-informers"))
 	if err != nil {
 		return nil, err
@@ -197,7 +197,7 @@ func NewServer(c CompletedConfig) (*Server, error) {
 		return c.MigratingLogicalClusters.IsMigrating(clusterName)
 	}
 
-	s.PartialMetadataDDSIF, err = informer.NewDiscoveringDynamicSharedInformerFactory(
+	s.PartialMetadataDDSIF, err = informer.NewDiscoveringPartialMetadataSharedInformerFactory(
 		metadataClusterClient,
 		func(obj any) bool { return true },
 		isFromMigratingLogicalCluster,
@@ -217,11 +217,11 @@ func NewServer(c CompletedConfig) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	cacheMetadataClusterClient, err := metadataclient.NewDynamicMetadataClusterClientForConfig(rest.AddUserAgent(rest.CopyConfig(cacheClientConfig), "kcp-cache-partial-metadata-informers"))
+	cacheMetadataClusterClient, err := kcpmetadata.NewForConfig(rest.AddUserAgent(rest.CopyConfig(cacheClientConfig), "kcp-cache-partial-metadata-informers"))
 	if err != nil {
 		return nil, err
 	}
-	s.CachePartialMetadataDDSIF, err = informer.NewDiscoveringDynamicSharedInformerFactory(
+	s.CachePartialMetadataDDSIF, err = informer.NewDiscoveringPartialMetadataSharedInformerFactory(
 		cacheMetadataClusterClient,
 		func(obj interface{}) bool { return true },
 		isFromMigratingLogicalCluster,
@@ -471,11 +471,13 @@ func (s *Server) Run(ctx context.Context) error {
 
 		logger.Info("starting kube informers")
 		s.KubeSharedInformerFactory.Start(hookCtx.Done())
+		s.KubeServiceAccountTokenInformerFactory.Start(hookCtx.Done())
 		s.ApiExtensionsSharedInformerFactory.Start(hookCtx.Done())
 		s.CacheKubeSharedInformerFactory.Start(hookCtx.Done())
 		s.CacheApiExtensionsSharedInformerFactory.Start(hookCtx.Done())
 
 		s.KubeSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
+		s.KubeServiceAccountTokenInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.ApiExtensionsSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.CacheKubeSharedInformerFactory.WaitForCacheSync(hookCtx.Done())
 		s.CacheApiExtensionsSharedInformerFactory.WaitForCacheSync(hookCtx.Done())

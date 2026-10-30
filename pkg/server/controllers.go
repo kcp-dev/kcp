@@ -32,6 +32,7 @@ import (
 	apiextensionsscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -56,6 +57,7 @@ import (
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
+	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpmetadata "github.com/kcp-dev/client-go/metadata"
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -332,7 +334,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 	controller, err := serviceaccountcontroller.NewTokensController(
 		klog.FromContext(ctx).WithValues("controller", controllerName),
 		s.KubeSharedInformerFactory.Core().V1().ServiceAccounts(),
-		s.KubeSharedInformerFactory.Core().V1().Secrets(),
+		s.KubeServiceAccountTokenInformerFactory.Core().V1().Secrets(),
 		kubeClient,
 		serviceaccountcontroller.TokensControllerOptions{
 			TokenGenerator: tokenGenerator,
@@ -348,7 +350,7 @@ func (s *Server) installKubeServiceAccountTokenController(ctx context.Context, c
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
 				return s.KubeSharedInformerFactory.Core().V1().ServiceAccounts().Informer().HasSynced() &&
-					s.KubeSharedInformerFactory.Core().V1().Secrets().Informer().HasSynced(), nil
+					s.KubeServiceAccountTokenInformerFactory.Core().V1().Secrets().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
@@ -379,8 +381,9 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 		return fmt.Errorf("error parsing root-ca-file at %s: %w", caDataPath, err)
 	}
 
+	configMapInformers := newConfigMapByNameInformerFactory(kubeClient, rootcacertpublisher.RootCACertConfigMapName)
 	c, err := rootcacertpublisher.NewPublisher(
-		s.KubeSharedInformerFactory.Core().V1().ConfigMaps(),
+		configMapInformers.Core().V1().ConfigMaps(),
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
 		kubeClient,
 		caData,
@@ -393,11 +396,12 @@ func (s *Server) installRootCAConfigMapController(ctx context.Context, config *r
 		Name: controllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return s.KubeSharedInformerFactory.Core().V1().ConfigMaps().Informer().HasSynced() &&
-					s.KubeSharedInformerFactory.Core().V1().Namespaces().Informer().HasSynced(), nil
+				return s.KubeSharedInformerFactory.Core().V1().Namespaces().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
+			configMapInformers.Start(ctx.Done())
+			configMapInformers.WaitForCacheSync(ctx.Done())
 			c.Run(ctx, 2)
 		},
 	})
@@ -1344,6 +1348,7 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		return err
 	}
 
+	identitySecretInformers := newSecretInNamespaceInformerFactory(kubeClusterClient, apiexport.DefaultIdentitySecretNamespace)
 	c, err := apiexport.NewController(
 		kcpClusterClient,
 		s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports(),
@@ -1351,7 +1356,8 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 		s.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards(),
 		kubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
-		s.KubeSharedInformerFactory.Core().V1().Secrets(),
+		identitySecretInformers.Core().V1().Secrets(),
+		s.PartialMetadataDDSIF,
 		s.Options.Extra.ShardName,
 	)
 	if err != nil {
@@ -1368,11 +1374,12 @@ func (s *Server) installAPIExportController(ctx context.Context, config *rest.Co
 				return s.ApiExtensionsSharedInformerFactory.Apiextensions().V1().CustomResourceDefinitions().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() &&
 					s.KcpSharedInformerFactory.Apis().V1alpha1().APIExportEndpointSlices().Informer().HasSynced() &&
-					s.KubeSharedInformerFactory.Core().V1().Namespaces().Informer().HasSynced() &&
-					s.KubeSharedInformerFactory.Core().V1().Secrets().Informer().HasSynced(), nil
+					s.KubeSharedInformerFactory.Core().V1().Namespaces().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
+			identitySecretInformers.Start(ctx.Done())
+			identitySecretInformers.WaitForCacheSync(ctx.Done())
 			c.Start(ctx, 2)
 		},
 	})
@@ -1803,7 +1810,8 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 	if err != nil {
 		return err
 	}
-	c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(), s.KubeSharedInformerFactory.Core().V1().ConfigMaps())
+	configMapInformers := newConfigMapByNameInformerFactory(kubeClusterClient, identitycache.ConfigMapName)
+	c, err := identitycache.NewApiExportIdentityProviderController(kubeClusterClient, s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports(), configMapInformers.Core().V1().ConfigMaps())
 	if err != nil {
 		return err
 	}
@@ -1812,10 +1820,12 @@ func (s *Server) installApiExportIdentityController(ctx context.Context, config 
 		Name: identitycache.ControllerName,
 		Wait: func(ctx context.Context, s *Server) error {
 			return wait.PollUntilContextCancel(ctx, waitPollInterval, true, func(ctx context.Context) (bool, error) {
-				return s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced() && s.KubeSharedInformerFactory.Core().V1().ConfigMaps().Informer().HasSynced(), nil
+				return s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().HasSynced(), nil
 			})
 		},
 		Runner: func(ctx context.Context) {
+			configMapInformers.Start(ctx.Done())
+			configMapInformers.WaitForCacheSync(ctx.Done())
 			c.Start(ctx, 1)
 		},
 	})
@@ -2071,6 +2081,7 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 	}
 
 	clusterCachedResourceInformer := s.KcpSharedInformerFactory.Cache().V1alpha1().ClusterCachedResources()
+	identitySecretInformers := newSecretInNamespaceInformerFactory(s.KubeClusterClient, clustercachedresources.DefaultIdentitySecretNamespace)
 	c, err := clustercachedresources.NewController(
 		s.Options.Extra.ShardName,
 		kcpClusterClient,
@@ -2079,7 +2090,7 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 		cacheDynClient,
 		s.KubeClusterClient,
 		s.KubeSharedInformerFactory.Core().V1().Namespaces(),
-		s.KubeSharedInformerFactory.Core().V1().Secrets(),
+		identitySecretInformers.Core().V1().Secrets(),
 		s.CacheApiExtensionsClusterClient,
 		s.CacheApiExtensionsSharedInformerFactory,
 		s.completedConfig.DynamicRESTMapper,
@@ -2099,6 +2110,8 @@ func (s *Server) installCacheController(ctx context.Context, config *rest.Config
 			})
 		},
 		Runner: func(ctx context.Context) {
+			identitySecretInformers.Start(ctx.Done())
+			identitySecretInformers.WaitForCacheSync(ctx.Done())
 			c.Start(ctx, 2)
 		},
 	})
@@ -2275,5 +2288,25 @@ func (s *Server) addIndexersToInformers(_ context.Context) map[schema.GroupVersi
 		s.CacheKcpSharedInformerFactory,
 		s.KubeSharedInformerFactory,
 		s.CacheKubeSharedInformerFactory,
+	)
+}
+
+func newConfigMapByNameInformerFactory(client kcpkubernetesclientset.ClusterInterface, name string) kcpkubernetesinformers.SharedInformerFactory {
+	return kcpkubernetesinformers.NewSharedInformerFactoryWithOptions(
+		client,
+		resyncPeriod,
+		kcpkubernetesinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.FieldSelector = fields.OneTermEqualSelector("metadata.name", name).String()
+		}),
+	)
+}
+
+func newSecretInNamespaceInformerFactory(client kcpkubernetesclientset.ClusterInterface, namespace string) kcpkubernetesinformers.SharedInformerFactory {
+	return kcpkubernetesinformers.NewSharedInformerFactoryWithOptions(
+		client,
+		resyncPeriod,
+		kcpkubernetesinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.FieldSelector = fields.OneTermEqualSelector("metadata.namespace", namespace).String()
+		}),
 	)
 }

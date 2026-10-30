@@ -26,7 +26,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/endpoints/handlers"
@@ -34,9 +33,11 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
-func (c *resourceController) reconcile(ctx context.Context, obj *unstructured.Unstructured, gvr *schema.GroupVersionResource) error {
+func (c *resourceController) reconcile(ctx context.Context, obj logging.Object, gvr *schema.GroupVersionResource) error {
 	logger := klog.FromContext(ctx)
 
 	clusterName := logicalcluster.From(obj)
