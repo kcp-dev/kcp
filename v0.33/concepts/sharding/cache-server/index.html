@@ -4551,8 +4551,9 @@ replication.</p>
 the RBAC objects that are needed for cross-shard authorization decisions:</p>
 <ul>
 <li>The <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/apis/replicateclusterrole/replicateclusterrole_controller.go">APIs labeler</a> marks <code>ClusterRole</code>s that grant <code>bind</code> on
-  <code>apiexports</code> or any verb on <code>apiexports/content</code>, so a binding controller
-  on another shard can authorize a new <code>APIBinding</code>.</li>
+  <code>apiexports</code>, any verb on <code>apiexports/content</code>, or <code>bind</code> on
+  <code>clustercachedresources</code>, so admission on another shard can authorize a new
+  <code>APIBinding</code>, <code>APIExportEndpointSlice</code> or <code>ClusterCachedResourceEndpointSlice</code>.</li>
 <li>The <a href="https://github.com/kcp-dev/kcp/blob/main/pkg/reconciler/core/replicateclusterrole/replicateclusterrole_controller.go">Core labeler</a> marks <code>ClusterRole</code>s granting non-resource
   URL access on logical clusters that themselves carry the replicate
   annotation.</li>
