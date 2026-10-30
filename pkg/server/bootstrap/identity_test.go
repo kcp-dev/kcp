@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 )
 
@@ -160,6 +161,82 @@ func TestAPIExportHandler(t *testing.T) {
 			t.Error("learning an identity must not expire watches")
 		}
 	})
+}
+
+func TestCoreIdentityHandler(t *testing.T) {
+	t.Parallel()
+
+	tenancyPath := "/clusters/*/apis/tenancy.kcp.io/v1alpha1/workspaces"
+	shardsPath := "/clusters/*/apis/core.kcp.io/v1alpha1/shards"
+
+	t.Run("feeds the identities of the core exports in root and reports readiness", func(t *testing.T) {
+		t.Parallel()
+		wrap, handler, ready := NewCoreWildcardIdentities(testGroupExportNames, testGroupResourceExportNames)
+		require.NotNil(t, wrap)
+		require.Error(t, ready(), "nothing is known yet")
+
+		handler.OnAdd(entry("root", "tenancy.kcp.io", oldHash), true)
+		require.Error(t, ready(), "the shards identity is still unknown")
+
+		handler.OnAdd(entry("root", "shards.core.kcp.io", newHash), true)
+		require.NoError(t, ready())
+	})
+
+	ignored := []struct {
+		name string
+		obj  interface{}
+	}{
+		{name: "an entry owned by an export of another workspace", obj: entry("root:org", "tenancy.kcp.io", newHash)},
+		{name: "an entry owned by an export that serves no core API", obj: entry("root", "cowboys", newHash)},
+		{name: "a tombstone", obj: cache.DeletedFinalStateUnknown{Key: newHash, Obj: entry("root", "tenancy.kcp.io", newHash)}},
+		{name: "another object", obj: export("root", "tenancy.kcp.io", newHash)},
+	}
+	for _, scenario := range ignored {
+		t.Run("ignores "+scenario.name, func(t *testing.T) {
+			t.Parallel()
+			ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
+			coreIdentityHandler(ids).OnAdd(entry("root", "tenancy.kcp.io", oldHash), true)
+
+			handler := coreIdentityHandler(ids)
+			handler.OnAdd(scenario.obj, false)
+			handler.OnUpdate(scenario.obj, scenario.obj)
+
+			if got, want := decorate(t, ids, tenancyPath), tenancyPath+":"+oldHash; got != want {
+				t.Errorf("expected %q, got %q", want, got)
+			}
+		})
+	}
+
+	t.Run("replaces the identity of the changed export only", func(t *testing.T) {
+		t.Parallel()
+		ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
+		handler := coreIdentityHandler(ids)
+		handler.OnAdd(entry("root", "tenancy.kcp.io", oldHash), true)
+		handler.OnAdd(entry("root", "shards.core.kcp.io", oldHash), true)
+		watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
+		ids.trackWatch(oldHash, watch)
+
+		handler.OnUpdate(entry("root", "tenancy.kcp.io", oldHash), entry("root", "tenancy.kcp.io", newHash))
+
+		if got, want := decorate(t, ids, tenancyPath), tenancyPath+":"+newHash; got != want {
+			t.Errorf("expected %q, got %q", want, got)
+		}
+		if got, want := decorate(t, ids, shardsPath), shardsPath+":"+oldHash; got != want {
+			t.Errorf("an unchanged export must keep its identity: expected %q, got %q", want, got)
+		}
+		if !watch.expired {
+			t.Error("watches using the replaced identity must be expired")
+		}
+	})
+}
+
+// entry is a registry entry named after the identity and owned by the
+// export of the given name in the given cluster.
+func entry(cluster, exportName, identity string) *adminv1alpha1.APIIdentity {
+	return &adminv1alpha1.APIIdentity{
+		ObjectMeta: metav1.ObjectMeta{Name: identity},
+		Status:     adminv1alpha1.APIIdentityStatus{Owner: adminv1alpha1.ExportReference{Cluster: cluster, Name: exportName}},
+	}
 }
 
 // TestWatchExpiresOnIdentityChange runs a real watch through the round

@@ -24,12 +24,13 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
+	"k8s.io/apiserver/pkg/authorization/union"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
@@ -40,6 +41,7 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
@@ -64,10 +66,10 @@ type Server struct {
 	IndexController          *index.Controller
 	AuthController           *authentication.Controller
 	KcpSharedInformerFactory kcpinformers.SharedScopedInformerFactory
-	// RootAPIExportInformerFactory watches the APIExports of the root workspace
-	// on the root shard. Their identities are injected into wildcard
-	// requests and follow an identity rotation through this informer.
-	RootAPIExportInformerFactory kcpinformers.SharedScopedInformerFactory
+	// CoreIdentityInformerFactory watches the APIIdentity registry entries
+	// owned by the root workspace's APIExports, through the Admin workspace
+	// of the peers. Their identities are injected into wildcard requests.
+	CoreIdentityInformerFactory kcpinformers.SharedScopedInformerFactory
 }
 
 func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
@@ -94,22 +96,22 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// the root workspace is not read for discovery. The Admin workspace
 	// accepts /clusters/<name>/ paths, so the standard scoped informer
 	// factory works against it unchanged.
-	rootShardConfigInformerClient, err := kcpclientset.NewForConfig(s.CompletedConfig.PeersConfig)
+	peersClient, err := kcpclientset.NewForConfig(s.CompletedConfig.PeersConfig)
 	if err != nil {
 		return s, fmt.Errorf("failed to create client for informers: %w", err)
 	}
-	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardConfigInformerClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
+	s.KcpSharedInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(peersClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
 
 	// The identities of the core APIs are those of the root workspace's
-	// APIExports, which only the root shard serves. An identity rotation
-	// flips an export's status.identityHash; the handler swaps the injected
-	// identity as the change arrives.
-	rootShardKcpClient, err := kcpclientset.NewForConfig(s.CompletedConfig.RootShardConfig)
-	if err != nil {
-		return s, fmt.Errorf("failed to create root shard client: %w", err)
-	}
-	s.RootAPIExportInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(rootShardKcpClient.Cluster(core.RootCluster.Path()), 30*time.Minute)
-	_, _ = s.RootAPIExportInformerFactory.Apis().V1alpha2().APIExports().Informer().AddEventHandler(s.CompletedConfig.CoreIdentityHandler)
+	// APIExports. They are read from the APIIdentity registry, which the
+	// Admin workspace of every peer serves from the cache server, so the
+	// root shard is not needed for them: an own factory, restricted to the
+	// entries flagged as core, feeds the identity handler.
+	s.CoreIdentityInformerFactory = kcpinformers.NewSharedScopedInformerFactoryWithOptions(peersClient.Cluster(core.RootCluster.Path()), 30*time.Minute,
+		kcpinformers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.LabelSelector = labels.SelectorFromSet(labels.Set{adminv1alpha1.APIIdentityCoreLabel: "true"}).String()
+		}))
+	_, _ = s.CoreIdentityInformerFactory.Admin().V1alpha1().APIIdentities().Informer().AddEventHandler(s.CompletedConfig.CoreIdentityHandler)
 
 	// Feed every discovered shard into the peer failover set: the configured
 	// peers are seeds for bootstrapping and last-resort fallback only, and
@@ -209,17 +211,22 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	handler = genericfilters.WithCORS(handler, c.Options.CorsAllowedOriginList, nil, nil, nil, "true")
 
 	mux := http.NewServeMux()
-	healthz.InstallReadyzHandler(mux, healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory))
+	healthz.InstallReadyzHandler(mux,
+		healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory),
+		healthz.NamedCheck("core-identities", func(*http.Request) error { return s.CompletedConfig.CoreIdentitiesReady() }),
+	)
 	healthz.InstallLivezHandler(mux, healthz.PingHealthz)
 
 	// /metrics is served locally by the front proxy (it is not proxied to a
 	// shard), so it needs its own authentication and authorization: without it
 	// the endpoint is world-readable and leaks shard-wide operational data
-	// (logical-cluster counts, client-cert expiry, request patterns). Access is
-	// delegated to :root via SubjectAccessReview, so the same
-	// system:kcp:metrics-reader binding that authorizes scraping on the shards
-	// authorizes it here too. Registered before "/" so it takes precedence over
-	// the proxy handler for this exact path.
+	// (logical-cluster counts, client-cert expiry, request patterns). Members
+	// of the system:kcp:admin and system:kcp:metrics-reader groups may
+	// scrape; with --root-kubeconfig a :root SubjectAccessReview
+	// is consulted as well, so the system:kcp:metrics-reader binding that
+	// authorizes scraping on the shards keeps working here during the
+	// deprecation. Registered before "/" so it takes precedence over the proxy
+	// handler for this exact path.
 	metricsHandler, err := newProtectedMetricsHandler(c.AuthenticationInfo.Authenticator, c.RootShardConfig, requestInfoFactory)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create protected metrics handler: %w", err)
@@ -233,16 +240,20 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 }
 
 func newProtectedMetricsHandler(auth authenticator.Request, rootShardConfig *restclient.Config, requestInfoResolver request.RequestInfoResolver) (http.Handler, error) {
-	kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create root shard client for metrics authorization: %w", err)
-	}
-	authz, err := delegated.NewDelegatedAuthorizer(core.RootCluster, kubeClusterClient, delegated.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create metrics authorizer: %w", err)
+	authorizers := []authorizer.Authorizer{newMetricsGroupAuthorizer()}
+	if rootShardConfig != nil {
+		kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create root shard client for metrics authorization: %w", err)
+		}
+		authz, err := delegated.NewDelegatedAuthorizer(core.RootCluster, kubeClusterClient, delegated.Options{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create metrics authorizer: %w", err)
+		}
+		authorizers = append(authorizers, authz)
 	}
 
-	return withMetricsAuthorization(legacyregistry.Handler(), auth, authz, requestInfoResolver), nil
+	return withMetricsAuthorization(legacyregistry.Handler(), auth, union.New(authorizers...), requestInfoResolver), nil
 }
 
 func withMetricsAuthorization(h http.Handler, auth authenticator.Request, authz authorizer.Authorizer, requestInfoResolver request.RequestInfoResolver) http.Handler {
@@ -268,33 +279,24 @@ func (s *Server) PrepareRun(ctx context.Context) (preparedServer, error) {
 func (s preparedServer) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "proxy")
 
-	var identityErr error
-	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
-		if err := s.CompletedConfig.ResolveIdentities(ctx); err != nil {
-			logger.V(3).Info("failed to resolve identities, keeping trying", "err", err)
-			identityErr = err
-			return false, nil
-		}
-		return true, nil
-	}); err != nil {
-		err = fmt.Errorf("failed to get or create identities: %w", err)
-		if identityErr != nil {
-			err = fmt.Errorf("%v: %w", err, identityErr)
-		}
-		return err
+	// Both factories read the Admin workspace of the peers: any reachable
+	// shard suffices, the root shard is not special. The core identities
+	// arrive through the second one; until they do, requests that need them
+	// fail and readiness reports it, nothing blocks here on the root shard.
+	s.KcpSharedInformerFactory.Start(ctx.Done())
+	s.CoreIdentityInformerFactory.Start(ctx.Done())
+	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+	s.CoreIdentityInformerFactory.WaitForCacheSync(ctx.Done())
+	if err := s.CompletedConfig.CoreIdentitiesReady(); err != nil {
+		logger.Info("starting without all core identities, waiting for the registry", "reason", err.Error())
 	}
+
 	// start indexes
 	go s.IndexController.Start(ctx, 2)
 
 	if s.AuthController != nil {
 		go s.AuthController.Start(ctx, 2)
 	}
-
-	s.KcpSharedInformerFactory.Start(ctx.Done())
-	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
-	// not waited for: the identities are resolved already, and the proxy
-	// must not depend on the root shard to become ready.
-	s.RootAPIExportInformerFactory.Start(ctx.Done())
 
 	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
 	if err != nil {

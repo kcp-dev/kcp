@@ -38,7 +38,6 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
-	"github.com/kcp-dev/sdk/apis/core"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 
 	"github.com/kcp-dev/kcp/pkg/server/bootstrap"
@@ -48,19 +47,8 @@ import (
 // IsCoreExport reports whether the export is one of the core APIExports in
 // the root workspace, whose identities every shard needs before it can serve.
 func IsCoreExport(export *apisv1alpha2.APIExport) bool {
-	return logicalcluster.From(export) == core.RootCluster && coreExportNames.Has(export.Name)
+	return bootstrap.IsCoreExport(logicalcluster.From(export), export.Name)
 }
-
-var coreExportNames = func() sets.Set[string] {
-	names := sets.New[string]()
-	for _, name := range bootstrap.KcpRootGroupExportNames {
-		names.Insert(name)
-	}
-	for _, name := range bootstrap.KcpRootGroupResourceExportNames {
-		names.Insert(name)
-	}
-	return names
-}()
 
 // Project computes the view of one identity from the exports holding it.
 // The owner is the oldest export, by creation time, then cluster, then name,

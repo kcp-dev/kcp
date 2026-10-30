@@ -37,6 +37,7 @@ import (
 
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	"github.com/kcp-dev/logicalcluster/v3"
+	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -62,6 +63,25 @@ var (
 		{Group: "migration.kcp.io", Resource: "logicalclustermigrations"}: "migration.kcp.io",
 	}
 )
+
+// IsCoreExport reports whether the APIExport named by cluster and name is
+// one of the core APIExports in the root workspace, those listed in
+// KcpRootGroupExportNames and KcpRootGroupResourceExportNames, whose
+// identities every shard and the front-proxy need before they can serve.
+func IsCoreExport(cluster logicalcluster.Name, name string) bool {
+	return cluster == core.RootCluster && coreExportNames.Has(name)
+}
+
+var coreExportNames = func() sets.Set[string] {
+	names := sets.New[string]()
+	for _, name := range KcpRootGroupExportNames {
+		names.Insert(name)
+	}
+	for _, name := range KcpRootGroupResourceExportNames {
+		names.Insert(name)
+	}
+	return names
+}()
 
 type identities struct {
 	lock sync.RWMutex
@@ -237,6 +257,68 @@ func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]strin
 		apiExportHandler(ids)
 }
 
+// NewCoreWildcardIdentities creates the identity-injecting round tripper
+// for the core APIExports of the root workspace, the ones named by the
+// given maps (see KcpRootGroupExportNames). Their identities come from the
+// APIIdentity view, which the front-proxy reads through the Admin workspace
+// of its peer shards. No other identity is tracked here: nothing in kcp
+// injects a provider's identity into wildcard URLs, consumers reach those
+// APIs through bindings.
+//
+// The returned handler is registered on an informer of the APIIdentity
+// entries; it picks the core entries out and feeds their identities as they
+// arrive. The returned ready func fails while any core identity is still
+// unknown. Requests that need an identity fail until it arrives.
+func NewCoreWildcardIdentities(groupExportNames map[string]string,
+	groupResourceExportNames map[schema.GroupResource]string) (wrap func(rt http.RoundTripper) http.RoundTripper, handler cache.ResourceEventHandler, ready func() error) {
+	ids := newIdentities(groupExportNames, groupResourceExportNames)
+	return injectKcpIdentities(ids), coreIdentityHandler(ids), ids.ready
+}
+
+// coreIdentityHandler returns an informer event handler that keeps the
+// identities of the core APIExports in sync with the APIIdentity view: an
+// entry owned by one of them, in the root workspace, names that export's
+// identity. Every other entry is ignored, and so are deletions: an identity
+// in use is only ever replaced by a new one.
+func coreIdentityHandler(ids *identities) cache.ResourceEventHandler {
+	update := func(obj interface{}) {
+		entry, ok := obj.(*adminv1alpha1.APIIdentity)
+		if !ok {
+			return
+		}
+		owner := entry.Status.Owner
+		if !IsCoreExport(logicalcluster.Name(owner.Cluster), owner.Name) {
+			return
+		}
+		ids.set(owner.Name, entry.Name)
+	}
+	return cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { update(obj) },
+		UpdateFunc: func(_, obj interface{}) { update(obj) },
+	}
+}
+
+// ready fails while the identity of a core APIExport is unknown.
+func (ids *identities) ready() error {
+	ids.lock.RLock()
+	defer ids.lock.RUnlock()
+	missing := sets.New[string]()
+	for group, id := range ids.groupIdentities {
+		if id == "" {
+			missing.Insert(ids.groupExportNames[group])
+		}
+	}
+	for gr, id := range ids.groupResourceIdentities {
+		if id == "" {
+			missing.Insert(ids.groupResourceExportNames[gr])
+		}
+	}
+	if missing.Len() == 0 {
+		return nil
+	}
+	return fmt.Errorf("the identities of the core APIExports %v are not known yet", sets.List(missing))
+}
+
 // apiExportHandler returns an informer event handler that keeps the
 // identities in sync with status.identityHash of the APIExports in the root
 // workspace. An identity rotation flips that hash; the handler swaps the
@@ -250,23 +332,18 @@ func NewWildcardIdentitiesWrappingRoundTripper(groupExportNames map[string]strin
 // APIExports: the shard's local one, one against the cache server, or a
 // scoped one on the root workspace.
 func apiExportHandler(ids *identities) cache.ResourceEventHandler {
-	exportNames := sets.New[string]()
-	for _, name := range ids.groupExportNames {
-		exportNames.Insert(name)
-	}
-	for _, name := range ids.groupResourceExportNames {
-		exportNames.Insert(name)
-	}
-
 	update := func(obj interface{}) {
 		export, ok := obj.(*apisv1alpha2.APIExport)
 		if !ok {
 			return
 		}
-		if cluster := logicalcluster.From(export); !cluster.Empty() && cluster != core.RootCluster {
-			return
+		// A scoped informer on the root workspace hands out objects without
+		// the cluster annotation; those are root's.
+		cluster := logicalcluster.From(export)
+		if cluster.Empty() {
+			cluster = core.RootCluster
 		}
-		if !exportNames.Has(export.Name) || export.Status.IdentityHash == "" {
+		if !IsCoreExport(cluster, export.Name) || export.Status.IdentityHash == "" {
 			return
 		}
 		ids.set(export.Name, export.Status.IdentityHash)
