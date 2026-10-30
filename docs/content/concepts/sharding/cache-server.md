@@ -120,8 +120,9 @@ replication.
 the RBAC objects that are needed for cross-shard authorization decisions:
 
 - The [APIs labeler][rbac-apis] marks `ClusterRole`s that grant `bind` on
-  `apiexports` or any verb on `apiexports/content`, so a binding controller
-  on another shard can authorize a new `APIBinding`.
+  `apiexports`, any verb on `apiexports/content`, or `bind` on
+  `clustercachedresources`, so admission on another shard can authorize a new
+  `APIBinding`, `APIExportEndpointSlice` or `ClusterCachedResourceEndpointSlice`.
 - The [Core labeler][rbac-core] marks `ClusterRole`s granting non-resource
   URL access on logical clusters that themselves carry the replicate
   annotation.
