@@ -1,0 +1,42 @@
+# a workspace type in the fixture workspace
+exec kubectl apply -f workspacetype.yaml
+
+# --type resolves an unqualified name in the same workspace
+exec kubectl-create-workspace typed --type txtar
+cmpenv stdout typed.txt
+
+# without --type the default child type of the parent applies
+exec kubectl-create-workspace defaulted
+cmpenv stdout defaulted.txt
+
+# creating it again fails
+! exec kubectl-create-workspace typed --type txtar
+stderr 'already exists'
+
+# --ignore-existing requires an absolute type path
+! exec kubectl-create-workspace typed --type txtar --ignore-existing
+stderr 'must not be used with non-absolute type path'
+exec kubectl-create-workspace typed --ignore-existing --type ${ORG}:txtar
+cmpenv stdout existing.txt
+# TODO(ntnn): this feels like bug? why would create-workspace require
+# stricter input with `--ignore-existing` than without?
+
+-- workspacetype.yaml --
+apiVersion: tenancy.kcp.io/v1alpha1
+kind: WorkspaceType
+metadata:
+  name: txtar
+spec:
+  extend:
+    with:
+    - name: universal
+      path: root
+-- typed.txt --
+Workspace "typed" (type $ORG:txtar) created. Waiting for it to be ready...
+Workspace "typed" (type $ORG:txtar) is ready to use.
+-- defaulted.txt --
+Workspace "defaulted" (type root:universal) created. Waiting for it to be ready...
+Workspace "defaulted" (type root:universal) is ready to use.
+-- existing.txt --
+Workspace "typed" (type $ORG:txtar) already exists.
+Workspace "typed" (type $ORG:txtar) is ready to use.

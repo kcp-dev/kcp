@@ -1,0 +1,9 @@
+# each script gets its own kubeconfig pointing at the fixture workspace
+exists $KUBECONFIG
+grep -count=1 'current-context: kcp' kubeconfig.yaml
+
+# the current workspace is the fixture org workspace
+exec kubectl-ws . --short
+stdout ${ORG@R}
+exec kubectl-kcp ws current --short
+stdout ${ORG@R}

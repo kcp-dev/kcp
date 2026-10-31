@@ -1,0 +1,43 @@
+# create-context writes a kubeconfig context for the current workspace
+
+# the default context name is the current workspace path
+exec kubectl-kcp workspace create-context
+stdout 'Created context .root:..*and switched to it.'
+exec kubectl-kcp workspace current --context ${ORG} --short
+cmpenv stdout org.txt
+
+# an explicit context name
+exec kubectl-kcp workspace create-context named
+stdout 'Created context .named. and switched to it.'
+exec kubectl-kcp workspace current --context named --short
+cmpenv stdout org.txt
+
+# the same name again needs --overwrite
+! exec kubectl-kcp workspace create-context named
+stderr 'context .named. already exists in kubeconfig, use --overwrite'
+
+exec kubectl-kcp workspace create-context named --overwrite
+stdout 'Updated context .named..'
+
+# create --create-context adds a context for the new workspace and keeps the current one
+exec kubectl-create-workspace ctxws --create-context ctxname
+stdout 'is ready to use'
+stdout 'Created context .ctxname..'
+
+# that context is usable, and it points at the new workspace instead of the current one
+exec kubectl --context ctxname apply -f marker.yaml
+
+! exec kubectl get apiexport marker
+stderr 'not found'
+
+exec kubectl-kcp workspace use :${ORG}:ctxws
+exec kubectl get apiexport marker -o jsonpath='{.metadata.name}'
+stdout 'marker'
+
+-- org.txt --
+$ORG
+-- marker.yaml --
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIExport
+metadata:
+  name: marker

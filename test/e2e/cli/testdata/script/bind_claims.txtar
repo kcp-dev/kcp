@@ -1,0 +1,90 @@
+# permission claims on bind, one consumer per variant
+
+exec kubectl-create-workspace provider
+stdout 'is ready to use'
+exec kubectl-create-workspace accept-all
+stdout 'is ready to use'
+exec kubectl-create-workspace reject-all
+stdout 'is ready to use'
+exec kubectl-create-workspace mixed
+stdout 'is ready to use'
+
+exec kubectl-kcp workspace use provider
+exec kubectl apply -f apiexport.yaml
+stdout 'apiexport.apis.kcp.io/widgets created'
+
+exec kubectl wait --for=condition=IdentityValid apiexport/widgets --timeout=60s
+stdout 'condition met'
+
+exec kubectl-kcp workspace use :${ORG}:accept-all
+eventually kubectl-kcp bind apiexport ${ORG}:provider:widgets --accept-all-permission-claims
+stdout 'widgets created and bound.'
+exec kubectl-kcp claims get apibinding widgets
+cmp stdout accepted-all.txt
+
+exec kubectl-kcp workspace use :${ORG}:reject-all
+eventually kubectl-kcp bind apiexport ${ORG}:provider:widgets --reject-all-permission-claims
+stdout 'widgets created and bound.'
+exec kubectl-kcp claims get apibinding widgets
+cmp stdout rejected-all.txt
+
+exec kubectl-kcp workspace use :${ORG}:mixed
+eventually kubectl-kcp bind apiexport ${ORG}:provider:widgets --accept-permission-claim configmaps.core --reject-permission-claim secrets.core
+stdout 'widgets created and bound.'
+exec kubectl-kcp claims get apibinding widgets
+cmp stdout mixed.txt
+
+-- apiexport.yaml --
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: txtar.widgets.example.kcp.io
+spec:
+  group: example.kcp.io
+  names:
+    kind: Widget
+    listKind: WidgetList
+    plural: widgets
+    singular: widget
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      type: object
+      properties:
+        spec:
+          type: object
+          properties:
+            size:
+              type: string
+---
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIExport
+metadata:
+  name: widgets
+spec:
+  resources:
+  - group: example.kcp.io
+    name: widgets
+    schema: txtar.widgets.example.kcp.io
+  permissionClaims:
+  - group: ""
+    resource: configmaps
+    verbs: ["get", "list", "watch"]
+  - group: ""
+    resource: secrets
+    verbs: ["*"]
+-- accepted-all.txt --
+APIBINDING   GROUP-RESOURCE   VERBS   STATUS
+widgets      configmaps       *       Accepted
+widgets      secrets          *       Accepted
+-- rejected-all.txt --
+APIBINDING   GROUP-RESOURCE   VERBS   STATUS
+widgets      configmaps       *       Rejected
+widgets      secrets          *       Rejected
+-- mixed.txt --
+APIBINDING   GROUP-RESOURCE   VERBS   STATUS
+widgets      configmaps       *       Accepted
+widgets      secrets          *       Rejected
