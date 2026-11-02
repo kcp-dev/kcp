@@ -62,7 +62,7 @@ func init() {
 	flag.BoolVar(&testConfig.useDefaultKCPServer, "use-default-kcp-server", false, "Whether to use server configuration from .kcp/admin.kubeconfig.")
 	// Accepted for parity with the e2e harness (the Makefile may pass --suites);
 	// this module does not gate on suites, so the value is ignored.
-	_ = flag.String("suites", "control-plane,cli", "A comma-delimited list of suites to run.")
+	_ = flag.String("suites", "parallel-suite,cli", "A comma-delimited list of suites to run.")
 
 	kcptesting.InitExternalServer(func() (string, map[string]string) {
 		complete()
