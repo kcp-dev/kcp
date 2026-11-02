@@ -39,12 +39,14 @@ import (
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 )
 
-// SerialSuite is the suite of tests that cannot share a server with other
-// tests, e.g. because they rotate the identities of kcp's core APIs or
-// otherwise disrupt every workspace. Tests of this suite start a server of
-// their own with PrivateShardedKcpServer and run one at a time: the e2e
-// targets run the suite with -p 1 -parallel 1 after the parallel suites,
-// once the shared server is stopped (make test-e2e-serial).
+// SerialSuite is the suite of tests that do not run against the shared
+// server: they start a server of their own, with PrivateKcpServer when a
+// single shard with specific flags is enough, or with PrivateShardedKcpServer
+// when they need several shards, e.g. because they rotate the identities of
+// kcp's core APIs, migrate logical clusters or otherwise disrupt every
+// workspace. The suite runs one test at a time: the e2e targets run it with
+// -p 1 -parallel 1 after the parallel suites, once the shared server is
+// stopped (make test-e2e-serial).
 const SerialSuite = "serial"
 
 // shardedServerStartTimeout bounds the start of a sharded-test-server,

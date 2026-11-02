@@ -53,7 +53,7 @@ import (
 
 func TestWatchCacheEnabledForCRD(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
@@ -117,7 +117,7 @@ func TestWatchCacheEnabledForCRD(t *testing.T) {
 
 func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	clusterConfig := server.BaseConfig(t)
@@ -167,7 +167,7 @@ func TestWatchCacheEnabledForAPIBindings(t *testing.T) {
 
 func TestWatchCacheEnabledForBuiltinTypes(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	clusterConfig := server.BaseConfig(t)

@@ -77,7 +77,7 @@ import (
 // endpoint to list vnets without error AND the user's VNet to be returned.
 func TestAPIExportPermissionClaimsVirtualWorkspaceAcrossShards(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)

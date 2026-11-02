@@ -56,7 +56,7 @@ import (
 // admission evaluates in the provider workspace.
 func TestImpersonationWarrantScoping(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	t.Cleanup(cancelFn)
@@ -202,7 +202,7 @@ func TestImpersonationWarrantScoping(t *testing.T) {
 // scopes keep being accepted from everybody.
 func TestImpersonationReservedExtraRejected(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	t.Cleanup(cancelFn)

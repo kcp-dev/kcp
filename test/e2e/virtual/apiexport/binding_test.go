@@ -52,7 +52,7 @@ import (
 
 func TestBinding(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -250,7 +250,7 @@ func TestBinding(t *testing.T) {
 
 func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -432,7 +432,7 @@ func TestAPIBindingPermissionClaimsVerbs(t *testing.T) {
 
 func TestAPIBindingPermissionClaimsSSA(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -586,7 +586,7 @@ func TestAPIBindingPermissionClaimsSSA(t *testing.T) {
 
 func TestAPIBindingPermissionClaimsSelectors(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -856,7 +856,7 @@ func TestAPIBindingPermissionClaimsSelectors(t *testing.T) {
 
 func TestAPIBindingPermissionClaimsSelectorUpdate(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

@@ -59,7 +59,7 @@ func adminWorkspaceClient(cfg *rest.Config) (kcpclientset.Interface, error) {
 
 func TestWorkspaceController(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	type runningServer struct {
 		kcptestingserver.RunningServer

@@ -58,11 +58,17 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
+// The migration tests of this package run in the serial suite, each on a
+// sharded server of its own: a migration cancels every wildcard request on
+// the origin and on the destination shard and makes the destination relist
+// its dynamic informers (see the LogicalClusterMigration reconciler), which
+// disrupts every informer-driven controller of a shared server and the tests
+// running against it. TestMigrationAPIBindingUnprivileged does not migrate
+// anything and keeps using the shared server.
 func TestFullMigration(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
-	server := kcptesting.SharedKcpServer(t)
+	server := framework.PrivateShardedKcpServer(t, 2)
 
 	if len(server.ShardNames()) < 2 {
 		t.Skip("requires multi-shard setup")
@@ -299,10 +305,9 @@ func TestFullMigration(t *testing.T) {
 // sharing/refcounting had a bug: every migration completes with the right
 // data, and none of them interfere with each other's copy.
 func TestConcurrentMigrationsFromSameOriginShard(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
-	server := kcptesting.SharedKcpServer(t)
+	server := framework.PrivateShardedKcpServer(t, 2)
 
 	if len(server.ShardNames()) < 2 {
 		t.Skip("requires multi-shard setup")
@@ -457,7 +462,7 @@ func TestConcurrentMigrationsFromSameOriginShard(t *testing.T) {
 // can't be bound even by cluster-admin users in other workspaces.
 func TestMigrationAPIBindingUnprivileged(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -494,10 +499,9 @@ func TestMigrationAPIBindingUnprivileged(t *testing.T) {
 }
 
 func TestFullMigrationAPIBindings(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
-	server := kcptesting.SharedKcpServer(t)
+	server := framework.PrivateShardedKcpServer(t, 2)
 
 	if len(server.ShardNames()) < 2 {
 		t.Skip("requires multi-shard setup")
@@ -790,10 +794,9 @@ func TestFullMigrationAPIBindings(t *testing.T) {
 }
 
 func TestFullMigrationAPIExportVirtualWorkspace(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
-	server := kcptesting.SharedKcpServer(t)
+	server := framework.PrivateShardedKcpServer(t, 2)
 
 	if len(server.ShardNames()) < 2 {
 		t.Skip("requires multi-shard setup")
@@ -1087,10 +1090,9 @@ func TestFullMigrationAPIExportVirtualWorkspace(t *testing.T) {
 }
 
 func TestFullMigrationAPIExportUpdate(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
-	server := kcptesting.SharedKcpServer(t)
+	server := framework.PrivateShardedKcpServer(t, 2)
 
 	if len(server.ShardNames()) < 2 {
 		t.Skip("requires multi-shard setup")

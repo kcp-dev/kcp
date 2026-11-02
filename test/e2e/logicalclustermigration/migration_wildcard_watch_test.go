@@ -49,7 +49,7 @@ import (
 //nolint:paralleltest // Watch closure subtests must finish before the parent checks migration completion.
 func TestMigrationDisconnectsWildcardWatches(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	server := privateMigrationServer(t)
 	shards := server.ShardNames()

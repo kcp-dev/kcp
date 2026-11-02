@@ -64,7 +64,7 @@ import (
 // uncordons and checks that both recover.
 func TestShardCordoning(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	// cordoning the only shard stops all scheduling.
 	server := kcptesting.PrivateKcpServer(t)
@@ -121,7 +121,7 @@ func TestShardCordoning(t *testing.T) {
 // in, so only this test covers that path.
 func TestShardHardWorkspaceLimit(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	// filling the only shard stops all scheduling.
 	server := kcptesting.PrivateKcpServer(t)
@@ -187,7 +187,7 @@ func TestShardHardWorkspaceLimit(t *testing.T) {
 // covers it.
 func TestShardReportsUsedWorkspaces(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	// this test does not break scheduling, but it asserts on a count that
 	// every other test would perturb.

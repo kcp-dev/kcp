@@ -62,7 +62,7 @@ var testFiles embed.FS
 
 func TestCacheServerReplicationAPI(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -155,7 +155,7 @@ func TestCacheServerReplicationAPI(t *testing.T) {
 
 func TestReplicationWithWildcardListing(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)

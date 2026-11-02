@@ -58,7 +58,7 @@ import (
 //     system:cluster:<consumer-cluster> group
 func TestWorkspaceAuth(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	baseWsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("apibinding-serviceaccount"))
@@ -233,7 +233,7 @@ func TestWorkspaceAuth(t *testing.T) {
 // effective users are computed.
 func TestServiceAccount(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	baseWsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("apibinding-oidc"))
@@ -405,7 +405,7 @@ func TestServiceAccount(t *testing.T) {
 // a per-workspace user.
 func TestScopedUser(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	baseWsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("apibinding-scoped"))
@@ -594,7 +594,7 @@ func TestScopedUser(t *testing.T) {
 // a per-workspace user.
 func TestUserWithWarrants(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	baseWsPath, _ := kcptesting.NewWorkspaceFixture(t, server, logicalcluster.NewPath("root"), kcptesting.WithNamePrefix("apibinding-warrants"))

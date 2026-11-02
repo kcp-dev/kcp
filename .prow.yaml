@@ -261,9 +261,10 @@ presubmits:
               memory: 6Gi
               cpu: 4
 
-  # Runs the "serial" e2e suite: tests that cannot share a server with other
-  # tests, e.g. rotating the identities of kcp's core APIs, which fences every
-  # workspace on every shard. Each of them starts a sharded server of its own.
+  # Runs the "serial" e2e suite: tests that do not run against the shared
+  # server, e.g. because they need other server flags, migrate logical clusters
+  # or rotate the identities of kcp's core APIs. Each of them starts a server
+  # of its own, one test at a time.
   - name: pull-kcp-test-e2e-serial
     decorate: true
     # only run e2e tests if code changed.

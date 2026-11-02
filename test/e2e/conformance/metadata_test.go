@@ -47,7 +47,7 @@ func TestMetadataMutations(t *testing.T) {
 	// https://github.com/kcp-dev/kcp/issues/1647
 
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

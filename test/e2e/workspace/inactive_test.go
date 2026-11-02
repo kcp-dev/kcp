@@ -76,7 +76,7 @@ func drainAndExpectClose(t *testing.T, w watch.Interface) {
 // after the inactive annotation is no longer "true".
 func TestInactiveLogicalClusterBlocksRequests(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	// The test requires a separate server as marking a cluster inactive
 	// breaks wildcard watches which may affect other tests.
@@ -121,7 +121,7 @@ func TestInactiveLogicalClusterBlocksRequests(t *testing.T) {
 // "true".
 func TestInactiveLogicalClusterTerminatesClusterScopedWatch(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	// The test requires a separate server as marking a cluster inactive
 	// breaks wildcard watches which may affect other tests.
@@ -164,7 +164,7 @@ func TestInactiveLogicalClusterTerminatesClusterScopedWatch(t *testing.T) {
 // a wildcard watch.
 func TestInactiveLogicalClusterTerminatesWildcardWatch(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	// The test requires a separate server as marking a cluster inactive
 	// breaks wildcard watches which may affect other tests.

@@ -52,7 +52,7 @@ import (
 
 func TestMutatingAdmissionPolicyInWorkspace(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -194,7 +194,7 @@ func TestMutatingAdmissionPolicyInWorkspace(t *testing.T) {
 
 func TestMutatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -414,7 +414,7 @@ func TestMutatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 // are supported in multi-shard setups, merge this test with the regular one above.
 func TestMutatingAdmissionPolicyInWorkspaceWithParams(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -557,7 +557,7 @@ func TestMutatingAdmissionPolicyInWorkspaceWithParams(t *testing.T) {
 
 func TestMutatingAdmissionPolicyCrossWorkspaceAPIBindingWithParams(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

@@ -43,7 +43,7 @@ import (
 )
 
 func TestAuthorizationOrder(t *testing.T) {
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 	t.Parallel()
 	t.Run("Authorization order 1", func(t *testing.T) {
 		t.Parallel()

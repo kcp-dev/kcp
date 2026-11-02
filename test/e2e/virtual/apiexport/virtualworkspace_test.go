@@ -75,7 +75,7 @@ import (
 
 func TestAPIExportVirtualWorkspace(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -327,7 +327,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 // func TestAPIExportAPIBindingsAccess(t *testing.T) {
 // 	t.Parallel()
-// 	framework.Suite(t, "control-plane")
+// 	framework.Suite(t, framework.ParallelSuite)
 
 // 	server := kcptesting.SharedKcpServer(t)
 
@@ -568,7 +568,7 @@ func TestAPIExportVirtualWorkspace(t *testing.T) {
 
 func TestAPIExportPermissionClaims(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -898,7 +898,7 @@ func TestAPIExportPermissionClaims(t *testing.T) {
 // test ensures a defaultSelector no longer hides claimed resources.
 func TestAPIExportPermissionClaimsDefaultSelector(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -981,7 +981,7 @@ func TestAPIExportPermissionClaimsDefaultSelector(t *testing.T) {
 
 func TestAPIExportClaimableBuiltInAPIsDrift(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

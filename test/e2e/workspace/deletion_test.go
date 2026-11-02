@@ -42,7 +42,7 @@ import (
 // deleted prematurely if its LogicalCluster has not yet been deleted.
 func TestWorkspaceLogicalClusterRelationship(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

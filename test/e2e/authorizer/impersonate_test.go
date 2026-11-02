@@ -41,7 +41,7 @@ import (
 
 func TestImpersonation(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	t.Cleanup(cancelFn)
@@ -89,7 +89,7 @@ func TestImpersonation(t *testing.T) {
 
 func TestImpersonateScoping(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	ctx, cancelFn := context.WithCancel(context.Background())
 	t.Cleanup(cancelFn)

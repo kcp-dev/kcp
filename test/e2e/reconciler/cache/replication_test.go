@@ -488,7 +488,7 @@ func replicateResourceNegative(ctx context.Context, t *testing.T,
 // TestReplication runs all test scenarios against a default setup possibly with the cache server running within kcp server.
 func TestReplication(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -521,7 +521,7 @@ func TestReplication(t *testing.T) {
 // TestReplicationDisruptive runs each disruptive test in its own private environment.
 func TestReplicationDisruptive(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	disruptiveScenarios := []testScenario{
 		{"Shard", replicateShardScenario},

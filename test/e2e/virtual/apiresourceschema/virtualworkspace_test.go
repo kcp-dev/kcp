@@ -51,7 +51,7 @@ import (
 // exposes the correct API discovery information.
 func TestAPIResourceSchemaVirtualWorkspaceDiscovery(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -129,7 +129,7 @@ func TestAPIResourceSchemaVirtualWorkspaceDiscovery(t *testing.T) {
 // for all their APIBindings through the apiresourceschema virtual workspace.
 func TestAPIResourceSchemaVirtualWorkspaceAccess(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -258,7 +258,7 @@ func TestAPIResourceSchemaVirtualWorkspaceAccess(t *testing.T) {
 // only allows read-only operations.
 func TestAPIResourceSchemaVirtualWorkspaceReadOnly(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -358,7 +358,7 @@ func TestAPIResourceSchemaVirtualWorkspaceReadOnly(t *testing.T) {
 // APIBindings to different APIExports, all referenced schemas are accessible.
 func TestAPIResourceSchemaVirtualWorkspaceMultipleBindings(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -461,7 +461,7 @@ func TestAPIResourceSchemaVirtualWorkspaceMultipleBindings(t *testing.T) {
 // where ClusterNameKey is extracted from the SA token's JWT claims.
 func TestAPIResourceSchemaVirtualWorkspaceAuthorization(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)

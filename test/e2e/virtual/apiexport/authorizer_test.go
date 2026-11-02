@@ -66,7 +66,7 @@ import (
 
 func TestAPIExportAuthorizers(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -492,7 +492,7 @@ metadata:
 
 func TestAPIExportBindingAuthorizer(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -893,7 +893,7 @@ func apply(t *testing.T, workspace logicalcluster.Path, cfg *rest.Config, manife
 
 func TestRootAPIExportAuthorizers(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

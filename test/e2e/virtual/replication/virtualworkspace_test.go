@@ -60,7 +60,7 @@ import (
 func TestClusterCachedResourceVirtualWorkspace(t *testing.T) {
 	t.Skip("TestClusterCachedResourceVirtualWorkspace is flaking (ref https://github.com/kcp-dev/kcp/issues/4026)")
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

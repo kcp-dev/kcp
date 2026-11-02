@@ -42,7 +42,7 @@ import (
 
 func TestMappingWithClusterContext(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	// start kcp and setup clients;
 	// note that the sharded-test-server will configure a special

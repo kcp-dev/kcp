@@ -41,7 +41,7 @@ import (
 
 func TestMigrationEncryptionAtRest(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 	for _, mode := range []string{"aesgcm", "aescbc"} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()

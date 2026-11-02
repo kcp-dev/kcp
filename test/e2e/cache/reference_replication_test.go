@@ -58,7 +58,7 @@ import (
 // say) and this test would pass without the reference machinery doing anything.
 func TestReferenceReplication(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)

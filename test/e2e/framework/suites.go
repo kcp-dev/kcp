@@ -23,6 +23,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// ParallelSuite is the suite of the tests that run against the server brought
+// up by the e2e targets (SharedKcpServer), in parallel with each other. Tests
+// that start a server of their own belong to the SerialSuite instead. It is
+// selected by default together with the cli suite; the SerialSuite is not.
+const ParallelSuite = "control-plane"
+
 // Suite should be called at the very beginning of a test case, to ensure that a test is only
 // run when the suite containing it is selected by the user running tests.
 func Suite(t *testing.T, suite string) {

@@ -53,7 +53,7 @@ import (
 // API in different workspaces but same names do not confuse the gc.
 func TestBoundAPICrossWorkspace(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

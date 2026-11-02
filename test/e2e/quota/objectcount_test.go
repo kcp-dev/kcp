@@ -45,7 +45,7 @@ import (
 // via the core.kcp.io/max-total-objects annotation on the LogicalCluster.
 func TestLogicalClusterTotalObjectCountLimit(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	// A private server is used because the object count scanner needs a fast
 	// scan interval for the test to be quick. No shard-wide default limit is
@@ -153,7 +153,7 @@ func TestLogicalClusterTotalObjectCountLimit(t *testing.T) {
 // bootstrap content there, and a default limit must never break that).
 func TestLogicalClusterTotalObjectCountLimitShardDefault(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	const limit = 60
 

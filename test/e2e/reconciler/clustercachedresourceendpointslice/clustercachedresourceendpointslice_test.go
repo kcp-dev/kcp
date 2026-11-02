@@ -42,7 +42,7 @@ import (
 
 func TestClusterCachedResourceEndpointSliceWithPath(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	ctx := t.Context()
 	server := kcptesting.SharedKcpServer(t)

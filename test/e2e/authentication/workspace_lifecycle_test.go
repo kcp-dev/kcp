@@ -120,7 +120,7 @@ func requireEventuallyUnauthorized(t *testing.T, server kcptestingserver.Running
 
 func TestWorkspaceOIDCRevocation(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	kcpConfig := server.BaseConfig(t)
@@ -191,7 +191,7 @@ func TestWorkspaceOIDCRevocation(t *testing.T) {
 
 func TestWorkspaceOIDCExpiredToken(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	kcpConfig := server.BaseConfig(t)

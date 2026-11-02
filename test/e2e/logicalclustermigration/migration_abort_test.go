@@ -42,16 +42,17 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
+// Runs in the serial suite on a sharded server of its own, see TestFullMigration.
+//
 // TestMigrationAbortOnWorkspaceDeletion verifies that deleting a workspace
 // while its logical cluster is being migrated correctly aborts the migration
 // and cleans up all data on both shards. It uses a non-existent destination
 // shard to stall the migration in the Preparing phase (origin completes
 // preparation but the destination never picks up).
 func TestMigrationAbortOnWorkspaceDeletion(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
-	server := kcptesting.SharedKcpServer(t)
+	server := framework.PrivateShardedKcpServer(t, 2)
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)
@@ -188,14 +189,15 @@ func TestMigrationAbortOnWorkspaceDeletion(t *testing.T) {
 	}, wait.ForeverTestTimeout, 500*time.Millisecond, "logical cluster data still accessible after abort")
 }
 
+// Runs in the serial suite on a sharded server of its own, see TestFullMigration.
+//
 // TestMigrationFailsForLogicalClusterAlreadyMigrating verifies that a
 // LogicalClusterMigration created for a logical cluster that is already
 // part of another migration is set into the Failed phase.
 func TestMigrationFailsForLogicalClusterAlreadyMigrating(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
-	server := kcptesting.SharedKcpServer(t)
+	server := framework.PrivateShardedKcpServer(t, 2)
 
 	cfg := server.BaseConfig(t)
 	kcpClusterClient, err := kcpclientset.NewForConfig(cfg)

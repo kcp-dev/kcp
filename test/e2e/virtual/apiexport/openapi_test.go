@@ -48,7 +48,7 @@ import (
 
 func TestAPIExportOpenAPI(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -124,7 +124,7 @@ func TestAPIExportOpenAPI(t *testing.T) {
 // individually on each shard and a single request would only surface one Kind.
 func TestAPIExportOpenAPI_MultipleKinds(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
