@@ -65,14 +65,20 @@ var shardedServerLock sync.Mutex
 // front-proxy; ShardSystemMasterBaseConfig reaches the individual shards.
 //
 // sharded-test-server listens on fixed ports, so only one can run at a
-// time: this is for tests of the SerialSuite. Within a test binary this is
-// enforced here, tests calling t.Parallel() wait for each other; across
-// packages the serial e2e target runs with -p 1.
+// time: this is for tests of the SerialSuite. Tests using it must not call
+// t.Parallel(): -parallel 1 does not keep them apart, because a parallel test
+// with parallel subtests hands its slot to the next test while its server is
+// still running. Sequential tests are isolated, including their subtests and
+// cleanups. A second server in the same test binary fails the test instead of
+// waiting, which would deadlock; across packages the serial e2e target runs
+// with -p 1.
 func PrivateShardedKcpServer(t *testing.T, shards int) kcptestingserver.RunningServer {
 	t.Helper()
 	require.Positive(t, shards, "a sharded server needs at least one shard")
 
-	shardedServerLock.Lock()
+	if !shardedServerLock.TryLock() {
+		require.FailNow(t, "another sharded-test-server is running in this test binary", "tests using PrivateShardedKcpServer must not call t.Parallel()")
+	}
 	t.Cleanup(shardedServerLock.Unlock)
 
 	artifactDir, dataDir, err := kcptestingserver.ScratchDirs(t)

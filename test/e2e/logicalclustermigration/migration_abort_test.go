@@ -49,8 +49,9 @@ import (
 // and cleans up all data on both shards. It uses a non-existent destination
 // shard to stall the migration in the Preparing phase (origin completes
 // preparation but the destination never picks up).
+//
+//nolint:paralleltest // starts a sharded-test-server on fixed ports, see framework.PrivateShardedKcpServer.
 func TestMigrationAbortOnWorkspaceDeletion(t *testing.T) {
-	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
 	server := framework.PrivateShardedKcpServer(t, 2)
@@ -195,8 +196,9 @@ func TestMigrationAbortOnWorkspaceDeletion(t *testing.T) {
 // TestMigrationFailsForLogicalClusterAlreadyMigrating verifies that a
 // LogicalClusterMigration created for a logical cluster that is already
 // part of another migration is set into the Failed phase.
+//
+//nolint:paralleltest // starts a sharded-test-server on fixed ports, see framework.PrivateShardedKcpServer.
 func TestMigrationFailsForLogicalClusterAlreadyMigrating(t *testing.T) {
-	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
 	server := framework.PrivateShardedKcpServer(t, 2)

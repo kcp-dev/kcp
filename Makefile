@@ -402,7 +402,7 @@ endif
 test-e2e-serial: TEST_ARGS ?=
 test-e2e-serial: WHAT ?= ./test/e2e...
 test-e2e-serial: build-e2e
-	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) -p 1 -parallel 1 $(WHAT) $(TEST_ARGS) \
+	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) -p 1 -parallel 1 -timeout 60m $(WHAT) $(TEST_ARGS) \
 		-args --suites serial
 
 # Runs the controller-runtime test module (test/controller-runtime, a separate Go
