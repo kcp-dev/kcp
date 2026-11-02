@@ -144,10 +144,26 @@ presubmits:
               value: "1"
             - name: E2E_PARALLELISM
               value: "3"
+            # Per-test servers keep their state (etcd included) in t.TempDir();
+            # point it at the RAM-backed kcp-data volume so etcd is not stalled
+            # by node disk contention. Go's build scratch stays on disk.
+            - name: TMPDIR
+              value: /kcp-data
+            - name: GOTMPDIR
+              value: /tmp
           resources:
             requests:
-              memory: 6Gi
+              # includes the kcp-data tmpfs, which is charged to the pod
+              memory: 9Gi
               cpu: 4
+          volumeMounts:
+            - name: kcp-data
+              mountPath: /kcp-data
+      volumes:
+        - name: kcp-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 3Gi
 
   - name: pull-kcp-test-e2e
     decorate: true
@@ -171,10 +187,26 @@ presubmits:
               value: "1"
             - name: E2E_PARALLELISM
               value: "3"
+            # Per-test servers keep their state (etcd included) in t.TempDir();
+            # point it at the RAM-backed kcp-data volume so etcd is not stalled
+            # by node disk contention. Go's build scratch stays on disk.
+            - name: TMPDIR
+              value: /kcp-data
+            - name: GOTMPDIR
+              value: /tmp
           resources:
             requests:
-              memory: 6Gi
+              # includes the kcp-data tmpfs, which is charged to the pod
+              memory: 10Gi
               cpu: 4
+          volumeMounts:
+            - name: kcp-data
+              mountPath: /kcp-data
+      volumes:
+        - name: kcp-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 4Gi
 
   - name: pull-kcp-test-e2e-multiple-runs
     decorate: true
@@ -202,10 +234,26 @@ presubmits:
               value: "3"
             - name: TEST_ARGS
               value: "-timeout 20m"
+            # Per-test servers keep their state (etcd included) in t.TempDir();
+            # point it at the RAM-backed kcp-data volume so etcd is not stalled
+            # by node disk contention. Go's build scratch stays on disk.
+            - name: TMPDIR
+              value: /kcp-data
+            - name: GOTMPDIR
+              value: /tmp
           resources:
             requests:
-              memory: 6Gi
+              # includes the kcp-data tmpfs, which is charged to the pod
+              memory: 10Gi
               cpu: 4
+          volumeMounts:
+            - name: kcp-data
+              mountPath: /kcp-data
+      volumes:
+        - name: kcp-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 4Gi
 
   - name: pull-kcp-test-e2e-shared
     decorate: true
@@ -229,10 +277,23 @@ presubmits:
               value: "1"
             - name: E2E_PARALLELISM
               value: "3"
+            # Server state (etcd included) lives on the RAM-backed kcp-data
+            # volume so etcd is not stalled by node disk contention.
+            - name: WORK_DIR
+              value: /kcp-data
           resources:
             requests:
-              memory: 6Gi
+              # includes the kcp-data tmpfs, which is charged to the pod
+              memory: 9Gi
               cpu: 4
+          volumeMounts:
+            - name: kcp-data
+              mountPath: /kcp-data
+      volumes:
+        - name: kcp-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 3Gi
 
   - name: pull-kcp-test-e2e-sharded
     decorate: true
@@ -256,10 +317,23 @@ presubmits:
               value: "1"
             - name: E2E_PARALLELISM
               value: "3"
+            # Server state (etcd included) lives on the RAM-backed kcp-data
+            # volume so etcd is not stalled by node disk contention.
+            - name: WORK_DIR
+              value: /kcp-data
           resources:
             requests:
-              memory: 6Gi
+              # includes the kcp-data tmpfs, which is charged to the pod
+              memory: 9Gi
               cpu: 4
+          volumeMounts:
+            - name: kcp-data
+              mountPath: /kcp-data
+      volumes:
+        - name: kcp-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 3Gi
 
   # Runs the "serial" e2e suite: tests that do not run against the shared
   # server, e.g. because they need other server flags, migrate logical clusters
@@ -285,10 +359,26 @@ presubmits:
               value: "1"
             - name: KUBE_CACHE_MUTATION_DETECTOR
               value: "1"
+            # Per-test servers keep their state (etcd included) in t.TempDir();
+            # point it at the RAM-backed kcp-data volume so etcd is not stalled
+            # by node disk contention. Go's build scratch stays on disk.
+            - name: TMPDIR
+              value: /kcp-data
+            - name: GOTMPDIR
+              value: /tmp
           resources:
             requests:
-              memory: 6Gi
+              # includes the kcp-data tmpfs, which is charged to the pod
+              memory: 9Gi
               cpu: 4
+          volumeMounts:
+            - name: kcp-data
+              mountPath: /kcp-data
+      volumes:
+        - name: kcp-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 3Gi
 
   # Same suite as pull-kcp-test-e2e-sharded, but each shard runs its own embedded
   # virtual workspace server instead of a single standalone VW server. This
@@ -318,10 +408,23 @@ presubmits:
               value: "1"
             - name: E2E_PARALLELISM
               value: "3"
+            # Server state (etcd included) lives on the RAM-backed kcp-data
+            # volume so etcd is not stalled by node disk contention.
+            - name: WORK_DIR
+              value: /kcp-data
           resources:
             requests:
-              memory: 6Gi
+              # includes the kcp-data tmpfs, which is charged to the pod
+              memory: 9Gi
               cpu: 4
+          volumeMounts:
+            - name: kcp-data
+              mountPath: /kcp-data
+      volumes:
+        - name: kcp-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 3Gi
 
   # Runs the controller-runtime test module (test/controller-runtime, a separate
   # Go module that keeps sigs.k8s.io/controller-runtime out of the root go.mod)
@@ -349,10 +452,23 @@ presubmits:
               value: "1"
             - name: E2E_PARALLELISM
               value: "3"
+            # Server state (etcd included) lives on the RAM-backed kcp-data
+            # volume so etcd is not stalled by node disk contention.
+            - name: WORK_DIR
+              value: /kcp-data
           resources:
             requests:
-              memory: 6Gi
+              # includes the kcp-data tmpfs, which is charged to the pod
+              memory: 9Gi
               cpu: 4
+          volumeMounts:
+            - name: kcp-data
+              mountPath: /kcp-data
+      volumes:
+        - name: kcp-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 3Gi
 
   # Verifies the upgrade path: See test/upgrade/README.md. Marked optional 
   # while the job is new; it also depends on downloading the latest release 
@@ -377,7 +493,23 @@ presubmits:
               value: "1"
             - name: KUBE_CACHE_MUTATION_DETECTOR
               value: "1"
+            # Per-test servers keep their state (etcd included) in t.TempDir();
+            # point it at the RAM-backed kcp-data volume so etcd is not stalled
+            # by node disk contention. Go's build scratch stays on disk.
+            - name: TMPDIR
+              value: /kcp-data
+            - name: GOTMPDIR
+              value: /tmp
           resources:
             requests:
-              memory: 6Gi
+              # includes the kcp-data tmpfs, which is charged to the pod
+              memory: 9Gi
               cpu: 4
+          volumeMounts:
+            - name: kcp-data
+              mountPath: /kcp-data
+      volumes:
+        - name: kcp-data
+          emptyDir:
+            medium: Memory
+            sizeLimit: 3Gi
