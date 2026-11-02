@@ -144,6 +144,10 @@ var (
 		// set manually by kcp admins on Shards to exclude them from
 		// workspace scheduling
 		exact(adminReserved, corev1alpha1.ShardUnschedulableAnnotationKey),
+
+		// annotation used by api-syncagent
+		exact(unreserved, "syncagent.kcp.io/agent-name"),
+		exact(unreserved, "syncagent.kcp.io/source-generation"),
 	}
 
 	labelRules = []rule{
@@ -165,6 +169,10 @@ var (
 		// manages inside workspaces, e.g. ClusterRoleBindings provisioned
 		// for Kubeconfig objects
 		prefix(adminReserved, "operator.kcp.io/"),
+
+		// labels used by api-syncagent
+		exact(unreserved, "syncagent.kcp.io/agent-name"),
+		exact(unreserved, "syncagent.kcp.io/source-generation"),
 	}
 )
 
