@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
@@ -54,6 +55,7 @@ func (s *fakeGVRSource) Subscribe() <-chan struct{} {
 type fakeMetadataClient struct {
 	lock      sync.Mutex
 	requested []schema.GroupVersionResource
+	watcher   *watch.FakeWatcher
 }
 
 func (c *fakeMetadataClient) Cluster(logicalcluster.Path) metadata.Interface { return nil }
@@ -62,7 +64,13 @@ func (c *fakeMetadataClient) Resource(gvr schema.GroupVersionResource) kcpmetada
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.requested = append(c.requested, gvr)
-	return &fakeMetadataResourceClient{}
+	return &fakeMetadataResourceClient{client: c}
+}
+
+func (c *fakeMetadataClient) currentWatcher() *watch.FakeWatcher {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return c.watcher
 }
 
 func (c *fakeMetadataClient) requestedVersions() []string {
@@ -75,7 +83,9 @@ func (c *fakeMetadataClient) requestedVersions() []string {
 	return versions
 }
 
-type fakeMetadataResourceClient struct{}
+type fakeMetadataResourceClient struct {
+	client *fakeMetadataClient
+}
 
 func (c *fakeMetadataResourceClient) Cluster(logicalcluster.Path) metadata.Getter { return nil }
 
@@ -83,8 +93,15 @@ func (c *fakeMetadataResourceClient) List(context.Context, metav1.ListOptions) (
 	return &metav1.PartialObjectMetadataList{ListMeta: metav1.ListMeta{ResourceVersion: "1"}}, nil
 }
 
-func (c *fakeMetadataResourceClient) Watch(context.Context, metav1.ListOptions) (watch.Interface, error) {
-	return watch.NewFake(), nil
+func (c *fakeMetadataResourceClient) Watch(_ context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	if opts.SendInitialEvents != nil && *opts.SendInitialEvents {
+		return nil, apierrors.NewBadRequest("watch-list not supported")
+	}
+	w := watch.NewFakeWithChanSize(10, false)
+	c.client.lock.Lock()
+	defer c.client.lock.Unlock()
+	c.client.watcher = w
+	return w, nil
 }
 
 func TestPartialMetadataInformerSharedAcrossVersions(t *testing.T) {
@@ -126,4 +143,57 @@ func TestPartialMetadataInformerSharedAcrossVersions(t *testing.T) {
 	require.Empty(t, f.informers)
 	require.Empty(t, f.informerStops)
 	require.Empty(t, f.startedInformers)
+}
+
+func TestPartialMetadataInformerEventsUseServedVersion(t *testing.T) {
+	t.Parallel()
+
+	v1 := schema.GroupVersionResource{Group: "example.io", Version: "v1", Resource: "widgets"}
+	v2 := v1.GroupResource().WithVersion("v2")
+	widget := withGVRPartialMetadata(apiextensionsv1.NamespaceScoped, "Widget", "widget")
+
+	source := &fakeGVRSource{gvrs: map[schema.GroupVersionResource]GVRPartialMetadata{v1: widget}}
+	client := &fakeMetadataClient{}
+	f, err := NewDiscoveringPartialMetadataSharedInformerFactory(client, nil, func(any) bool { return false }, nil, source, cache.Indexers{})
+	require.NoError(t, err)
+
+	var lock sync.Mutex
+	var seen []schema.GroupVersionResource
+	record := func(gvr schema.GroupVersionResource) {
+		lock.Lock()
+		defer lock.Unlock()
+		seen = append(seen, gvr)
+	}
+	last := func() schema.GroupVersionResource {
+		lock.Lock()
+		defer lock.Unlock()
+		if len(seen) == 0 {
+			return schema.GroupVersionResource{}
+		}
+		return seen[len(seen)-1]
+	}
+	f.AddEventHandler(GVREventHandlerFuncs{
+		AddFunc:    func(gvr schema.GroupVersionResource, _ interface{}) { record(gvr) },
+		UpdateFunc: func(gvr schema.GroupVersionResource, _, _ interface{}) { record(gvr) },
+	})
+
+	f.updateInformers()
+	inf, err := f.ForResource(v1)
+	require.NoError(t, err)
+	require.Eventually(t, func() bool {
+		return inf.Informer().HasSynced() && client.currentWatcher() != nil
+	}, 10*time.Second, 10*time.Millisecond)
+
+	obj := &metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "w", Namespace: "default", ResourceVersion: "2"}}
+	client.currentWatcher().Add(obj.DeepCopy())
+	require.Eventually(t, func() bool { return last() == v1 }, 10*time.Second, 10*time.Millisecond)
+
+	source.gvrs = map[schema.GroupVersionResource]GVRPartialMetadata{v1: widget, v2: widget}
+	f.updateInformers()
+	source.gvrs = map[schema.GroupVersionResource]GVRPartialMetadata{v2: widget}
+	f.updateInformers()
+
+	obj.ResourceVersion = "3"
+	client.currentWatcher().Modify(obj.DeepCopy())
+	require.Eventually(t, func() bool { return last() == v2 }, 10*time.Second, 10*time.Millisecond)
 }

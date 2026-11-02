@@ -471,16 +471,19 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 		FilterFunc: d.filterFunc,
 		Handler: cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
+				gvr := d.eventGVR(gvr)
 				for _, h := range d.handlers.Load().([]GVREventHandler) {
 					h.OnAdd(gvr, obj)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
+				gvr := d.eventGVR(gvr)
 				for _, h := range d.handlers.Load().([]GVREventHandler) {
 					h.OnUpdate(gvr, oldObj, newObj)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
+				gvr := d.eventGVR(gvr)
 				for _, h := range d.handlers.Load().([]GVREventHandler) {
 					h.OnDelete(gvr, obj)
 				}
@@ -961,6 +964,13 @@ func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, Generi
 		return gvr
 	}
 	return gvr.GroupResource().WithVersion(versions[0])
+}
+
+func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) eventGVR(gvr schema.GroupVersionResource) schema.GroupVersionResource {
+	if d.shareInformersAcrossVersions {
+		return d.servedGVR(gvr)
+	}
+	return gvr
 }
 
 func (d *GenericDiscoveringDynamicSharedInformerFactory[Informer, Lister, GenericInformer]) calculateInformersLockHeld(latest map[schema.GroupVersionResource]GVRPartialMetadata) (toAdd, toRemove []schema.GroupVersionResource) {
