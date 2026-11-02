@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apiserver/pkg/informerfactoryhack"
 	quota "k8s.io/apiserver/pkg/quota/v1"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	kcpcorev1informers "github.com/kcp-dev/client-go/informers/core/v1"
@@ -154,12 +156,42 @@ func (k *KubeResourceQuota) Validate(ctx context.Context, a admission.Attributes
 		return err
 	}
 
-	delegate, err := k.getOrCreateDelegate(cluster.Name)
-	if err != nil {
+	delegate, err := k.getDelegate(ctx, cluster.Name)
+	if err != nil || delegate == nil {
 		return err
 	}
 
 	return delegate.Validate(ctx, a, o)
+}
+
+func (k *KubeResourceQuota) getDelegate(ctx context.Context, clusterName logicalcluster.Name) (*stoppableQuotaAdmission, error) {
+	k.lock.RLock()
+	delegate := k.delegates[clusterName]
+	k.lock.RUnlock()
+	if delegate != nil {
+		return delegate, nil
+	}
+
+	if k.userSuppliedConfiguration == nil || len(k.userSuppliedConfiguration.LimitedResources) == 0 {
+		hasQuotas, err := k.hasQuotas(ctx, clusterName)
+		if err != nil || !hasQuotas {
+			return nil, err
+		}
+	}
+
+	return k.getOrCreateDelegate(clusterName)
+}
+
+func (k *KubeResourceQuota) hasQuotas(ctx context.Context, clusterName logicalcluster.Name) (bool, error) {
+	if !cache.WaitForCacheSync(ctx.Done(), k.scopingResourceQuotaInformer.Informer().HasSynced) {
+		return false, fmt.Errorf("caches not synced")
+	}
+
+	quotas, err := k.scopingResourceQuotaInformer.Lister().Cluster(clusterName).List(labels.Everything())
+	if err != nil {
+		return false, err
+	}
+	return len(quotas) > 0, nil
 }
 
 // getOrCreateDelegate creates a resourcequota.QuotaAdmission plugin for clusterName.

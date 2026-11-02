@@ -182,6 +182,14 @@ func (k *KubeValidatingAdmissionPolicy) Validate(ctx context.Context, a admissio
 		return err
 	}
 
+	hasPolicies, err := k.hasValidatingPolicies(ctx, sourceCluster)
+	if err != nil {
+		return err
+	}
+	if !hasPolicies {
+		return nil
+	}
+
 	delegate, err := k.getOrCreateDelegate(sourceCluster, cluster.Name)
 	if err != nil {
 		return err
@@ -209,6 +217,28 @@ func (k *KubeValidatingAdmissionPolicy) getSourceClusterForGroupResource(cluster
 	}
 
 	return clusterName, nil
+}
+
+func (k *KubeValidatingAdmissionPolicy) hasValidatingPolicies(ctx context.Context, clusterName logicalcluster.Name) (bool, error) {
+	policies := k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicies()
+	bindings := k.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingAdmissionPolicyBindings()
+
+	if !cache.WaitForCacheSync(ctx.Done(), policies.Informer().HasSynced, bindings.Informer().HasSynced) {
+		return false, fmt.Errorf("caches not synced")
+	}
+
+	ps, err := policies.Lister().Cluster(clusterName).List(labels.Everything())
+	if err != nil {
+		return false, err
+	}
+	if len(ps) > 0 {
+		return true, nil
+	}
+	bs, err := bindings.Lister().Cluster(clusterName).List(labels.Everything())
+	if err != nil {
+		return false, err
+	}
+	return len(bs) > 0, nil
 }
 
 // getOrCreateDelegate creates an actual plugin for policyClusterName (where policies are defined).

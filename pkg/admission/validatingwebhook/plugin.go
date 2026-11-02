@@ -65,9 +65,15 @@ type Plugin struct {
 
 	getAPIBindings func(clusterName logicalcluster.Name) ([]*apisv1alpha2.APIBinding, error)
 
-	managerLock    sync.Mutex
+	managerLock    sync.RWMutex
 	managersCache  map[logicalcluster.Name]generic.Source
 	managersCancel map[logicalcluster.Name]context.CancelFunc
+	plugins        map[pluginKey]*validating.Plugin
+}
+
+type pluginKey struct {
+	cluster       logicalcluster.Name
+	sourceCluster logicalcluster.Name
 }
 
 var (
@@ -80,9 +86,9 @@ var (
 
 func NewValidatingAdmissionWebhook(configFile io.Reader) (*Plugin, error) {
 	p := &Plugin{
-		managerLock:    sync.Mutex{},
 		managersCache:  make(map[logicalcluster.Name]generic.Source),
 		managersCancel: make(map[logicalcluster.Name]context.CancelFunc),
+		plugins:        make(map[pluginKey]*validating.Plugin),
 		Handler:        admission.NewHandler(admission.Connect, admission.Create, admission.Delete, admission.Update),
 	}
 	if configFile != nil {
@@ -118,29 +124,19 @@ func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 	}
 	clusterName := cluster.Name
 
-	var config io.Reader
-	if len(p.config) > 0 {
-		config = bytes.NewReader(p.config)
-	}
-
-	hookSource, err := p.getHookSource(clusterName, attr.GetResource().GroupResource())
+	sourceCluster, err := p.getSourceClusterForGroupResource(clusterName, attr.GetResource().GroupResource())
 	if err != nil {
 		return err
 	}
 
-	plugin, err := validating.NewValidatingAdmissionWebhook(config)
-	if err != nil {
-		return fmt.Errorf("error creating validating admission webhook: %w", err)
+	hasConfigurations, err := p.hasWebhookConfigurations(ctx, sourceCluster)
+	if err != nil || !hasConfigurations {
+		return err
 	}
 
-	plugin.SetExternalKubeClientSet(p.kubeClusterClient.Cluster(clusterName.Path()))
-	plugin.SetNamespaceInformer(p.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
-	plugin.SetAPISource(hookSource)
-	plugin.SetExcludedAdmissionResources(exclusion.Excluded())
-	plugin.InspectFeatureGates(utilfeature.DefaultFeatureGate)
-
-	if err := plugin.ValidateInitialization(); err != nil {
-		return fmt.Errorf("error validating ValidatingAdmissionWebhook initialization: %w", err)
+	plugin, err := p.getOrCreatePlugin(clusterName, sourceCluster)
+	if err != nil {
+		return err
 	}
 
 	if undo := clusterannotation.Stamp(attr, clusterName); undo != nil {
@@ -150,25 +146,71 @@ func (p *Plugin) Validate(ctx context.Context, attr admission.Attributes, o admi
 	return plugin.Validate(ctx, attr, o)
 }
 
-func (p *Plugin) getHookSource(clusterName logicalcluster.Name, groupResource schema.GroupResource) (generic.Source, error) {
-	clusterNameForGroupResource, err := p.getSourceClusterForGroupResource(clusterName, groupResource)
+func (p *Plugin) hasWebhookConfigurations(ctx context.Context, clusterName logicalcluster.Name) (bool, error) {
+	informer := p.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingWebhookConfigurations()
+
+	if !cache.WaitForCacheSync(ctx.Done(), informer.Informer().HasSynced) {
+		return false, fmt.Errorf("caches not synced")
+	}
+
+	configurations, err := informer.Lister().Cluster(clusterName).List(labels.Everything())
 	if err != nil {
-		return nil, err
+		return false, err
+	}
+	return len(configurations) > 0, nil
+}
+
+func (p *Plugin) getOrCreatePlugin(clusterName, sourceCluster logicalcluster.Name) (*validating.Plugin, error) {
+	key := pluginKey{cluster: clusterName, sourceCluster: sourceCluster}
+
+	p.managerLock.RLock()
+	plugin := p.plugins[key]
+	p.managerLock.RUnlock()
+	if plugin != nil {
+		return plugin, nil
 	}
 
 	p.managerLock.Lock()
 	defer p.managerLock.Unlock()
 
-	if _, ok := p.managersCache[clusterNameForGroupResource]; !ok {
-		ctx, cancel := context.WithCancel(wait.ContextForChannel(p.serverStopChannel))
-		p.managersCache[clusterNameForGroupResource] = configuration.NewValidatingWebhookConfigurationManagerForInformer(
-			p.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().ClusterWithContext(ctx, clusterNameForGroupResource),
-			ExcludedResources(),
-		)
-		p.managersCancel[clusterNameForGroupResource] = cancel
+	if plugin := p.plugins[key]; plugin != nil {
+		return plugin, nil
 	}
 
-	return p.managersCache[clusterNameForGroupResource], nil
+	hookSource, ok := p.managersCache[sourceCluster]
+	if !ok {
+		ctx, cancel := context.WithCancel(wait.ContextForChannel(p.serverStopChannel))
+		hookSource = configuration.NewValidatingWebhookConfigurationManagerForInformer(
+			p.globalKubeSharedInformerFactory.Admissionregistration().V1().ValidatingWebhookConfigurations().ClusterWithContext(ctx, sourceCluster),
+			ExcludedResources(),
+		)
+		p.managersCache[sourceCluster] = hookSource
+		p.managersCancel[sourceCluster] = cancel
+	}
+
+	var config io.Reader
+	if len(p.config) > 0 {
+		config = bytes.NewReader(p.config)
+	}
+
+	plugin, err := validating.NewValidatingAdmissionWebhook(config)
+	if err != nil {
+		return nil, fmt.Errorf("error creating validating admission webhook: %w", err)
+	}
+
+	plugin.SetExternalKubeClientSet(p.kubeClusterClient.Cluster(clusterName.Path()))
+	plugin.SetNamespaceInformer(p.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(clusterName))
+	plugin.SetAPISource(hookSource)
+	plugin.SetExcludedAdmissionResources(exclusion.Excluded())
+	plugin.InspectFeatureGates(utilfeature.DefaultFeatureGate)
+
+	if err := plugin.ValidateInitialization(); err != nil {
+		return nil, fmt.Errorf("error validating ValidatingAdmissionWebhook initialization: %w", err)
+	}
+
+	p.plugins[key] = plugin
+
+	return plugin, nil
 }
 
 func (p *Plugin) getSourceClusterForGroupResource(clusterName logicalcluster.Name, groupResource schema.GroupResource) (logicalcluster.Name, error) {
@@ -235,6 +277,12 @@ func (p *Plugin) SetKcpInformers(local, global kcpinformers.SharedInformerFactor
 
 				p.managerLock.Lock()
 				defer p.managerLock.Unlock()
+
+				for key := range p.plugins {
+					if key.cluster == clName || key.sourceCluster == clName {
+						delete(p.plugins, key)
+					}
+				}
 
 				cancel, ok := p.managersCancel[clName]
 				if !ok {
