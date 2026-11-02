@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
@@ -53,6 +54,10 @@ const SerialSuite = "serial"
 // including compiling it when running via `go run`.
 const shardedServerStartTimeout = 5 * time.Minute
 
+// shardedServerLock is held from the start of a sharded-test-server until the
+// test that started it has finished, see PrivateShardedKcpServer.
+var shardedServerLock sync.Mutex
+
 // PrivateShardedKcpServer starts a sharded-test-server, i.e. a cache server,
 // the given number of shards and a front-proxy, for this test alone and
 // stops it when the test ends. Shards are named like the e2e targets name
@@ -60,10 +65,15 @@ const shardedServerStartTimeout = 5 * time.Minute
 // front-proxy; ShardSystemMasterBaseConfig reaches the individual shards.
 //
 // sharded-test-server listens on fixed ports, so only one can run at a
-// time: this is for tests of the SerialSuite.
+// time: this is for tests of the SerialSuite. Within a test binary this is
+// enforced here, tests calling t.Parallel() wait for each other; across
+// packages the serial e2e target runs with -p 1.
 func PrivateShardedKcpServer(t *testing.T, shards int) kcptestingserver.RunningServer {
 	t.Helper()
 	require.Positive(t, shards, "a sharded server needs at least one shard")
+
+	shardedServerLock.Lock()
+	t.Cleanup(shardedServerLock.Unlock)
 
 	artifactDir, dataDir, err := kcptestingserver.ScratchDirs(t)
 	require.NoError(t, err, "failed to create scratch dirs")

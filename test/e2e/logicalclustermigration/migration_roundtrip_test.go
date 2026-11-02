@@ -42,6 +42,7 @@ import (
 // TestMigrationBackToOriginShard verifies that a cluster remains accessible
 // after migrating away from and back to its original shard.
 func TestMigrationBackToOriginShard(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
 	server := framework.PrivateShardedKcpServer(t, 2)

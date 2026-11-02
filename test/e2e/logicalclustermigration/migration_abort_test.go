@@ -50,6 +50,7 @@ import (
 // shard to stall the migration in the Preparing phase (origin completes
 // preparation but the destination never picks up).
 func TestMigrationAbortOnWorkspaceDeletion(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
 	server := framework.PrivateShardedKcpServer(t, 2)
@@ -195,6 +196,7 @@ func TestMigrationAbortOnWorkspaceDeletion(t *testing.T) {
 // LogicalClusterMigration created for a logical cluster that is already
 // part of another migration is set into the Failed phase.
 func TestMigrationFailsForLogicalClusterAlreadyMigrating(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
 	server := framework.PrivateShardedKcpServer(t, 2)

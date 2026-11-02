@@ -66,6 +66,7 @@ import (
 // running against it. TestMigrationAPIBindingUnprivileged does not migrate
 // anything and keeps using the shared server.
 func TestFullMigration(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
 	server := framework.PrivateShardedKcpServer(t, 2)
@@ -305,6 +306,7 @@ func TestFullMigration(t *testing.T) {
 // sharing/refcounting had a bug: every migration completes with the right
 // data, and none of them interfere with each other's copy.
 func TestConcurrentMigrationsFromSameOriginShard(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
 	server := framework.PrivateShardedKcpServer(t, 2)
@@ -499,6 +501,7 @@ func TestMigrationAPIBindingUnprivileged(t *testing.T) {
 }
 
 func TestFullMigrationAPIBindings(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
 	server := framework.PrivateShardedKcpServer(t, 2)
@@ -794,6 +797,7 @@ func TestFullMigrationAPIBindings(t *testing.T) {
 }
 
 func TestFullMigrationAPIExportVirtualWorkspace(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
 	server := framework.PrivateShardedKcpServer(t, 2)
@@ -1090,6 +1094,7 @@ func TestFullMigrationAPIExportVirtualWorkspace(t *testing.T) {
 }
 
 func TestFullMigrationAPIExportUpdate(t *testing.T) {
+	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
 	server := framework.PrivateShardedKcpServer(t, 2)
