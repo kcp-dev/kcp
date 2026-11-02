@@ -44,7 +44,7 @@ import (
 
 func TestWorkspaceOIDC(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
@@ -252,7 +252,7 @@ func TestWorkspaceOIDC(t *testing.T) {
 
 func TestUserScope(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
@@ -340,7 +340,7 @@ func TestUserScope(t *testing.T) {
 
 func TestForbiddenSystemAccess(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
@@ -438,7 +438,7 @@ func TestForbiddenSystemAccess(t *testing.T) {
 
 func TestAcceptableWorkspaceAuthenticationConfigurations(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)
@@ -568,7 +568,7 @@ func TestAcceptableWorkspaceAuthenticationConfigurations(t *testing.T) {
 
 func TestWorkspaceOIDCTokenReview(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	// start kcp and setup clients
 	server := kcptesting.SharedKcpServer(t)

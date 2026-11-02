@@ -44,7 +44,7 @@ func TestUserHomeWorkspaces(t *testing.T) {
 	t.Skip("We disabled WatchCacheInitializationPostStartHook feature gate for this test, but in Kubernetes 1.37 we can no longer disable it, see https://github.com/kcp-dev/kcp/issues/4487")
 
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	server := kcptesting.PrivateKcpServer(t,
 		kcptesting.WithDefaultTokenAuthFile(t),

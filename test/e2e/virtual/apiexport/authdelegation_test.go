@@ -63,7 +63,7 @@ import (
 // corresponding claim and drives the review API through the VW URL.
 func TestAPIExportAuthDelegation(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	ctx := t.Context()

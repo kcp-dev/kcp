@@ -45,7 +45,7 @@ import (
 
 func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -213,7 +213,7 @@ func TestGarbageCollectorVersionedCRDs(t *testing.T) {
 
 func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -293,7 +293,7 @@ func TestGarbageCollectorClusterScopedCRD(t *testing.T) {
 
 func TestGarbageCollectorNormalCRDs(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

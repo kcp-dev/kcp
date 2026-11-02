@@ -389,10 +389,11 @@ test-e2e-sharded-minimal: build-e2e
 		$(SUITES_ARG) \
 	$(if $(value WAIT),|| { echo "Terminated with $$?"; wait "$$PID"; },)
 
-# Runs the "serial" suite: tests that cannot share a server with other tests
-# (e.g. rotating the identities of kcp's core APIs fences every workspace on
-# every shard). Each of them starts a sharded server of its own, which listens
-# on fixed ports, so they run one at a time and no other server may be running
+# Runs the "serial" suite: tests that do not run against the shared server
+# (e.g. they need other server flags, migrate logical clusters, or rotate the
+# identities of kcp's core APIs, which fences every workspace on every shard).
+# Each of them starts a server of its own; the sharded ones listen on fixed
+# ports, so the tests run one at a time and no other server may be running
 # (pull-kcp-test-e2e-serial runs this target in a job of its own).
 .PHONY: test-e2e-serial
 ifdef USE_GOTESTSUM
@@ -401,7 +402,7 @@ endif
 test-e2e-serial: TEST_ARGS ?=
 test-e2e-serial: WHAT ?= ./test/e2e...
 test-e2e-serial: build-e2e
-	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) -p 1 -parallel 1 $(WHAT) $(TEST_ARGS) \
+	NO_GORUN=1 GOOS=$(OS) GOARCH=$(ARCH) $(GO_TEST) -race $(COUNT_ARG) -p 1 -parallel 1 -timeout 60m $(WHAT) $(TEST_ARGS) \
 		-args --suites serial
 
 # Runs the controller-runtime test module (test/controller-runtime, a separate Go

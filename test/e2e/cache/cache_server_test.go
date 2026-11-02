@@ -368,7 +368,7 @@ func toUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
 
 func TestCacheServerAllScenarios(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	_, dataDir, err := kcptestingserver.ScratchDirs(t)
 	require.NoError(t, err)

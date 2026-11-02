@@ -64,7 +64,7 @@ import (
 //
 //nolint:paralleltest // binds the fixed front-proxy mapping port localhost:2443, shared with TestMappingWithClusterContext; must run serially.
 func TestIdentityHeaderInjectionDoesNotEscalate(t *testing.T) {
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

@@ -45,7 +45,7 @@ import (
 // requires the "bind" verb on that ClusterCachedResource in its own workspace.
 func TestClusterCachedResourceEndpointSliceAdmission(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	ctx := t.Context()
 	server := kcptesting.SharedKcpServer(t)

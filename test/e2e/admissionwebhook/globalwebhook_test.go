@@ -60,7 +60,7 @@ import (
 //   - DENY + CONTENT: it decodes the full object body and can reject the request.
 func TestGlobalValidatingWebhook(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

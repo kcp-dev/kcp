@@ -46,7 +46,7 @@ import (
 // bootstrapped system:kcp:metrics-reader role.
 func TestShardMetricsEndpoint(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

@@ -56,7 +56,7 @@ import (
 
 func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -111,7 +111,7 @@ func TestKubeQuotaBuiltInCoreV1Types(t *testing.T) {
 // TestKubeQuotaCrossWorkspaceIsolation tests that identical quotas in identical namespaces in separate workspaces track resources separately.
 func TestKubeQuotaCrossWorkspaceIsolation(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -248,7 +248,7 @@ func TestKubeQuotaCrossWorkspaceIsolation(t *testing.T) {
 // TestKubeQuotaNamespaceIsolation tests that identical quotas in the same workspace in separate namespace track resources separately.
 func TestKubeQuotaNamespaceIsolation(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -329,7 +329,7 @@ func TestKubeQuotaNamespaceIsolation(t *testing.T) {
 
 func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 
@@ -501,7 +501,7 @@ func TestKubeQuotaCoreV1TypesFromBinding(t *testing.T) {
 
 func TestKubeQuotaNormalCRDs(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -583,7 +583,7 @@ func TestKubeQuotaNormalCRDs(t *testing.T) {
 
 func TestClusterScopedQuota(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -745,7 +745,7 @@ func TestClusterScopedQuota(t *testing.T) {
 // TestKubeQuotaCRDChurn checks that installing and restinstalling a CRD keeps being tracked correctly by the quota controller.
 func TestKubeQuotaCRDChurn(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -815,7 +815,7 @@ func TestKubeQuotaCRDChurn(t *testing.T) {
 // TestKubeQuotaQuotaLifecycle exercises the lifecylce of multiple quotas.
 func TestKubeQuotaQuotaLifecycle(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)

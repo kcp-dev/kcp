@@ -48,7 +48,7 @@ import (
 
 func TestWorkspaceTypes(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	type runningServer struct {
 		kcptestingserver.RunningServer

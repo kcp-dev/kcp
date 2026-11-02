@@ -63,7 +63,7 @@ import (
 
 func TestTerminatingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 	rootShardCfg := source.RootShardSystemMasterBaseConfig(t)
@@ -102,7 +102,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 
 func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
@@ -510,7 +510,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 
 func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
@@ -700,7 +700,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceWatch(t *testing.T) {
 
 func TestTerminatingWorkspacesVirtualWorkspaceWatchBookmark(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
@@ -864,7 +864,7 @@ func randSuffix() string {
 //     transitions to the Deleting phase and content access is no longer permitted.
 func TestTerminatingWorkspacesVirtualWorkspaceContentAccess(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
@@ -1101,7 +1101,7 @@ func TestTerminatingWorkspacesVirtualWorkspaceContentAccess(t *testing.T) {
 //     (the front-proxy strips the group prefix before authentication).
 func TestTerminatingWorkspacesVirtualWorkspaceTerminatorPermissions(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())

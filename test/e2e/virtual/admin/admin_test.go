@@ -51,7 +51,7 @@ import (
 // the admission protection of direct edits.
 func TestAdminWorkspaceShards(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
 	// cordoning the only shard is destructive.
 	server := kcptesting.PrivateKcpServer(t)

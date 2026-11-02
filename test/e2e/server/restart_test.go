@@ -51,7 +51,7 @@ func TestKcpRestart(t *testing.T) {
 	t.Skip("Test causes too many flakes at the moment")
 
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	srv := &kcpInstance{}
 	t.Cleanup(func() { srv.stop(t) })

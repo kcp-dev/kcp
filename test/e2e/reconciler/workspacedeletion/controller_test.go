@@ -57,7 +57,7 @@ var nestedDeletionTimeout = 3 * wait.ForeverTestTimeout
 
 func TestWorkspaceDeletion(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	type runningServer struct {
 		kcptestingserver.RunningServer

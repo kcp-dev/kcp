@@ -46,7 +46,7 @@ import (
 
 func TestMintServiceAccountTokenThroughVW(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -269,7 +269,7 @@ func TestMintServiceAccountTokenThroughVW(t *testing.T) {
 
 func TestMintServiceAccountTokenThroughVWFailsWithoutSubresoureClaim(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

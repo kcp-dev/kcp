@@ -57,7 +57,7 @@ import (
 
 func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -149,7 +149,7 @@ func TestMaximalPermissionPolicyAuthorizerSystemGroupProtection(t *testing.T) {
 
 func TestMaximalPermissionPolicyAuthorizer(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -526,7 +526,7 @@ func toYAML(t *testing.T, binding interface{}) string {
 // stripping scope-related Extra fields from the user, the deep SAR would fail due to scope mismatch.
 func TestMaximalPermissionPolicyServiceAccountClaimedTenancyResources(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

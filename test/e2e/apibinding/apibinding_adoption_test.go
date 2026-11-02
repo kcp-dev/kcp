@@ -50,7 +50,7 @@ import (
 // APIResourceSchema and identity: instances must survive the swap untouched.
 func TestAPIBindingAdoption(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -211,7 +211,7 @@ func TestAPIBindingAdoption(t *testing.T) {
 // throughout; the handover completes as soon as a successor binding appears.
 func TestAPIBindingWaitForSuccessor(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 

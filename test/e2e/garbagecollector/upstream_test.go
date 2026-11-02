@@ -57,7 +57,7 @@ import (
 // cascading deletion.
 func TestCascadingDeletion(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -148,7 +148,7 @@ func TestCascadingDeletion(t *testing.T) {
 // collected.
 func TestCreateWithNonExistentOwner(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -182,7 +182,7 @@ func TestCreateWithNonExistentOwner(t *testing.T) {
 // owner references removed.
 func TestOrphaning(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -248,7 +248,7 @@ func TestOrphaning(t *testing.T) {
 // the dependent should keep only the surviving owner reference.
 func TestSolidOwnerDoesNotBlockWaitingOwner(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -331,7 +331,7 @@ func TestSolidOwnerDoesNotBlockWaitingOwner(t *testing.T) {
 // BlockOwnerDeletion=true.
 func TestGarbageCollectorNonBlockingOwnerRefDoesNotBlock(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -412,7 +412,7 @@ func TestGarbageCollectorNonBlockingOwnerRefDoesNotBlock(t *testing.T) {
 // a finalizer preventing its own deletion.
 func TestGarbageCollectorBlockingOwnerRefDoesBlock(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -508,7 +508,7 @@ func TestGarbageCollectorBlockingOwnerRefDoesBlock(t *testing.T) {
 // removing the custom finalizer allows the object to be deleted.
 func TestDoubleDeletionWithFinalizer(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -581,7 +581,7 @@ func TestDoubleDeletionWithFinalizer(t *testing.T) {
 // across custom resource and core resource type boundaries.
 func TestMixedRelationships(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -701,7 +701,7 @@ func TestMixedRelationships(t *testing.T) {
 // Upstream: TestCrossNamespaceReferences{WithWatchCache,WithoutWatchCache}.
 func TestCrossNamespaceReferences(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -828,7 +828,7 @@ func TestCrossNamespaceReferences(t *testing.T) {
 // resources) are also garbage collected.
 func TestGarbageCollectorCRDDeletionCascading(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)

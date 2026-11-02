@@ -46,7 +46,7 @@ import (
 
 func TestURLs(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 	server := kcptesting.SharedKcpServer(t)
 
 	cfg := server.BaseConfig(t)
@@ -104,7 +104,7 @@ func TestURLs(t *testing.T) {
 
 func TestURLWithClusterKind(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
 

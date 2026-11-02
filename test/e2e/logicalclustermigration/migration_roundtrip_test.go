@@ -37,13 +37,16 @@ import (
 	"github.com/kcp-dev/kcp/test/e2e/framework"
 )
 
+// Runs in the serial suite on a sharded server of its own, see TestFullMigration.
+//
 // TestMigrationBackToOriginShard verifies that a cluster remains accessible
 // after migrating away from and back to its original shard.
+//
+//nolint:paralleltest // starts a sharded-test-server on fixed ports, see framework.PrivateShardedKcpServer.
 func TestMigrationBackToOriginShard(t *testing.T) {
-	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.SerialSuite)
 
-	server := kcptesting.SharedKcpServer(t)
+	server := framework.PrivateShardedKcpServer(t, 2)
 
 	if len(server.ShardNames()) < 2 {
 		t.Skip("requires multi-shard setup")

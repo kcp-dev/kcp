@@ -63,7 +63,7 @@ import (
 
 func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 	rootShardCfg := source.RootShardSystemMasterBaseConfig(t)
@@ -100,7 +100,7 @@ func TestInitializingWorkspacesVirtualWorkspaceDiscovery(t *testing.T) {
 
 func TestInitializingWorkspacesVirtualWorkspaceAccess(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
@@ -608,7 +608,7 @@ func workspaceForType(workspaceType *tenancyv1alpha1.WorkspaceType, testLabelSel
 // any divergence in behaviour between them should fail one of these two tests.
 func TestInitializingWorkspacesVirtualWorkspaceInitializerPermissions(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())
@@ -850,7 +850,7 @@ func TestInitializingWorkspacesVirtualWorkspaceInitializerPermissions(t *testing
 // scope on its identity.
 func TestInitializingWorkspacesServiceAccountOwnedWorkspace(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	source := kcptesting.SharedKcpServer(t)
 	wsPath, _ := kcptesting.NewWorkspaceFixture(t, source, core.RootCluster.Path())

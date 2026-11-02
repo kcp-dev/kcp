@@ -42,7 +42,7 @@ import (
 
 func TestGarbageCollectorBuiltInCoreV1Types(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 
@@ -87,7 +87,7 @@ func TestGarbageCollectorBuiltInCoreV1Types(t *testing.T) {
 // while leaving it alive with the surviving ownerRef intact.
 func TestGarbageCollectorDanglingOwnerRefCleanup(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -148,7 +148,7 @@ func TestGarbageCollectorDanglingOwnerRefCleanup(t *testing.T) {
 // works: A owns B, B owns C. Deleting A causes B and C to be garbage collected.
 func TestGarbageCollectorDeepOwnershipChain(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -201,7 +201,7 @@ func TestGarbageCollectorDeepOwnershipChain(t *testing.T) {
 // Deleting A cascades to B, but B's orphan finalizer causes C to be orphaned.
 func TestGarbageCollectorMixedPoliciesInChain(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -273,7 +273,7 @@ func TestGarbageCollectorMixedPoliciesInChain(t *testing.T) {
 // objects that were orphaned before GC caught up and then re-assigned a stale ref.
 func TestGarbageCollectorDanglingOwnerRefGetsCollected(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
@@ -352,7 +352,7 @@ func TestGarbageCollectorDanglingOwnerRefGetsCollected(t *testing.T) {
 // by the GC, because it cannot verify whether the owner exists.
 func TestGarbageCollectorUnknownOwnerType(t *testing.T) {
 	t.Parallel()
-	framework.Suite(t, "control-plane")
+	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
 	cfg := server.BaseConfig(t)
