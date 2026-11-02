@@ -269,6 +269,13 @@ func (s preparedServer) Run(ctx context.Context) error {
 	if s.AuthController != nil {
 		go s.AuthController.Start(ctx, 2)
 	}
+	// Wait for the sync off the serving path. Blocking here would keep the
+	// port closed for as long as no peer is reachable, so /livez would fail
+	// and the proxy be restarted in a loop instead of waiting for a shard,
+	// and /readyz could not tell why. Nothing waits on this goroutine and it
+	// gates nothing; it only logs. Traffic is gated by /readyz above
+	// (informer sync, core-identities, workspace-index), and requests needing
+	// anything not yet loaded fail until it is.
 	go func() {
 		s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
 		s.CoreIdentityInformerFactory.WaitForCacheSync(ctx.Done())
