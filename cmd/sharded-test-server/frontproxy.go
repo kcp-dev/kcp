@@ -39,6 +39,7 @@ import (
 	"k8s.io/klog/v2"
 
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
+	kcptesting "github.com/kcp-dev/sdk/testing"
 	kcptestingserver "github.com/kcp-dev/sdk/testing/server"
 	"github.com/kcp-dev/sdk/testing/third_party/library-go/crypto"
 
@@ -131,6 +132,17 @@ func startFrontProxy(
 		return nil, fmt.Errorf("failed to write server cert: %w", err)
 	}
 
+	// The front-proxy validates service account tokens itself, as it does in
+	// production: all shards sign with the one key under .kcp, and the proxy
+	// resolves the service account on the shard hosting its workspace
+	// through its index. With service account authentication enabled the
+	// proxy forwards nothing unauthenticated, so the static e2e users need
+	// their token file here as well.
+	tokenAuthFile, err := kcptesting.WriteDefaultTokenAuthFile(filepath.Join(workDirPath, ".kcp-front-proxy"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to write token auth file: %w", err)
+	}
+
 	// run front-proxy command
 	workdir, commandLine := kcptestingserver.Command("kcp-front-proxy", "front-proxy")
 	commandLine = append(commandLine,
@@ -155,6 +167,8 @@ func startFrontProxy(
 		"--requestheader-allowed-names=kcp-front-proxy,kcp-mounts-proxy",
 		fmt.Sprintf("--tls-cert-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy", "apiserver.crt")),
 		fmt.Sprintf("--tls-private-key-file=%s", filepath.Join(workDirPath, ".kcp-front-proxy", "apiserver.key")),
+		fmt.Sprintf("--service-account-key-file=%s", filepath.Join(workDirPath, ".kcp", "service-account.crt")),
+		fmt.Sprintf("--token-auth-file=%s", tokenAuthFile),
 		"--secure-port=6443",
 		"--v=4",
 	)

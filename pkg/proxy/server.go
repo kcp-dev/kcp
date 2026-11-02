@@ -209,9 +209,14 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	handler = genericfilters.WithCORS(handler, c.Options.CorsAllowedOriginList, nil, nil, nil, "true")
 
 	mux := http.NewServeMux()
+	// Readiness covers everything a request needs: the Shard informer, the
+	// core identities, and the workspace index having learned the clusters
+	// of every shard. Without the last one a path lookup 404s and a service
+	// account token 401s, so load balancers must hold traffic until then.
 	healthz.InstallReadyzHandler(mux,
 		healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory),
 		healthz.NamedCheck("core-identities", func(*http.Request) error { return s.CompletedConfig.CoreIdentitiesReady() }),
+		healthz.NamedCheck("workspace-index", func(*http.Request) error { return s.IndexController.Ready() }),
 	)
 	healthz.InstallLivezHandler(mux, healthz.PingHealthz)
 
@@ -255,8 +260,9 @@ func (s preparedServer) Run(ctx context.Context) error {
 
 	// Both factories read the Admin workspace of the peers: any reachable
 	// shard suffices, the root shard is not special. Nothing is awaited
-	// before serving: /readyz reports the informers' sync and the core
-	// identities, and requests that need either fail until they are there.
+	// before serving: /readyz reports the informers' sync, the core
+	// identities and the workspace index, and requests that need any of
+	// them fail until they are there.
 	s.KcpSharedInformerFactory.Start(ctx.Done())
 	s.CoreIdentityInformerFactory.Start(ctx.Done())
 	go s.IndexController.Start(ctx, 2)

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -73,6 +74,7 @@ func NewController(
 		shardWorkspaceInformers:      map[string]cache.SharedIndexInformer{},
 		shardLogicalClusterInformers: map[string]cache.SharedIndexInformer{},
 		shardWorkspaceStopCh:         map[string]chan struct{}{},
+		shardInformersSynced:         map[string][]cache.InformerSynced{},
 
 		state: *index.New([]index.PathRewriter{
 			indexrewriters.UserRewriter,
@@ -133,6 +135,9 @@ type Controller struct {
 	shardWorkspaceInformers      map[string]cache.SharedIndexInformer
 	shardLogicalClusterInformers map[string]cache.SharedIndexInformer
 	shardWorkspaceStopCh         map[string]chan struct{}
+	// shardInformersSynced holds, per shard, the sync state of its
+	// informers; Ready consults it.
+	shardInformersSynced map[string][]cache.InformerSynced
 
 	state index.State
 }
@@ -274,6 +279,7 @@ func (c *Controller) process(ctx context.Context, key string) error {
 		c.shardWorkspaceInformers[shard.Name] = wsInformer
 		c.shardLogicalClusterInformers[shard.Name] = twInformer
 		c.shardWorkspaceStopCh[shard.Name] = stopCh
+		c.shardInformersSynced[shard.Name] = []cache.InformerSynced{wsInformer.HasSynced, twInformer.HasSynced}
 
 		go wsInformer.Run(stopCh)
 		go twInformer.Run(stopCh)
@@ -296,6 +302,38 @@ func (c *Controller) stopShard(shardName string) {
 	delete(c.shardWorkspaceStopCh, shardName)
 	delete(c.shardWorkspaceInformers, shardName)
 	delete(c.shardLogicalClusterInformers, shardName)
+	delete(c.shardInformersSynced, shardName)
+}
+
+// Ready reports whether the index knows the workspaces and logical clusters
+// of every Shard: for each Shard the lister knows, the per-shard informers
+// have been started and have completed their initial list. Until then a
+// lookup of a cluster on a not yet indexed shard answers "not found", which
+// the proxy turns into a 404 and the service account authenticator into a
+// 401, so this is a readiness check rather than a liveness one. A Shard
+// whose informers are not running yet, e.g. because its client cannot be
+// built, keeps the index not ready.
+func (c *Controller) Ready() error {
+	shards, err := c.shardLister.List(labels.Everything())
+	if err != nil {
+		return fmt.Errorf("listing shards: %w", err)
+	}
+
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	for _, shard := range shards {
+		synced, found := c.shardInformersSynced[shard.Name]
+		if !found {
+			return fmt.Errorf("informers for shard %q are not started", shard.Name)
+		}
+		for _, hasSynced := range synced {
+			if !hasSynced() {
+				return fmt.Errorf("informers for shard %q have not synced", shard.Name)
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Controller) Lookup(path logicalcluster.Path) (index.Result, bool) {

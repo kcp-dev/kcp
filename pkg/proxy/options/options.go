@@ -30,11 +30,12 @@ type Options struct {
 	Authentication Authentication
 	MappingFile    string
 	RootDirectory  string
-	// RootKubeconfig is accepted so that existing deployments keep starting.
+	// RootKubeconfig is parsed but ignored. The proxy does not use the root
+	// shard: shard discovery, the core identities and service account lookups
+	// go through the peers, and --shard-peer-kubeconfig is required. A proxy
+	// started with --root-kubeconfig alone fails validation.
 	//
-	// Deprecated: ignored. The proxy does not use the root shard; shard
-	// discovery, the core identities and service account lookups go through
-	// the peers.
+	// Deprecated: ignored, to be removed.
 	RootKubeconfig        string
 	ShardsKubeconfig      string
 	ShardsPeerKubeconfigs []string
@@ -63,8 +64,8 @@ func (o *Options) AddFlags(fss *cliflag.NamedFlagSets) {
 	fs := fss.FlagSet("proxy")
 	fs.StringVar(&o.MappingFile, "mapping-file", o.MappingFile, "Config file mapping paths to backends")
 	fs.StringVar(&o.RootDirectory, "root-directory", o.RootDirectory, "Root directory.")
-	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", "", "Ignored. The proxy does not use the root shard any more.")
-	if err := fs.MarkDeprecated("root-kubeconfig", "it is ignored; the proxy discovers shards, the core identities and service accounts through --shard-peer-kubeconfig."); err != nil {
+	fs.StringVar(&o.RootKubeconfig, "root-kubeconfig", "", "Ignored. The proxy does not use the root shard any more; --shard-peer-kubeconfig is required instead.")
+	if err := fs.MarkDeprecated("root-kubeconfig", "it is ignored; the proxy discovers shards, the core identities and service accounts through --shard-peer-kubeconfig, which is required."); err != nil {
 		panic(err)
 	}
 	fs.StringVar(&o.ShardsKubeconfig, "shards-kubeconfig", o.ShardsKubeconfig, "The path to the kubeconfig used for communication with all shards. The server name if provided is replaced with a shard's hostname.")

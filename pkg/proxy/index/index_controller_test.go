@@ -28,19 +28,24 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
 	"github.com/kcp-dev/kcp/pkg/index"
 )
 
 func newTestController() *Controller {
+	shardIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	return &Controller{
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "test"},
 		),
+		shardIndexer:                 shardIndexer,
+		shardLister:                  corev1alpha1listers.NewShardLister(shardIndexer),
 		shardWorkspaceInformers:      map[string]cache.SharedIndexInformer{},
 		shardLogicalClusterInformers: map[string]cache.SharedIndexInformer{},
 		shardWorkspaceStopCh:         map[string]chan struct{}{},
+		shardInformersSynced:         map[string][]cache.InformerSynced{},
 		state:                        *index.New(nil),
 	}
 }
@@ -110,4 +115,43 @@ func TestOnShardDelete(t *testing.T) {
 
 	_, found := c.state.LookupURL(logicalcluster.NewPath("myws"))
 	require.False(t, found, "expected the shard's clusters to be unroutable after delete")
+}
+
+// TestReady walks the readiness of the index through the life of a shard:
+// unknown, known but informers not started, started but still syncing,
+// synced, and gone.
+func TestReady(t *testing.T) {
+	t.Parallel()
+	c := newTestController()
+
+	require.NoError(t, c.Ready(), "an index without shards is ready")
+
+	alpha := shardObj("alpha", "https://alpha")
+	require.NoError(t, c.shardIndexer.Add(alpha))
+	err := c.Ready()
+	require.Error(t, err, "a shard without informers keeps the index not ready")
+	require.Contains(t, err.Error(), `"alpha"`)
+	require.Contains(t, err.Error(), "not started")
+
+	synced := false
+	c.lock.Lock()
+	c.shardInformersSynced["alpha"] = []cache.InformerSynced{func() bool { return true }, func() bool { return synced }}
+	c.lock.Unlock()
+	err = c.Ready()
+	require.Error(t, err, "a shard whose informers have not synced keeps the index not ready")
+	require.Contains(t, err.Error(), "not synced")
+
+	synced = true
+	require.NoError(t, c.Ready(), "all informers synced")
+
+	beta := shardObj("beta", "https://beta")
+	require.NoError(t, c.shardIndexer.Add(beta))
+	require.Error(t, c.Ready(), "a new shard is not ready until its informers are")
+
+	c.stopShard("beta")
+	require.NoError(t, c.shardIndexer.Delete(beta))
+	require.NoError(t, c.Ready(), "a deleted shard no longer counts")
+
+	c.stopShard("alpha")
+	require.Error(t, c.Ready(), "stopping the informers of a shard that still exists makes the index not ready")
 }

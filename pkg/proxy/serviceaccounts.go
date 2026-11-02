@@ -51,8 +51,15 @@ type ShardRoutedServiceAccounts struct {
 	shardsConfig *rest.Config
 
 	mu      sync.Mutex
-	index   shardIndex                                         // nil until the index controller exists
-	clients map[string]kcpkubernetesclientset.ClusterInterface // by shard base URL
+	index   shardIndex             // nil until the index controller exists
+	clients map[string]shardClient // by shard name
+}
+
+// shardClient is a client for one shard, remembered with the base URL it
+// was built for so that a shard moving to a new URL gets a new client.
+type shardClient struct {
+	baseURL string
+	client  kcpkubernetesclientset.ClusterInterface
 }
 
 // NewShardRoutedServiceAccounts creates the lookup over the shards credential.
@@ -61,7 +68,7 @@ type ShardRoutedServiceAccounts struct {
 func NewShardRoutedServiceAccounts(shardsConfig *rest.Config) *ShardRoutedServiceAccounts {
 	return &ShardRoutedServiceAccounts{
 		shardsConfig: shardsConfig,
-		clients:      map[string]kcpkubernetesclientset.ClusterInterface{},
+		clients:      map[string]shardClient{},
 	}
 }
 
@@ -99,16 +106,28 @@ func (s *ShardRoutedServiceAccounts) clientFor(cluster logicalcluster.Name) (kcp
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if client, ok := s.clients[baseURL]; ok {
-		return client, nil
+	if cached, ok := s.clients[result.Shard]; ok && cached.baseURL == baseURL {
+		return cached.client, nil
 	}
+
+	// A miss means the shard set changed: a shard is new or moved. Shards
+	// are few and short-lived ones come and go, so this is the moment to
+	// drop the clients of shards the index no longer knows, or knows under
+	// another URL, instead of letting the cache grow for the life of the
+	// process.
+	for name, cached := range s.clients {
+		if current, ok := index.BaseURL(name); !ok || current != cached.baseURL {
+			delete(s.clients, name)
+		}
+	}
+
 	config := rest.CopyConfig(s.shardsConfig)
 	config.Host = baseURL
 	client, err := kcpkubernetesclientset.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
-	s.clients[baseURL] = client
+	s.clients[result.Shard] = shardClient{baseURL: baseURL, client: client}
 	return client, nil
 }
 
