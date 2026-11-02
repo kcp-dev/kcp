@@ -182,6 +182,7 @@ func WithMountProxy(apiHandler http.Handler, transport http.RoundTripper, authz 
 
 		proxy := &httputil.ReverseProxy{
 			Transport: transport,
+			ErrorLog:  logging.NewReverseProxyErrorLog(logger),
 			Rewrite: func(pr *httputil.ProxyRequest) {
 				pr.SetURL(target.URL)
 				setMountProxyHeaders(pr.Out.Header, u, hops+1)

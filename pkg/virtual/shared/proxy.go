@@ -25,7 +25,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 
+	"k8s.io/klog/v2"
+
 	"github.com/kcp-dev/kcp/pkg/authentication"
+	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
 // ServeProxy strips any client-supplied auth/impersonation headers from the
@@ -42,6 +45,7 @@ func ServeProxy(writer http.ResponseWriter, request *http.Request, forwardedHost
 			pr.Out.URL.Host = forwardedHost.Host
 		},
 		Transport: rt,
+		ErrorLog:  logging.NewReverseProxyErrorLog(klog.FromContext(request.Context())),
 	}
 	proxy.ServeHTTP(writer, request)
 }

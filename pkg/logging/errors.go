@@ -19,8 +19,12 @@ package logging
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
+	"strings"
 	"syscall"
+
+	"k8s.io/klog/v2"
 )
 
 // IsClientDisconnect reports whether err means the client went away rather than
@@ -42,4 +46,75 @@ func IsClientDisconnect(ctx context.Context, err error) bool {
 		errors.Is(err, http.ErrAbortHandler) ||
 		errors.Is(err, syscall.EPIPE) ||
 		errors.Is(err, syscall.ECONNRESET)
+}
+
+// routineProxyErrors maps the httputil.ReverseProxy log prefixes to the error
+// texts that mean the stream was ended by a deadline or by the client, rather
+// than by the backend failing. Only these combinations are demoted; the same
+// error text under any other prefix (for example a transport error) is still
+// an error.
+var routineProxyErrors = []struct {
+	prefix  string
+	endings []string
+}{
+	{
+		// Logged when reading the backend response body fails. The outbound
+		// request context derives from the inbound one, so a watch hitting its
+		// timeout or a client hanging up shows up here as a cancelled or expired
+		// context. A backend resetting the connection is a real fault and stays
+		// an error.
+		prefix: "httputil: ReverseProxy read error during body copy: ",
+		endings: []string{
+			context.Canceled.Error(),
+			context.DeadlineExceeded.Error(),
+		},
+	},
+	{
+		// Logged by the default ErrorHandler. A cancelled context means the
+		// client went away before the backend answered; a deadline here can be
+		// a hung backend, so it stays an error.
+		prefix:  "http: proxy error: ",
+		endings: []string{context.Canceled.Error()},
+	},
+}
+
+// NewReverseProxyErrorLog returns a logger for httputil.ReverseProxy.ErrorLog.
+//
+// Without one, the proxy writes to the standard library logger, which ends up in
+// klog without a level a log pipeline can trust. Most of what it reports there
+// is a watch reaching its timeout mid-stream ("read error during body copy:
+// context deadline exceeded") or a client going away, which happens all the
+// time on a busy proxy and is not a fault. Those are logged at V(4); anything
+// else is logged as an error.
+func NewReverseProxyErrorLog(logger klog.Logger) *log.Logger {
+	return log.New(reverseProxyLogWriter{logger: logger}, "", 0)
+}
+
+type reverseProxyLogWriter struct {
+	logger klog.Logger
+}
+
+func (w reverseProxyLogWriter) Write(p []byte) (int, error) {
+	msg := strings.TrimSpace(string(p))
+	if isRoutineProxyError(msg) {
+		w.logger.V(4).Info(msg)
+		return len(p), nil
+	}
+	w.logger.Error(nil, msg)
+	return len(p), nil
+}
+
+func isRoutineProxyError(msg string) bool {
+	for _, r := range routineProxyErrors {
+		rest, ok := strings.CutPrefix(msg, r.prefix)
+		if !ok {
+			continue
+		}
+		for _, ending := range r.endings {
+			if strings.HasSuffix(rest, ending) {
+				return true
+			}
+		}
+	}
+	return false
 }

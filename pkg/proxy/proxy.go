@@ -26,7 +26,9 @@ import (
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
 	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 )
@@ -68,7 +70,7 @@ func WithProxyAuthHeaders(delegate http.Handler, userHeader, groupHeader string,
 	}
 }
 
-func newShardReverseProxy() *httputil.ReverseProxy {
+func newShardReverseProxy(logger klog.Logger) *httputil.ReverseProxy {
 	rewrite := func(pr *httputil.ProxyRequest) {
 		shardURL := lookup.ShardURLFrom(pr.In.Context())
 		if shardURL == nil {
@@ -83,5 +85,5 @@ func newShardReverseProxy() *httputil.ReverseProxy {
 		pr.Out.URL.Host = shardURL.Host
 		pr.Out.URL.Path = shardURL.Path
 	}
-	return &httputil.ReverseProxy{Rewrite: rewrite}
+	return &httputil.ReverseProxy{Rewrite: rewrite, ErrorLog: logging.NewReverseProxyErrorLog(logger)}
 }

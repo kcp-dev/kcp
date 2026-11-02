@@ -38,6 +38,7 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -48,6 +49,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
 	"github.com/kcp-dev/kcp/pkg/endpointslice"
 	"github.com/kcp-dev/kcp/pkg/indexers"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
@@ -315,7 +317,7 @@ func (s *Server) handleResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vrHandler, err := newVirtualResourceHandler(s.Extra.VWClientConfig, vrEndpointURL, clusterNameOrWildcard.String(), inboundHops)
+	vrHandler, err := newVirtualResourceHandler(klog.FromContext(ctx), s.Extra.VWClientConfig, vrEndpointURL, clusterNameOrWildcard.String(), inboundHops)
 	if err != nil {
 		utilruntime.HandleError(err)
 		responsewriters.ErrorNegotiated(
@@ -396,7 +398,7 @@ func (s *Server) getAPIBindingForRequest(
 	return nil, nil
 }
 
-func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard string, inboundHops int) (http.Handler, error) {
+func newVirtualResourceHandler(logger klog.Logger, cfg *rest.Config, vwURL, clusterNameOrWildcard string, inboundHops int) (http.Handler, error) {
 	scopedURL, err := url.Parse(virtualResourceURLWithCluster(vwURL, clusterNameOrWildcard))
 	if err != nil {
 		return nil, err
@@ -409,6 +411,7 @@ func newVirtualResourceHandler(cfg *rest.Config, vwURL, clusterNameOrWildcard st
 
 	proxy := &httputil.ReverseProxy{
 		Transport: tr,
+		ErrorLog:  logging.NewReverseProxyErrorLog(logger),
 		Rewrite: func(r *httputil.ProxyRequest) {
 			r.SetURL(scopedURL)
 			hops.SetHeader(r.Out.Header, inboundHops+1)

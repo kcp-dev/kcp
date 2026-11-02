@@ -37,6 +37,7 @@ import (
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
 
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces"
 )
 
@@ -106,6 +107,7 @@ func newMigratingHandler(cfg *rest.Config) (http.Handler, error) {
 	}
 	proxy := &httputil.ReverseProxy{
 		Transport: transport,
+		ErrorLog:  logging.NewReverseProxyErrorLog(klog.Background()),
 		Rewrite:   func(*httputil.ProxyRequest) {}, // request is fully rewritten before ServeHTTP forwards
 	}
 	return &migratingHandler{proxy: proxy, host: target.Host}, nil

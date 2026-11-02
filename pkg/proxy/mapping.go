@@ -29,6 +29,7 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/proxy/metrics"
 	"github.com/kcp-dev/kcp/pkg/server/proxy"
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
@@ -81,7 +82,7 @@ func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler
 
 		var handler http.Handler
 		if isShardMapping(m) {
-			clusterProxy := newShardReverseProxy()
+			clusterProxy := newShardReverseProxy(logger)
 			clusterProxy.Transport = transport
 			clusterProxy.ErrorHandler = metrics.NewProxyErrorHandler()
 			handler = clusterProxy
@@ -90,6 +91,7 @@ func NewHandler(ctx context.Context, mappings []types.PathMapping) (http.Handler
 			proxy := httputil.NewSingleHostReverseProxy(u)
 			proxy.Transport = transport
 			proxy.ErrorHandler = metrics.NewProxyErrorHandler()
+			proxy.ErrorLog = logging.NewReverseProxyErrorLog(logger)
 			handler = proxy
 		}
 

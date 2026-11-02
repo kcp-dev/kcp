@@ -27,6 +27,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
 )
@@ -36,7 +37,7 @@ import (
 func forward(t *testing.T, req *http.Request) http.Header {
 	t.Helper()
 
-	handler, err := newVirtualResourceHandler(&rest.Config{Host: "https://vw.example.com"},
+	handler, err := newVirtualResourceHandler(klog.Background(), &rest.Config{Host: "https://vw.example.com"},
 		"https://vw.example.com/services/ephemeral/cluster/export", "cluster", 0)
 	require.NoError(t, err)
 

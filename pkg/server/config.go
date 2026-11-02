@@ -48,6 +48,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/controlplane"
 	controlplaneapiserver "k8s.io/kubernetes/pkg/controlplane/apiserver"
@@ -76,6 +77,7 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/indexers"
 	"github.com/kcp-dev/kcp/pkg/informer"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/network"
 	"github.com/kcp-dev/kcp/pkg/objectcount"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
@@ -597,6 +599,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		// Only include this when the virtual workspace server is external
 		if shardVirtualWorkspaceURL != nil && virtualWorkspaceServerProxyTransport != nil {
 			proxy := &httputil.ReverseProxy{
+				ErrorLog: logging.NewReverseProxyErrorLog(klog.FromContext(ctx)),
 				Rewrite: func(pr *httputil.ProxyRequest) {
 					pr.Out.URL.Scheme = shardVirtualWorkspaceURL.Scheme
 					pr.Out.URL.Host = shardVirtualWorkspaceURL.Host
