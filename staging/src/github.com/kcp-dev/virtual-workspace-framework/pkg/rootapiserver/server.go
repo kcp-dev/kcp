@@ -67,6 +67,10 @@ type Server struct {
 }
 
 func NewServer(c CompletedConfig, delegationTarget genericapiserver.DelegationTarget) (*Server, error) {
+	if err := validatePatterns(c.Extra.VirtualWorkspaces); err != nil {
+		return nil, err
+	}
+
 	delegateAPIServer := delegationTarget
 	for _, vw := range c.Extra.VirtualWorkspaces {
 		var err error
@@ -177,6 +181,17 @@ func cleanPath(p string) string {
 		np += "/"
 	}
 	return np
+}
+
+// validatePatterns rejects virtual workspaces without a path pattern,
+// which would never be routed to.
+func validatePatterns(vws []NamedVirtualWorkspace) error {
+	for _, vw := range vws {
+		if len(vw.Patterns) == 0 {
+			return fmt.Errorf("virtual workspace %q has no path patterns", vw.Name)
+		}
+	}
+	return nil
 }
 
 // byPattern groups virtual workspaces by path pattern,

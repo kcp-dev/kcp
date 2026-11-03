@@ -234,6 +234,13 @@ func TestPatternRouterPanicsOnInvalidPattern(t *testing.T) {
 	require.Panics(t, func() { newPatternRouter(vws, http.NotFoundHandler()) })
 }
 
+func TestValidatePatterns(t *testing.T) {
+	t.Parallel()
+
+	require.NoError(t, validatePatterns([]NamedVirtualWorkspace{named("a", acceptAll, "/services/a")}))
+	require.ErrorContains(t, validatePatterns([]NamedVirtualWorkspace{named("a", acceptAll)}), `virtual workspace "a" has no path patterns`)
+}
+
 func TestClusterFromSegment(t *testing.T) {
 	t.Parallel()
 
