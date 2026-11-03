@@ -313,6 +313,12 @@ func (c *Controller) stopShard(shardName string) {
 // 401, so this is a readiness check rather than a liveness one. A Shard
 // whose informers are not running yet, e.g. because its client cannot be
 // built, keeps the index not ready.
+//
+// Cordoned Shards, those carrying the unschedulable annotation, are left
+// out: cordoning is how a shard is put into maintenance, and a shard that
+// is down for maintenance must not keep every proxy out of rotation, least
+// of all on a proxy restart during the maintenance. Their workspaces are
+// routable once their informers have synced.
 func (c *Controller) Ready() error {
 	shards, err := c.shardLister.List(labels.Everything())
 	if err != nil {
@@ -323,6 +329,9 @@ func (c *Controller) Ready() error {
 	defer c.lock.RUnlock()
 
 	for _, shard := range shards {
+		if _, cordoned := shard.Annotations[corev1alpha1.ShardUnschedulableAnnotationKey]; cordoned {
+			continue
+		}
 		synced, found := c.shardInformersSynced[shard.Name]
 		if !found {
 			return fmt.Errorf("informers for shard %q are not started", shard.Name)

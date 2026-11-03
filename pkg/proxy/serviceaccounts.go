@@ -19,6 +19,7 @@ package proxy
 import (
 	"context"
 	"sync"
+	"time"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,12 +32,19 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/kubernetes/pkg/serviceaccount"
 
+	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	kcpcorev1client "github.com/kcp-dev/client-go/kubernetes/typed/core/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	kcpindex "github.com/kcp-dev/kcp/pkg/index"
+	"github.com/kcp-dev/kcp/pkg/shardlookup"
 )
+
+// lookupTimeout bounds a ServiceAccount or Secret GET against a shard. The
+// GET is shared by every request waiting on the same key, so it does not
+// run under any one request's context.
+const lookupTimeout = 30 * time.Second
 
 // ShardRoutedServiceAccounts looks ServiceAccounts and their token Secrets up
 // on the shard that hosts the logical cluster a service account token names,
@@ -47,8 +55,18 @@ import (
 // It serves two roles for the authenticator: the token getter, through
 // Cluster, and the writer the legacy token validator stamps last-used
 // annotations with, through SecretsWriter.
+//
+// ServiceAccounts and Secrets are cached per logical cluster for
+// shardlookup.DefaultSuccessTTL, failed lookups for DefaultFailureTTL, the
+// same as the shards cache them for logical clusters on other shards. A
+// deleted service account or token secret therefore keeps authenticating
+// at the proxy for up to that long. Index misses are not cached: a cluster
+// the index learns about is found on the next request.
 type ShardRoutedServiceAccounts struct {
 	shardsConfig *rest.Config
+
+	serviceAccounts *shardlookup.TTLCache[*corev1.ServiceAccount]
+	secrets         *shardlookup.TTLCache[*corev1.Secret]
 
 	mu      sync.Mutex
 	index   shardIndex             // nil until the index controller exists
@@ -65,11 +83,25 @@ type shardClient struct {
 // NewShardRoutedServiceAccounts creates the lookup over the shards credential.
 // The index is attached with SetIndex once the index controller exists;
 // lookups before that fail with ServiceUnavailable.
+// Call Start to evict expired entries in the background.
 func NewShardRoutedServiceAccounts(shardsConfig *rest.Config) *ShardRoutedServiceAccounts {
+	return newShardRoutedServiceAccounts(shardsConfig, shardlookup.TTLOptions{})
+}
+
+func newShardRoutedServiceAccounts(shardsConfig *rest.Config, ttl shardlookup.TTLOptions) *ShardRoutedServiceAccounts {
 	return &ShardRoutedServiceAccounts{
-		shardsConfig: shardsConfig,
-		clients:      map[string]shardClient{},
+		shardsConfig:    shardsConfig,
+		serviceAccounts: shardlookup.NewTTLCacheWithOptions[*corev1.ServiceAccount](ttl),
+		secrets:         shardlookup.NewTTLCacheWithOptions[*corev1.Secret](ttl),
+		clients:         map[string]shardClient{},
 	}
+}
+
+// Start evicts expired cache entries until ctx is done. Lookups do not
+// depend on it; without it expired entries stay in memory until replaced.
+func (s *ShardRoutedServiceAccounts) Start(ctx context.Context) {
+	s.serviceAccounts.StartWithContext(ctx)
+	s.secrets.StartWithContext(ctx)
 }
 
 // shardIndex is the part of the proxy's index the lookups need: which shard
@@ -148,11 +180,18 @@ type clusterServiceAccounts struct {
 }
 
 func (c clusterServiceAccounts) GetServiceAccount(ctx context.Context, namespace, name string) (*corev1.ServiceAccount, error) {
+	// The shard is resolved outside the cache so that an index miss is not
+	// cached as a failed lookup.
 	client, err := c.lookup.clientFor(c.cluster)
 	if err != nil {
 		return nil, err
 	}
-	return client.Cluster(c.cluster.Path()).CoreV1().ServiceAccounts(namespace).Get(ctx, name, metav1.GetOptions{})
+	key := kcpcache.ToClusterAwareKey(c.cluster.String(), namespace, name)
+	return c.lookup.serviceAccounts.Get(key, func() (*corev1.ServiceAccount, error) {
+		ctx, cancel := lookupContext(ctx)
+		defer cancel()
+		return client.Cluster(c.cluster.Path()).CoreV1().ServiceAccounts(namespace).Get(ctx, name, metav1.GetOptions{})
+	}, nil)
 }
 
 func (c clusterServiceAccounts) GetSecret(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
@@ -160,7 +199,19 @@ func (c clusterServiceAccounts) GetSecret(ctx context.Context, namespace, name s
 	if err != nil {
 		return nil, err
 	}
-	return client.Cluster(c.cluster.Path()).CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+	key := kcpcache.ToClusterAwareKey(c.cluster.String(), namespace, name)
+	return c.lookup.secrets.Get(key, func() (*corev1.Secret, error) {
+		ctx, cancel := lookupContext(ctx)
+		defer cancel()
+		return client.Cluster(c.cluster.Path()).CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+	}, nil)
+}
+
+// lookupContext keeps the values of the request context but not its
+// cancellation: the GET is shared with every request waiting on the same
+// key, and one of them going away must not fail the others.
+func lookupContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), lookupTimeout)
 }
 
 // GetPod and GetNode back bound tokens of pods and nodes, which do not exist

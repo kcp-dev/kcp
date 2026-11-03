@@ -266,6 +266,7 @@ func (s preparedServer) Run(ctx context.Context) error {
 	s.KcpSharedInformerFactory.Start(ctx.Done())
 	s.CoreIdentityInformerFactory.Start(ctx.Done())
 	go s.IndexController.Start(ctx, 2)
+	s.CompletedConfig.ServiceAccounts.Start(ctx)
 	if s.AuthController != nil {
 		go s.AuthController.Start(ctx, 2)
 	}

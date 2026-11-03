@@ -25,6 +25,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -36,31 +37,13 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	kcpindex "github.com/kcp-dev/kcp/pkg/index"
+	"github.com/kcp-dev/kcp/pkg/index/indextest"
+	"github.com/kcp-dev/kcp/pkg/shardlookup"
 )
 
-// fakeIndex maps logical clusters to shards and shards to base URLs.
-type fakeIndex struct {
-	shards map[logicalcluster.Name]string
-	urls   map[string]string
-}
-
-func (f fakeIndex) Lookup(path logicalcluster.Path) (kcpindex.Result, bool) {
-	name, ok := path.Name()
-	if !ok {
-		return kcpindex.Result{}, false
-	}
-	shard, ok := f.shards[name]
-	if !ok {
-		return kcpindex.Result{}, false
-	}
-	return kcpindex.Result{Shard: shard, Cluster: name, URL: f.urls[shard]}, true
-}
-
-func (f fakeIndex) BaseURL(shard string) (string, bool) {
-	url, ok := f.urls[shard]
-	return url, ok
-}
+// noCache expires every cached lookup at once, for tests that count the
+// requests reaching the shards.
+var noCache = shardlookup.TTLOptions{SuccessTTL: time.Nanosecond, FailureTTL: time.Nanosecond}
 
 // fakeShard is a shard answering the lookups the authenticator makes for
 // the service accounts and token secrets it holds, in any logical cluster.
@@ -167,9 +150,9 @@ func TestShardRoutedServiceAccounts(t *testing.T) {
 	_, err := lookup.Cluster("ws1").GetServiceAccount(ctx, "default", "sa")
 	require.True(t, apierrors.IsServiceUnavailable(err), "got %v", err)
 
-	lookup.SetIndex(fakeIndex{
-		shards: map[logicalcluster.Name]string{"ws1": "shard-a"},
-		urls:   map[string]string{"shard-a": shard.URL},
+	lookup.SetIndex(&indextest.Index{
+		Clusters: map[logicalcluster.Name]string{"ws1": "shard-a"},
+		Shards:   map[string]string{"shard-a": shard.URL},
 	})
 
 	t.Log("looks the service account and secret up on the hosting shard")
@@ -216,12 +199,12 @@ func TestShardRoutedServiceAccountsClientCache(t *testing.T) {
 	}
 
 	config := &rest.Config{Host: "https://kcp.io/fake", TLSClientConfig: rest.TLSClientConfig{Insecure: true}}
-	lookup := NewShardRoutedServiceAccounts(config)
+	lookup := newShardRoutedServiceAccounts(config, noCache)
 	ctx := context.Background()
 
-	lookup.SetIndex(fakeIndex{
-		shards: map[logicalcluster.Name]string{"ws1": "shard-a", "ws2": "shard-b"},
-		urls:   map[string]string{"shard-a": shardA.URL, "shard-b": shardB.URL},
+	lookup.SetIndex(&indextest.Index{
+		Clusters: map[logicalcluster.Name]string{"ws1": "shard-a", "ws2": "shard-b"},
+		Shards:   map[string]string{"shard-a": shardA.URL, "shard-b": shardB.URL},
 	})
 
 	t.Log("one client per shard, reused across lookups")
@@ -236,9 +219,9 @@ func TestShardRoutedServiceAccountsClientCache(t *testing.T) {
 	require.EqualValues(t, 1, shardB.requests.Load())
 
 	t.Log("a shard the index forgot loses its client once another shard is looked up afresh")
-	lookup.SetIndex(fakeIndex{
-		shards: map[logicalcluster.Name]string{"ws2": "shard-b", "ws3": "shard-c"},
-		urls:   map[string]string{"shard-b": shardB.URL, "shard-c": shardC.URL},
+	lookup.SetIndex(&indextest.Index{
+		Clusters: map[logicalcluster.Name]string{"ws2": "shard-b", "ws3": "shard-c"},
+		Shards:   map[string]string{"shard-b": shardB.URL, "shard-c": shardC.URL},
 	})
 	_, err = lookup.Cluster("ws2").GetServiceAccount(ctx, "default", "sa")
 	require.NoError(t, err)
@@ -249,9 +232,9 @@ func TestShardRoutedServiceAccountsClientCache(t *testing.T) {
 	require.EqualValues(t, 1, shardC.requests.Load())
 
 	t.Log("a shard that moved to a new URL gets a new client")
-	lookup.SetIndex(fakeIndex{
-		shards: map[logicalcluster.Name]string{"ws2": "shard-b", "ws3": "shard-c"},
-		urls:   map[string]string{"shard-b": shardA.URL, "shard-c": shardC.URL},
+	lookup.SetIndex(&indextest.Index{
+		Clusters: map[logicalcluster.Name]string{"ws2": "shard-b", "ws3": "shard-c"},
+		Shards:   map[string]string{"shard-b": shardA.URL, "shard-c": shardC.URL},
 	})
 	before := shardA.requests.Load()
 	_, err = lookup.Cluster("ws2").GetServiceAccount(ctx, "default", "sa")
@@ -259,4 +242,66 @@ func TestShardRoutedServiceAccountsClientCache(t *testing.T) {
 	require.ElementsMatch(t, []string{"shard-b", "shard-c"}, lookup.cachedShards())
 	require.Equal(t, before+1, shardA.requests.Load(), "the request went to the shard's new URL")
 	require.EqualValues(t, 2, shardB.requests.Load(), "the old URL is not asked any more")
+}
+
+// TestShardRoutedServiceAccountsResultCache checks that service accounts and
+// secrets are cached per logical cluster, failed lookups included, and that
+// index misses are not.
+func TestShardRoutedServiceAccountsResultCache(t *testing.T) {
+	t.Parallel()
+
+	shard := newFakeShard(t)
+	shard.add(
+		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "sa", Namespace: "default", UID: "sa-uid"}},
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "token", Namespace: "default"}},
+	)
+
+	config := &rest.Config{Host: "https://kcp.io/fake", TLSClientConfig: rest.TLSClientConfig{Insecure: true}}
+	lookup := newShardRoutedServiceAccounts(config, shardlookup.TTLOptions{SuccessTTL: time.Hour, FailureTTL: time.Hour})
+	ctx := context.Background()
+
+	index := &indextest.Index{
+		Clusters: map[logicalcluster.Name]string{"ws1": "shard-a", "ws2": "shard-a"},
+		Shards:   map[string]string{"shard-a": shard.URL},
+	}
+	lookup.SetIndex(index)
+
+	t.Log("repeated lookups of a service account and a secret ask the shard once each")
+	for range 3 {
+		_, err := lookup.Cluster("ws1").GetServiceAccount(ctx, "default", "sa")
+		require.NoError(t, err)
+		_, err = lookup.Cluster("ws1").GetSecret(ctx, "default", "token")
+		require.NoError(t, err)
+	}
+	require.EqualValues(t, 2, shard.requests.Load())
+
+	t.Log("the same name in another logical cluster is another entry")
+	_, err := lookup.Cluster("ws2").GetServiceAccount(ctx, "default", "sa")
+	require.NoError(t, err)
+	require.EqualValues(t, 3, shard.requests.Load())
+
+	t.Log("a service account the shard does not have is cached as not found")
+	for range 2 {
+		_, err = lookup.Cluster("ws1").GetServiceAccount(ctx, "default", "missing")
+		require.True(t, apierrors.IsNotFound(err), "got %v", err)
+	}
+	require.EqualValues(t, 4, shard.requests.Load())
+
+	t.Log("an index miss is not cached: the cluster is found once the index knows it")
+	_, err = lookup.Cluster("ws3").GetServiceAccount(ctx, "default", "sa")
+	require.True(t, apierrors.IsNotFound(err), "got %v", err)
+	lookup.SetIndex(&indextest.Index{
+		Clusters: map[logicalcluster.Name]string{"ws3": "shard-a"},
+		Shards:   map[string]string{"shard-a": shard.URL},
+	})
+	_, err = lookup.Cluster("ws3").GetServiceAccount(ctx, "default", "sa")
+	require.NoError(t, err)
+	require.EqualValues(t, 5, shard.requests.Load())
+
+	t.Log("a cancelled request context does not fail the shared lookup")
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	_, err = lookup.Cluster("ws3").GetSecret(cancelled, "default", "token")
+	require.NoError(t, err)
+	require.EqualValues(t, 6, shard.requests.Load())
 }

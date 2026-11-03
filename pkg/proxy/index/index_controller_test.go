@@ -155,3 +155,36 @@ func TestReady(t *testing.T) {
 	c.stopShard("alpha")
 	require.Error(t, c.Ready(), "stopping the informers of a shard that still exists makes the index not ready")
 }
+
+// TestReadyCordonedShard checks that a cordoned shard, i.e. one in
+// maintenance, does not hold the index back, and counts again once it is
+// uncordoned.
+func TestReadyCordonedShard(t *testing.T) {
+	t.Parallel()
+	c := newTestController()
+
+	alpha := shardObj("alpha", "https://alpha")
+	require.NoError(t, c.shardIndexer.Add(alpha))
+	c.lock.Lock()
+	c.shardInformersSynced["alpha"] = []cache.InformerSynced{func() bool { return true }}
+	c.lock.Unlock()
+
+	beta := shardObj("beta", "https://beta")
+	require.NoError(t, c.shardIndexer.Add(beta))
+	require.Error(t, c.Ready(), "an uncordoned shard that is not indexed keeps the index not ready")
+
+	cordoned := beta.DeepCopy()
+	cordoned.Annotations = map[string]string{corev1alpha1.ShardUnschedulableAnnotationKey: "true"}
+	require.NoError(t, c.shardIndexer.Update(cordoned))
+	require.NoError(t, c.Ready(), "a cordoned shard does not count")
+
+	synced := false
+	c.lock.Lock()
+	c.shardInformersSynced["beta"] = []cache.InformerSynced{func() bool { return synced }}
+	c.lock.Unlock()
+	require.NoError(t, c.shardIndexer.Update(beta))
+	require.Error(t, c.Ready(), "an uncordoned shard counts again")
+
+	synced = true
+	require.NoError(t, c.Ready())
+}

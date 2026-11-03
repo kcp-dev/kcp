@@ -39,6 +39,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/pkg/index/indextest"
 	proxyoptions "github.com/kcp-dev/kcp/pkg/proxy/options"
 )
 
@@ -83,13 +84,15 @@ func TestServiceAccountAuthenticationThroughShards(t *testing.T) {
 		}, Data: map[string][]byte{}}
 		a.shard.add(a.sa, a.secret)
 	}
-	index := fakeIndex{shards: map[logicalcluster.Name]string{}, urls: map[string]string{}}
+	index := &indextest.Index{Clusters: map[logicalcluster.Name]string{}, Shards: map[string]string{}}
 	for name, a := range accounts {
-		index.shards[a.cluster] = name
-		index.urls[name] = a.shard.URL
+		index.Clusters[a.cluster] = name
+		index.Shards[name] = a.shard.URL
 	}
 
-	lookup := NewShardRoutedServiceAccounts(&rest.Config{Host: "https://kcp.io/fake", TLSClientConfig: rest.TLSClientConfig{Insecure: true}})
+	// Uncached: every token below must reach its shard, and the legacy
+	// tokens are re-minted into the same secret.
+	lookup := newShardRoutedServiceAccounts(&rest.Config{Host: "https://kcp.io/fake", TLSClientConfig: rest.TLSClientConfig{Insecure: true}}, noCache)
 	lookup.SetIndex(index)
 
 	options := proxyoptions.NewAuthentication()
