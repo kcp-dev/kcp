@@ -44,6 +44,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
+	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/mounts"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
 	"github.com/kcp-dev/kcp/pkg/server/filters"
@@ -318,6 +319,7 @@ func NewLocalProxyHandler(defaultHandler http.Handler, additionalMappingsFile st
 		var handler http.Handler
 		p := httputil.NewSingleHostReverseProxy(u)
 		p.Transport = transport
+		p.ErrorLog = logging.NewReverseProxyErrorLog(klog.Background())
 		handler = p
 
 		userHeader := "X-Remote-User"
