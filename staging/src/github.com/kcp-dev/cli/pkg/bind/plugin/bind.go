@@ -213,35 +213,7 @@ func (b *BindOptions) Run(ctx context.Context) error {
 			return fmt.Errorf("failed to get APIExport %q: %w", apiExportName, err)
 		}
 
-		// Iterate over all permission claims defined in the APIExport
-		for _, claim := range apiExport.Spec.PermissionClaims {
-			// Build an AcceptablePermissionClaim using the SDK structs
-			parsedClaim := apisv1alpha2.AcceptablePermissionClaim{
-				ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
-					PermissionClaim: apisv1alpha2.PermissionClaim{
-						GroupResource: apisv1alpha2.GroupResource{
-							Group:    claim.Group,
-							Resource: claim.Resource,
-						},
-						Verbs: []string{"*"},
-					},
-					Selector: apisv1alpha2.PermissionClaimSelector{MatchAll: true},
-				},
-				State: apisv1alpha2.ClaimAccepted, // default; may be overridden following
-			}
-
-			// Add to accepted claims if user requested accept-all
-			if b.AcceptAllPermissionClaims {
-				parsedClaim.State = apisv1alpha2.ClaimAccepted
-				b.acceptedPermissionClaims = append(b.acceptedPermissionClaims, parsedClaim)
-			}
-
-			// Add to rejected claims if user requested reject-all
-			if b.RejectAllPermissionClaims {
-				parsedClaim.State = apisv1alpha2.ClaimRejected
-				b.rejectedPermissionClaims = append(b.rejectedPermissionClaims, parsedClaim)
-			}
-		}
+		b.addAllPermissionClaims(apiExport.Spec.PermissionClaims)
 	}
 
 	apiBinding, err := b.newAPIBinding(preferredAPIBindingVersion)
@@ -275,6 +247,40 @@ func (b *BindOptions) Run(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// addAllPermissionClaims accepts or rejects every given APIExport permission claim,
+// depending on whether --accept-all-permission-claims or --reject-all-permission-claims is set.
+func (b *BindOptions) addAllPermissionClaims(claims []apisv1alpha1.PermissionClaim) {
+	for _, claim := range claims {
+		// Build an AcceptablePermissionClaim using the SDK structs
+		parsedClaim := apisv1alpha2.AcceptablePermissionClaim{
+			ScopedPermissionClaim: apisv1alpha2.ScopedPermissionClaim{
+				PermissionClaim: apisv1alpha2.PermissionClaim{
+					GroupResource: apisv1alpha2.GroupResource{
+						Group:    claim.Group,
+						Resource: claim.Resource,
+					},
+					Verbs:        []string{"*"},
+					IdentityHash: claim.IdentityHash,
+				},
+				Selector: apisv1alpha2.PermissionClaimSelector{MatchAll: true},
+			},
+			State: apisv1alpha2.ClaimAccepted, // default; may be overridden following
+		}
+
+		// Add to accepted claims if user requested accept-all
+		if b.AcceptAllPermissionClaims {
+			parsedClaim.State = apisv1alpha2.ClaimAccepted
+			b.acceptedPermissionClaims = append(b.acceptedPermissionClaims, parsedClaim)
+		}
+
+		// Add to rejected claims if user requested reject-all
+		if b.RejectAllPermissionClaims {
+			parsedClaim.State = apisv1alpha2.ClaimRejected
+			b.rejectedPermissionClaims = append(b.rejectedPermissionClaims, parsedClaim)
+		}
+	}
 }
 
 func (b *BindOptions) newAPIBinding(preferredAPIBindingVersion string) (apishelpers.APIBinding, error) {
