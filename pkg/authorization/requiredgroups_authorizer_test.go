@@ -53,18 +53,6 @@ func TestRequiredGroupsAuthorizer(t *testing.T) {
 			wantDecision:   authorizer.DecisionNoOpinion,
 			wantReason:     "empty cluster name",
 		},
-		"system:kcp:logical-cluster-admin can always pass": {
-			requestedWorkspace: "root:ready",
-			requestingUser:     &user.DefaultInfo{Name: "lcluster-admin", Groups: []string{"system:kcp:logical-cluster-admin"}},
-			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to logical cluster admin access",
-		},
-		"system:kcp:external-logical-cluster-admin can always pass": {
-			requestedWorkspace: "root:ready",
-			requestingUser:     &user.DefaultInfo{Name: "external-lcluster-admin", Groups: []string{"system:kcp:external-logical-cluster-admin"}},
-			wantDecision:       authorizer.DecisionAllow,
-			wantReason:         "delegating due to external logical cluster admin access",
-		},
 		"service account from other cluster is denied access to logical cluster with required groups": {
 			requestedWorkspace: "root:ready",
 			requestingUser:     newServiceAccountWithCluster("sa", "anotherws"),

@@ -30,12 +30,9 @@ import (
 
 	kcpkubernetesinformers "github.com/kcp-dev/client-go/informers"
 	rbacv1listers "github.com/kcp-dev/client-go/listers/rbac/v1"
-	"github.com/kcp-dev/logicalcluster/v3"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 	rbacwrapper "github.com/kcp-dev/virtual-workspace-framework/pkg/wrappers/rbac"
 
-	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	"github.com/kcp-dev/kcp/pkg/authorization/shardpaths"
 )
 
@@ -43,7 +40,7 @@ const (
 	WorkspaceAccessNotPermittedReason = "workspace access not permitted"
 )
 
-func NewWorkspaceContentAuthorizer(localInformers, globalInformers kcpkubernetesinformers.SharedInformerFactory, localLogicalClusterLister, globalLogicalClusterLister corev1alpha1listers.LogicalClusterClusterLister) func(delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewWorkspaceContentAuthorizer(localInformers, globalInformers kcpkubernetesinformers.SharedInformerFactory, getLogicalCluster LogicalClusterGetter) func(delegate authorizer.Authorizer) authorizer.Authorizer {
 	return func(delegate authorizer.Authorizer) authorizer.Authorizer {
 		return &workspaceContentAuthorizer{
 			localClusterRoleLister:        localInformers.Rbac().V1().ClusterRoles().Lister(),
@@ -52,15 +49,7 @@ func NewWorkspaceContentAuthorizer(localInformers, globalInformers kcpkubernetes
 			globalClusterRoleLister:        globalInformers.Rbac().V1().ClusterRoles().Lister(),
 			globalClusterRoleBindingLister: globalInformers.Rbac().V1().ClusterRoleBindings().Lister(),
 
-			getLogicalCluster: func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
-				obj, err := localLogicalClusterLister.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
-				if err != nil && !errors.IsNotFound(err) {
-					return nil, err
-				} else if errors.IsNotFound(err) {
-					return globalLogicalClusterLister.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
-				}
-				return obj, nil
-			},
+			getLogicalCluster: getLogicalCluster,
 
 			delegate: delegate,
 		}
@@ -74,7 +63,7 @@ type workspaceContentAuthorizer struct {
 	globalClusterRoleBindingLister rbacv1listers.ClusterRoleBindingClusterLister
 	globalClusterRoleLister        rbacv1listers.ClusterRoleClusterLister
 
-	getLogicalCluster func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
+	getLogicalCluster LogicalClusterGetter
 
 	delegate authorizer.Authorizer
 }
@@ -104,12 +93,6 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		return DelegateAuthorization("deep SAR request", a.delegate).Authorize(ctx, attr)
 	}
 
-	// always let logical-cluster-admins through
-	effGroups := rbacregistryvalidation.EffectiveGroups(ctx, attr.GetUser())
-	if effGroups.Has(bootstrap.SystemLogicalClusterAdmin) {
-		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
-	}
-
 	// check the workspace even exists
 	logicalCluster, err := a.getLogicalCluster(cluster.Name)
 	if err != nil {
@@ -135,27 +118,6 @@ func (a *workspaceContentAuthorizer) Authorize(ctx context.Context, attr authori
 		// allowed
 	default: // Scheduling, Unavailable, Unknown, or any future phases are not allowed to access workspace content
 		return authorizer.DecisionNoOpinion, fmt.Sprintf("not permitted due to phase %q", logicalCluster.Status.Phase), nil
-	}
-
-	// Lifecycle synthetic groups (system:kcp:initializer:*, system:kcp:terminator:*)
-	// are injected by the initializing/terminating VW content proxies *after* they
-	// have evaluated the request against the WorkspaceType's
-	// initializer/terminator permissions. They cannot be self-asserted because the
-	// front-proxy drops them on ingress. Their presence is the authoritative
-	// "pre-authorized by VW" marker — delegating further would re-run RBAC against
-	// the caller's identity, which by design has no in-workspace permissions, so
-	// allow directly here.
-	//
-	// Only honor the synthetic group when the workspace is actually in a lifecycle
-	// phase (Initializing/Terminating/Deleting). For Ready workspaces a leftover
-	// lifecycle group on the caller must not grant unconditional access.
-	if HasLifecycleGroup(attr.GetUser().GetGroups()) {
-		switch logicalCluster.Status.Phase {
-		case corev1alpha1.LogicalClusterPhaseInitializing,
-			corev1alpha1.LogicalClusterPhaseTerminating,
-			corev1alpha1.LogicalClusterPhaseDeleting:
-			return authorizer.DecisionAllow, "lifecycle VW pre-authorized access", nil
-		}
 	}
 
 	switch {

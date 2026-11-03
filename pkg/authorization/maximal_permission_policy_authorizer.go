@@ -179,7 +179,11 @@ func (a *MaximalPermissionPolicyAuthorizer) Authorize(ctx context.Context, attr 
 	if dec == authorizer.DecisionAllow {
 		return DelegateAuthorization(reason, a.delegate).Authorize(ctx, attr)
 	}
-	return authorizer.DecisionNoOpinion, reason, nil
+
+	// When a MaximalPermissionPolicy applies and does not explicitly
+	// allow the authorizer must deny, otherwise an authorizer later in
+	// the chain could allow, making the MPP ineffective.
+	return authorizer.DecisionDeny, reason, nil
 }
 
 func deepCopyAttributes(attr authorizer.Attributes) authorizer.AttributesRecord {

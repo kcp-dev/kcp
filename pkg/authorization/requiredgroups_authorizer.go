@@ -26,10 +26,6 @@ import (
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 
-	"github.com/kcp-dev/logicalcluster/v3"
-	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
-	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
-
 	"github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
@@ -42,25 +38,17 @@ const (
 // NewRequiredGroupsAuthorizer returns an authorizer that a set of groups stored
 // on the LogicalCluster object. Service accounts of the logical cluster itself
 // bypass this, foreign service accounts do not.
-func NewRequiredGroupsAuthorizer(local, global corev1alpha1listers.LogicalClusterClusterLister) func(delegate authorizer.Authorizer) authorizer.Authorizer {
+func NewRequiredGroupsAuthorizer(getLogicalCluster LogicalClusterGetter) func(delegate authorizer.Authorizer) authorizer.Authorizer {
 	return func(delegate authorizer.Authorizer) authorizer.Authorizer {
 		return &requiredGroupsAuthorizer{
-			getLogicalCluster: func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error) {
-				obj, err := local.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
-				if err != nil && !errors.IsNotFound(err) {
-					return nil, err
-				} else if errors.IsNotFound(err) {
-					return global.Cluster(logicalCluster).Get(corev1alpha1.LogicalClusterName)
-				}
-				return obj, nil
-			},
-			delegate: delegate,
+			getLogicalCluster: getLogicalCluster,
+			delegate:          delegate,
 		}
 	}
 }
 
 type requiredGroupsAuthorizer struct {
-	getLogicalCluster func(logicalCluster logicalcluster.Name) (*corev1alpha1.LogicalCluster, error)
+	getLogicalCluster LogicalClusterGetter
 	delegate          authorizer.Authorizer
 }
 
@@ -76,9 +64,6 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 	}
 
 	effGroups := rbacregistryvalidation.EffectiveGroups(ctx, attr.GetUser())
-	if effGroups.Has(bootstrap.SystemLogicalClusterAdmin) {
-		return DelegateAuthorization("logical cluster admin access", a.delegate).Authorize(ctx, attr)
-	}
 
 	switch {
 	case rbacregistryvalidation.IsServiceAccount(attr.GetUser()) && rbacregistryvalidation.IsInScope(attr.GetUser(), cluster.Name):
@@ -96,11 +81,6 @@ func (a *requiredGroupsAuthorizer) Authorize(ctx context.Context, attr authorize
 				return authorizer.DecisionNoOpinion, "logical cluster not found", nil
 			}
 			return authorizer.DecisionNoOpinion, "", err
-		}
-
-		// always let external-logical-cluster-admins through
-		if effGroups.Has(bootstrap.SystemExternalLogicalClusterAdmin) {
-			return DelegateAuthorization("external logical cluster admin access", a.delegate).Authorize(ctx, attr)
 		}
 
 		// check required groups

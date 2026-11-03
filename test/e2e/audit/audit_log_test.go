@@ -80,11 +80,12 @@ func TestAuditLogs(t *testing.T) {
 	require.Equal(t, workspaceNameSent, responseAuditEvent.Annotations["tenancy.kcp.io/workspace"])
 
 	for _, annotation := range []string{
-		"request.auth.kcp.io/01-requiredgroups",
-		"request.auth.kcp.io/02-content",
-		"request.auth.kcp.io/03-systemcrd",
-		"request.auth.kcp.io/04-maxpermissionpolicy",
-		"request.auth.kcp.io/05-bootstrap",
+		"request.auth.kcp.io/pregate-existence",
+		"request.auth.kcp.io/grant-content",
+		"request.auth.kcp.io/grant-bootstrap",
+		"request.auth.kcp.io/gate-requiredgroups",
+		"request.auth.kcp.io/gate-systemcrd",
+		"request.auth.kcp.io/gate-maxpermissionpolicy",
 	} {
 		t.Logf("Verifying authorization annotations on audit events: %s", annotation)
 		if _, ok := responseAuditEvent.Annotations[annotation+"-decision"]; !ok {
