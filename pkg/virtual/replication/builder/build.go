@@ -19,11 +19,9 @@ package builder
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
+	"path"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -31,7 +29,6 @@ import (
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
-	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
@@ -49,6 +46,16 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/replication/controllers/apireconciler"
 )
 
+const (
+	sliceClusterWildcard = "sliceCluster"
+	sliceNameWildcard    = "sliceName"
+)
+
+// pathPattern returns the mux pattern of the virtual workspace below rootPathPrefix.
+func pathPattern(rootPathPrefix string) string {
+	return path.Join(rootPathPrefix, "{sliceCluster}/{sliceName}/clusters/{cluster}")
+}
+
 func BuildVirtualWorkspace(
 	cfg *rest.Config,
 	rootPathPrefix string,
@@ -58,24 +65,11 @@ func BuildVirtualWorkspace(
 	localKcpInformers kcpinformers.SharedInformerFactory,
 	globalKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	if !strings.HasSuffix(rootPathPrefix, "/") {
-		rootPathPrefix += "/"
-	}
-
 	readyCh := make(chan struct{})
 
 	clusterCachedResourceContent := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			cluster, apiDomain, prefixToStrip, ok := digestURL(urlPath, rootPathPrefix)
-			if !ok {
-				return false, "", ctx
-			}
-
-			completedContext = genericapirequest.WithCluster(ctx, cluster)
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
-			return true, prefixToStrip, completedContext
-		}),
-		Authorizer: newAuthorizer(kubeClusterClient, localKcpInformers, globalKcpInformers),
+		RootPathResolver: framework.RootPathResolverFunc(resolveRootPath),
+		Authorizer:       newAuthorizer(kubeClusterClient, localKcpInformers, globalKcpInformers),
 		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
 			case <-readyCh:
@@ -186,73 +180,14 @@ func BuildVirtualWorkspace(
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: replication.VirtualWorkspaceName, VirtualWorkspace: clusterCachedResourceContent},
+		{Name: replication.VirtualWorkspaceName, Patterns: []string{pathPattern(rootPathPrefix)}, VirtualWorkspace: clusterCachedResourceContent},
 	}, nil
 }
 
-func digestURL(urlPath, rootPathPrefix string) (
-	cluster genericapirequest.Cluster,
-	domainKey dynamiccontext.APIDomainKey,
-	logicalPath string,
-	accepted bool,
-) {
-	if !strings.HasPrefix(urlPath, rootPathPrefix) {
-		return genericapirequest.Cluster{}, "", "", false
-	}
-
-	// Incoming requests to this virtual workspace will look like:
-	//  /services/apiexport/root:org:ws/<ClusterCachedResourceEndpointSlice-name>/clusters/*/api/v1/configmaps
-	//                     └────────────────────────┐
-	// Where the withoutRootPathPrefix starts here: ┘
-	withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
-
-	parts := strings.SplitN(withoutRootPathPrefix, "/", 3)
-	if len(parts) < 3 {
-		return genericapirequest.Cluster{}, "", "", false
-	}
-
-	endpointSliceClusterName, endpointSliceName := parts[0], parts[1]
-	if endpointSliceClusterName == "" {
-		return genericapirequest.Cluster{}, "", "", false
-	}
-	if endpointSliceName == "" {
-		return genericapirequest.Cluster{}, "", "", false
-	}
-
-	realPath := "/"
-	if len(parts) > 2 {
-		realPath += parts[2]
-	}
-
-	//  /services/apiexport/root:org:ws/<ClusterCachedResourceEndpointSlice-name>/clusters/*/api/v1/configmaps
-	//                     ┌──────────────────────────────────────────────┘
-	// We are now here: ───┘
-	// Now, we parse out the logical cluster.
-	if !strings.HasPrefix(realPath, "/clusters/") {
-		return genericapirequest.Cluster{}, "", "", false
-	}
-
-	withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
-	parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-	path := logicalcluster.NewPath(parts[0])
-	realPath = "/"
-	if len(parts) > 1 {
-		realPath += parts[1]
-	}
-
-	cluster = genericapirequest.Cluster{}
-	if path == logicalcluster.Wildcard {
-		cluster.Wildcard = true
-	} else {
-		var ok bool
-		cluster.Name, ok = path.Name()
-		if !ok {
-			return genericapirequest.Cluster{}, "", "", false
-		}
-	}
-
-	key := fmt.Sprintf("%s/%s", endpointSliceClusterName, endpointSliceName)
-	return cluster, dynamiccontext.APIDomainKey(key), strings.TrimSuffix(urlPath, realPath), true
+// resolveRootPath keys the API domain by <endpoint slice cluster>/<endpoint slice name>.
+func resolveRootPath(ctx context.Context, match framework.PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	key := dynamiccontext.APIDomainKey(match.Value(sliceClusterWildcard) + "/" + match.Value(sliceNameWildcard))
+	return true, match.PrefixToStrip(), dynamiccontext.WithAPIDomainKey(ctx, key)
 }
 
 func newAuthorizer(
