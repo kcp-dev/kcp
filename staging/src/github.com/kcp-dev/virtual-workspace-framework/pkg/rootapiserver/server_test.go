@@ -73,7 +73,7 @@ func capture(got *claimed) http.Handler {
 	})
 }
 
-func TestPatternMux(t *testing.T) {
+func TestPatternRouter(t *testing.T) {
 	t.Parallel()
 
 	vws := []NamedVirtualWorkspace{
@@ -160,6 +160,14 @@ func TestPatternMux(t *testing.T) {
 			wantPath:    "/apis/v1",
 			wantCluster: &request.Cluster{Name: "abc"},
 		},
+		"non-canonical path passes unclaimed and unchanged": {
+			url:      "/apis//foo/./bar",
+			wantPath: "/apis//foo/./bar",
+		},
+		"non-canonical VW path passes unclaimed and unchanged": {
+			url:      "/services/admin//apis",
+			wantPath: "/services/admin//apis",
+		},
 		"unmatched passes unclaimed": {
 			url:      "/services/other/clusters/abc/apis/v1",
 			wantPath: "/services/other/clusters/abc/apis/v1",
@@ -179,11 +187,12 @@ func TestPatternMux(t *testing.T) {
 			t.Parallel()
 
 			var got claimed
-			mux := newPatternMux(vws, capture(&got))
+			router := newPatternRouter(vws, capture(&got))
 
 			rec := httptest.NewRecorder()
-			mux.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, tc.url, http.NoBody))
+			router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, tc.url, http.NoBody))
 
+			require.Equal(t, http.StatusOK, rec.Code)
 			require.True(t, got.called)
 			require.Equal(t, tc.wantVW, got.vw)
 			require.Equal(t, tc.wantPath, got.path)
@@ -192,7 +201,7 @@ func TestPatternMux(t *testing.T) {
 	}
 }
 
-func TestPatternMuxMatch(t *testing.T) {
+func TestPatternRouterMatch(t *testing.T) {
 	t.Parallel()
 
 	var got framework.PathMatch
@@ -202,10 +211,10 @@ func TestPatternMuxMatch(t *testing.T) {
 			return true, match.PrefixToStrip(), ctx
 		}, "/services/apiexport/{exportCluster}/{exportName}/clusters/{cluster}"),
 	}
-	mux := newPatternMux(vws, http.NotFoundHandler())
+	router := newPatternRouter(vws, http.NotFoundHandler())
 
 	url := "/services/apiexport/root:org/export/clusters/abc/apis/v1/things"
-	mux.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, http.NoBody))
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequestWithContext(t.Context(), http.MethodGet, url, http.NoBody))
 
 	require.Equal(t, url, got.Path)
 	require.Equal(t, "apis/v1/things", got.Trail)
@@ -216,13 +225,13 @@ func TestPatternMuxMatch(t *testing.T) {
 	require.Equal(t, "/services/apiexport/root:org/export/clusters/abc", got.PrefixToStrip())
 }
 
-func TestPatternMuxPanicsOnInvalidPattern(t *testing.T) {
+func TestPatternRouterPanicsOnInvalidPattern(t *testing.T) {
 	t.Parallel()
 
 	vws := []NamedVirtualWorkspace{
 		named("a", acceptAll, "/services/x/{a}/{a}/clusters/{cluster}"),
 	}
-	require.Panics(t, func() { newPatternMux(vws, http.NotFoundHandler()) })
+	require.Panics(t, func() { newPatternRouter(vws, http.NotFoundHandler()) })
 }
 
 func TestClusterFromSegment(t *testing.T) {

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -124,7 +125,7 @@ func getRootHandlerChain(c CompletedConfig, delegateAPIServer genericapiserver.D
 		delegateAfterDefaultHandlerChain := genericapiserver.DefaultBuildHandlerChain(
 			hops.WithRequestHops(auditAnnotationWrapper), c.Generic.Config)
 
-		mux := newPatternMux(c.Extra.VirtualWorkspaces, delegateAfterDefaultHandlerChain)
+		router := newPatternRouter(c.Extra.VirtualWorkspaces, delegateAfterDefaultHandlerChain)
 
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			// detect old kubectl plugins and inject warning headers
@@ -134,15 +135,17 @@ func getRootHandlerChain(c CompletedConfig, delegateAPIServer genericapiserver.D
 					fmt.Sprintf("You are using an old kubectl-kcp plugin. Please update to a version matching the kcp server version %q.", componentbaseversion.Get().GitVersion))
 			}
 
-			mux.ServeHTTP(w, req)
+			router.ServeHTTP(w, req)
 		})
 	}
 }
 
-// newPatternMux routes requests by the virtual workspaces' path patterns.
-// Unmatched requests go to delegate unclaimed.
+// newPatternRouter routes requests by the virtual workspaces' path patterns.
+// Requests matching no pattern go to delegate unclaimed.
+// Requests with a non-canonical path bypass the mux, which would redirect
+// them, and go to delegate untouched.
 // Panics on malformed or conflicting patterns.
-func newPatternMux(vws []NamedVirtualWorkspace, delegate http.Handler) *http.ServeMux {
+func newPatternRouter(vws []NamedVirtualWorkspace, delegate http.Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/", delegate)
 	for pattern, vws := range byPattern(vws) {
@@ -150,7 +153,30 @@ func newPatternMux(vws []NamedVirtualWorkspace, delegate http.Handler) *http.Ser
 		mux.Handle(pattern, handler)
 		mux.Handle(pattern+"/{"+framework.TrailWildcard+"...}", handler)
 	}
-	return mux
+
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if escaped := req.URL.EscapedPath(); cleanPath(escaped) != escaped {
+			delegate.ServeHTTP(w, req)
+			return
+		}
+		mux.ServeHTTP(w, req)
+	})
+}
+
+// cleanPath is http.ServeMux's path canonicalization: path.Clean keeping a
+// trailing slash.
+func cleanPath(p string) string {
+	if p == "" {
+		return "/"
+	}
+	if p[0] != '/' {
+		p = "/" + p
+	}
+	np := path.Clean(p)
+	if p[len(p)-1] == '/' && np != "/" {
+		np += "/"
+	}
+	return np
 }
 
 // byPattern groups virtual workspaces by path pattern,

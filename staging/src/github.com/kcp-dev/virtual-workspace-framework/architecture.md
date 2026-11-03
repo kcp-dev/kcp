@@ -38,7 +38,11 @@ Every virtual workspace is registered with one or more http.ServeMux patterns
 
 The root apiserver registers each pattern twice, as is and with a trailing
 `/{trail...}` wildcard, so the pattern matches with and without a kube-like
-API path after it.
+API path after it. Precedence between patterns is the ServeMux one: the
+most specific pattern wins regardless of registration order, conflicting
+patterns panic at startup. Requests with a non-canonical path (`//`, `/./`),
+which the ServeMux would redirect, bypass the patterns and reach the
+delegate untouched.
 
 The `{cluster}` wildcard (`framework.ClusterWildcard`) is resolved by the root
 apiserver - `*` becomes the wildcard cluster, a valid logical cluster name is set
@@ -51,8 +55,8 @@ It accepts or rejects the request, returns the prefix to strip (usually
 `match.PrefixToStrip()`, the path up to the trail) and extends the context,
 e.g. with the API domain key derived from the wildcards.
 
-Virtual workspaces may share a pattern. They are tried in registration order,
-the first accepting one claims the request. This lets e.g. the
+Virtual workspaces may share a pattern. Only then are they tried in
+registration order, the first accepting one claims the request. This lets e.g. the
 initializingworkspaces virtual workspaces split one URL layout by wildcard vs.
 specific cluster and by requested resource.
 
