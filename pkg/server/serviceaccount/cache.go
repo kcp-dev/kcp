@@ -175,13 +175,7 @@ func (c *Cache) Cluster(clusterName logicalcluster.Name) serviceaccount.ServiceA
 			c.secrets,
 			isLocal,
 			func(_ logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
-				secret, err := secretsLister.Secrets(namespace).Get(name)
-				if !kerrors.IsNotFound(err) {
-					return secret, err
-				}
-				ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-				defer cancel()
-				return kubeShardClient.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
+				return secretsLister.Secrets(namespace).Get(name)
 			},
 			func(_ logicalcluster.Name, namespace, name string) (*corev1.Secret, error) {
 				ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
