@@ -68,6 +68,13 @@ const (
 	workspaceContentName        = terminatingworkspaces.VirtualWorkspaceName + "-workspace-content"
 )
 
+const terminatorWildcard = "terminator"
+
+// pathPattern returns the mux pattern shared by the virtual workspaces below rootPathPrefix.
+func pathPattern(rootPathPrefix string) string {
+	return path.Join(rootPathPrefix, "{terminator}/clusters/{cluster}")
+}
+
 // BuildVirtualWorkspace builds the terminating-workspaces virtual workspaces.
 //
 // externalLogicalClusterAdminClient is used for SubjectAccessReview calls
@@ -83,10 +90,6 @@ func BuildVirtualWorkspace(
 	kubeClusterClient, externalLogicalClusterAdminClient kcpkubernetesclientset.ClusterInterface,
 	wildcardKcpInformers, cachedKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	if !strings.HasSuffix(rootPathPrefix, "/") {
-		rootPathPrefix += "/"
-	}
-
 	sarKubeClusterClient := externalLogicalClusterAdminClient
 	if sarKubeClusterClient == nil {
 		sarKubeClusterClient = kubeClusterClient
@@ -114,22 +117,8 @@ func BuildVirtualWorkspace(
 		Options: delegated.Options{DenyCacheTTL: 5 * time.Second},
 	})
 	wildcardLogicalClusters := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
-			if !ok {
-				return false, "", requestContext
-			}
-
-			if !cluster.Wildcard {
-				// this virtual workspace requires that a wildcard be provided
-				return false, "", requestContext
-			}
-
-			completedContext = genericapirequest.WithCluster(requestContext, cluster)
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
-			return true, prefixToStrip, completedContext
-		}),
-		Authorizer: cachingAuthorizer,
+		RootPathResolver: framework.RootPathResolverFunc(resolveWildcardLogicalClusters),
+		Authorizer:       cachingAuthorizer,
 		ReadyChecker: framework.ReadyFunc(func() error {
 			return nil
 		}),
@@ -145,28 +134,8 @@ func BuildVirtualWorkspace(
 	}
 
 	logicalClusters := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
-			if !ok {
-				return false, "", requestContext
-			}
-
-			if cluster.Wildcard {
-				// this virtual workspace requires that a specific cluster be provided
-				return false, "", requestContext
-			}
-
-			// this delegating server only works for logicalclusters.core.kcp.io and discovery calls
-			resourceURL := strings.TrimPrefix(urlPath, prefixToStrip)
-			if !isLogicalClusterRequest(resourceURL) && !isDiscoveryRequest(resourceURL) {
-				return false, "", requestContext
-			}
-
-			completedContext = genericapirequest.WithCluster(requestContext, cluster)
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
-			return true, prefixToStrip, completedContext
-		}),
-		Authorizer: cachingAuthorizer,
+		RootPathResolver: framework.RootPathResolverFunc(resolveLogicalClusters),
+		Authorizer:       cachingAuthorizer,
 		ReadyChecker: framework.ReadyFunc(func() error {
 			return nil
 		}),
@@ -183,32 +152,8 @@ func BuildVirtualWorkspace(
 
 	workspaceContentReadyCh := make(chan struct{})
 	workspaceContent := &handler.VirtualWorkspace{
-		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			cluster, apiDomain, prefixToStrip, ok := digestUrl(urlPath, rootPathPrefix)
-			if !ok {
-				return false, "", requestContext
-			}
-
-			if cluster.Wildcard {
-				// content access requires a specific cluster
-				return false, "", requestContext
-			}
-
-			// this proxying server does not handle requests for logicalclusters.core.kcp.io
-			resourceURL := strings.TrimPrefix(urlPath, prefixToStrip)
-			if isLogicalClusterRequest(resourceURL) {
-				return false, "", requestContext
-			}
-
-			// in this case since we're proxying and not consuming this request we *do not* want to strip
-			// the cluster prefix
-			prefixToStrip = strings.TrimSuffix(prefixToStrip, cluster.Name.Path().RequestPath())
-
-			completedContext = genericapirequest.WithCluster(requestContext, cluster)
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomain)
-			return true, prefixToStrip, completedContext
-		}),
-		Authorizer: cachingAuthorizer,
+		RootPathResolver: framework.RootPathResolverFunc(resolveWorkspaceContent),
+		Authorizer:       cachingAuthorizer,
 		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
 			case <-workspaceContentReadyCh:
@@ -352,11 +297,53 @@ func BuildVirtualWorkspace(
 		}),
 	}
 
+	patterns := []string{pathPattern(rootPathPrefix)}
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: wildcardLogicalClustersName, VirtualWorkspace: wildcardLogicalClusters},
-		{Name: logicalClustersName, VirtualWorkspace: logicalClusters},
-		{Name: workspaceContentName, VirtualWorkspace: workspaceContent},
+		{Name: wildcardLogicalClustersName, Patterns: patterns, VirtualWorkspace: wildcardLogicalClusters},
+		{Name: logicalClustersName, Patterns: patterns, VirtualWorkspace: logicalClusters},
+		{Name: workspaceContentName, Patterns: patterns, VirtualWorkspace: workspaceContent},
 	}, nil
+}
+
+// withTerminatorDomain keys the API domain by the terminator.
+func withTerminatorDomain(ctx context.Context, match framework.PathMatch) context.Context {
+	return dynamiccontext.WithAPIDomainKey(ctx, dynamiccontext.APIDomainKey(match.Value(terminatorWildcard)))
+}
+
+// resolveWildcardLogicalClusters accepts wildcard requests only.
+func resolveWildcardLogicalClusters(ctx context.Context, match framework.PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	if cluster := genericapirequest.ClusterFrom(ctx); cluster == nil || !cluster.Wildcard {
+		return false, "", ctx
+	}
+	return true, match.PrefixToStrip(), withTerminatorDomain(ctx, match)
+}
+
+// resolveLogicalClusters accepts logicalclusters.core.kcp.io and discovery
+// requests for a specific cluster.
+func resolveLogicalClusters(ctx context.Context, match framework.PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	if cluster := genericapirequest.ClusterFrom(ctx); cluster == nil || cluster.Wildcard {
+		return false, "", ctx
+	}
+	resourceURL := "/" + match.Trail
+	if !isLogicalClusterRequest(resourceURL) && !isDiscoveryRequest(resourceURL) {
+		return false, "", ctx
+	}
+	return true, match.PrefixToStrip(), withTerminatorDomain(ctx, match)
+}
+
+// resolveWorkspaceContent accepts requests for a specific cluster
+// except logicalclusters.core.kcp.io.
+// The cluster segment is kept since the request is proxied, not consumed.
+func resolveWorkspaceContent(ctx context.Context, match framework.PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	cluster := genericapirequest.ClusterFrom(ctx)
+	if cluster == nil || cluster.Wildcard {
+		return false, "", ctx
+	}
+	if isLogicalClusterRequest("/" + match.Trail) {
+		return false, "", ctx
+	}
+	prefixToStrip = strings.TrimSuffix(match.PrefixToStrip(), cluster.Name.Path().RequestPath())
+	return true, prefixToStrip, withTerminatorDomain(ctx, match)
 }
 
 // resolveTerminatorWorkspaceType resolves the WorkspaceType referenced by a
@@ -396,63 +383,6 @@ func isLogicalClusterRequest(path string) bool {
 		return false
 	}
 	return info.IsResourceRequest && info.APIGroup == corev1alpha1.SchemeGroupVersion.Group && info.Resource == "logicalclusters"
-}
-
-func digestUrl(urlPath, rootPathPrefix string) (
-	cluster genericapirequest.Cluster,
-	key dynamiccontext.APIDomainKey,
-	logicalPath string,
-	accepted bool,
-) {
-	if !strings.HasPrefix(urlPath, rootPathPrefix) {
-		return genericapirequest.Cluster{}, dynamiccontext.APIDomainKey(""), "", false
-	}
-	withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
-
-	// Incoming requests to this virtual workspace will look like:
-	//  /services/terminatingworkspace/<terminator>/clusters/<something>/apis/core.kcp.io/v1alpha1/logicalclusters
-	//                                  └───────────┐
-	// Where the withoutRootPathPrefix starts here: ┘
-	parts := strings.SplitN(withoutRootPathPrefix, "/", 2)
-	if len(parts) < 2 {
-		return genericapirequest.Cluster{}, "", "", false
-	}
-
-	terminatorName := parts[0]
-	if terminatorName == "" {
-		return genericapirequest.Cluster{}, "", "", false
-	}
-
-	realPath := "/" + parts[1]
-
-	//  /services/terminatingworkspace/<terminator>/clusters/<something>/apis/core.kcp.io/v1alpha1/logicalclusters
-	//                  ┌─────────────────────────────┘
-	// We are now here: ┘
-	// Now, we parse out the logical cluster.
-	if !strings.HasPrefix(realPath, "/clusters/") {
-		return genericapirequest.Cluster{}, "", "", false // don't accept
-	}
-
-	withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
-	parts = strings.SplitN(withoutClustersPrefix, "/", 2)
-	logicalclusterPath := logicalcluster.NewPath(parts[0])
-	realPath = "/"
-	if len(parts) > 1 {
-		realPath += parts[1]
-	}
-
-	cluster = genericapirequest.Cluster{}
-	if logicalclusterPath == logicalcluster.Wildcard {
-		cluster.Wildcard = true
-	} else {
-		var ok bool
-		cluster.Name, ok = logicalclusterPath.Name()
-		if !ok {
-			return genericapirequest.Cluster{}, "", "", false
-		}
-	}
-
-	return cluster, dynamiccontext.APIDomainKey(terminatorName), strings.TrimSuffix(urlPath, realPath), true
 }
 
 type singleResourceAPIDefinitionSetProvider struct {
