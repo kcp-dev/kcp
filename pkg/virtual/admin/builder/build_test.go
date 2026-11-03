@@ -73,6 +73,11 @@ func TestResolveRootPath(t *testing.T) {
 			wantCluster:  &genericapirequest.Cluster{Name: core.RootCluster},
 			prefixToTrim: "/services/admin",
 		},
+		"bare prefix, trailing slash": {
+			path:         "/services/admin/",
+			wantCluster:  &genericapirequest.Cluster{Name: core.RootCluster},
+			prefixToTrim: "/services/admin",
+		},
 		"cluster aware": {
 			path:         "/services/admin/clusters/myws/apis/core.kcp.io/v1alpha1/shards",
 			cluster:      "myws",

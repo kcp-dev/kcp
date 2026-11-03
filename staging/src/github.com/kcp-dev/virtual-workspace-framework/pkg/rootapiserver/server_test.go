@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -84,7 +85,8 @@ func TestPatternMux(t *testing.T) {
 			return true, match.PrefixToStrip(), ctx
 		}, "/services/init/{initializer}/clusters/{cluster}"),
 		named("keepCluster", func(ctx context.Context, match framework.PathMatch) (bool, string, context.Context) {
-			return true, "/services/init/" + match.Value("initializer"), ctx
+			// as the lifecycle content virtual workspaces do
+			return true, strings.TrimSuffix(match.PrefixToStrip(), request.ClusterFrom(ctx).Name.Path().RequestPath()), ctx
 		}, "/services/init/{initializer}/clusters/{cluster}"),
 		named("admin", acceptAll, "/services/admin", "/services/admin/clusters/{cluster}"),
 	}
@@ -107,6 +109,12 @@ func TestPatternMux(t *testing.T) {
 			wantPath:    "",
 			wantCluster: &request.Cluster{Name: "abc"},
 		},
+		"trailing slash, no trail": {
+			url:         "/services/apiexport/root:org/export/clusters/abc/",
+			wantVW:      "apiexport",
+			wantPath:    "/",
+			wantCluster: &request.Cluster{Name: "abc"},
+		},
 		"wildcard": {
 			url:         "/services/apiexport/root:org/export/clusters/*/apis/v1",
 			wantVW:      "apiexport",
@@ -124,6 +132,17 @@ func TestPatternMux(t *testing.T) {
 			wantVW:      "keepCluster",
 			wantPath:    "/clusters/abc/apis/v1",
 			wantCluster: &request.Cluster{Name: "abc"},
+		},
+		"later VW keeps cluster prefix, trailing slash": {
+			url:         "/services/init/foo/clusters/abc/",
+			wantVW:      "keepCluster",
+			wantPath:    "/clusters/abc/",
+			wantCluster: &request.Cluster{Name: "abc"},
+		},
+		"clusterless pattern, trailing slash": {
+			url:      "/services/admin/",
+			wantVW:   "admin",
+			wantPath: "/",
 		},
 		"clusterless pattern": {
 			url:      "/services/admin/apis/v1",

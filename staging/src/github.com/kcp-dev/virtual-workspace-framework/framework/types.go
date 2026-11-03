@@ -43,11 +43,12 @@ type PathMatch struct {
 	Trail string
 }
 
-// PrefixToStrip returns the path up to the trail,
+// PrefixToStrip returns the path up to the trail, without the separator,
 // the default prefix to strip before delegating to the virtual workspace.
+// A path ending in the separator keeps it as the remaining path.
 func (m PathMatch) PrefixToStrip() string {
 	if m.Trail == "" {
-		return m.Path
+		return strings.TrimSuffix(m.Path, "/")
 	}
 	return strings.TrimSuffix(m.Path, "/"+m.Trail)
 }

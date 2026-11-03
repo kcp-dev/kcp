@@ -99,6 +99,12 @@ func TestResolveRootPath(t *testing.T) {
 			wantResolver: "workspaceContent",
 			prefixToTrim: "/services/terminatingworkspaces/test-terminator",
 		},
+		"cluster workspace root keeps cluster segment": {
+			cluster:      request.Cluster{Name: clusterName},
+			trail:        "",
+			wantResolver: "workspaceContent",
+			prefixToTrim: "/services/terminatingworkspaces/test-terminator",
+		},
 		"no cluster": {
 			trail: "api/v1/configmaps",
 		},
@@ -118,7 +124,7 @@ func TestResolveRootPath(t *testing.T) {
 			}
 			values := map[string]string{terminatorWildcard: terminatorName, framework.ClusterWildcard: segment}
 			match := framework.PathMatch{
-				Path:  "/services/terminatingworkspaces/test-terminator/clusters/" + segment + "/" + tc.trail,
+				Path:  "/services/terminatingworkspaces/test-terminator/clusters/" + segment + "/" + tc.trail, // trailing slash when trail is empty
 				Value: func(name string) string { return values[name] },
 				Trail: tc.trail,
 			}
