@@ -65,11 +65,7 @@ func TestResolveRootPath(t *testing.T) {
 				path += "/clusters/" + tc.cluster
 			}
 			values := map[string]string{consumerClusterWildcard: tc.consumer, framework.ClusterWildcard: tc.cluster}
-			match := framework.PathMatch{
-				Path:  path + "/apis/apis.kcp.io/v1alpha1/apiresourceschemas",
-				Value: func(name string) string { return values[name] },
-				Trail: "apis/apis.kcp.io/v1alpha1/apiresourceschemas",
-			}
+			match := framework.NewPathMatch(path+"/apis/apis.kcp.io/v1alpha1/apiresourceschemas", "apis/apis.kcp.io/v1alpha1/apiresourceschemas", values)
 
 			accepted, prefixToTrim, ctx := resolveRootPath(t.Context(), match)
 

@@ -41,11 +41,7 @@ func TestResolveRootPath(t *testing.T) {
 		sliceNameWildcard:         "my-clustercachedresource",
 		framework.ClusterWildcard: "other-cluster",
 	}
-	match := framework.PathMatch{
-		Path:  "/services/replication/my-cluster/my-clustercachedresource/clusters/other-cluster/apis",
-		Value: func(name string) string { return values[name] },
-		Trail: "apis",
-	}
+	match := framework.NewPathMatch("/services/replication/my-cluster/my-clustercachedresource/clusters/other-cluster/apis", "apis", values)
 
 	accepted, prefixToStrip, ctx := resolveRootPath(t.Context(), match)
 

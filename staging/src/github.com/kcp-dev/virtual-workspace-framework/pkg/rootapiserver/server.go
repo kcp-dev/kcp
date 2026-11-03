@@ -222,11 +222,7 @@ func newResolveHandler(vws []NamedVirtualWorkspace, delegate http.Handler) http.
 			req = req.WithContext(ctx)
 		}
 
-		match := framework.PathMatch{
-			Path:  req.URL.Path,
-			Value: req.PathValue,
-			Trail: req.PathValue(framework.TrailWildcard),
-		}
+		match := framework.PathMatchFromRequest(req)
 
 		for _, vw := range vws {
 			accepted, prefixToStrip, completedContext := vw.ResolveRootPath(ctx, match)

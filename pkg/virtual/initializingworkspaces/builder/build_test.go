@@ -122,11 +122,8 @@ func TestResolveRootPath(t *testing.T) {
 				ctx = request.WithCluster(ctx, tc.cluster)
 			}
 			values := map[string]string{initializerWildcard: initializerName, framework.ClusterWildcard: segment}
-			match := framework.PathMatch{
-				Path:  "/services/initializingworkspaces/test-initializer/clusters/" + segment + "/" + tc.trail, // trailing slash when trail is empty
-				Value: func(name string) string { return values[name] },
-				Trail: tc.trail,
-			}
+			// trailing slash when trail is empty
+			match := framework.NewPathMatch("/services/initializingworkspaces/test-initializer/clusters/"+segment+"/"+tc.trail, tc.trail, values)
 
 			var gotResolver, gotPrefix string
 			var gotCtx context.Context

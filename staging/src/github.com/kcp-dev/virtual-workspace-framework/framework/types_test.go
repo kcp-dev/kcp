@@ -43,3 +43,13 @@ func TestPathMatchPrefixToStrip(t *testing.T) {
 		})
 	}
 }
+
+func TestPathMatchValue(t *testing.T) {
+	t.Parallel()
+
+	require.Empty(t, PathMatch{Path: "/x"}.Value("a"))
+
+	m := NewPathMatch("/x/1", "", map[string]string{"a": "1"})
+	require.Equal(t, "1", m.Value("a"))
+	require.Empty(t, m.Value("b"))
+}

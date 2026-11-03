@@ -18,6 +18,7 @@ package framework
 
 import (
 	"context"
+	"net/http"
 	"strings"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
@@ -37,10 +38,40 @@ const (
 type PathMatch struct {
 	// Path is the full request path.
 	Path string
-	// Value returns the segment matched by the named wildcard of the pattern, "" if there is none.
-	Value func(name string) string
 	// Trail is the kube-like API path after the pattern, "" if none.
 	Trail string
+
+	value func(name string) string
+}
+
+// NewPathMatch returns a PathMatch with the given wildcard values.
+func NewPathMatch(path, trail string, values map[string]string) PathMatch {
+	return PathMatch{
+		Path:  path,
+		Trail: trail,
+		value: func(name string) string {
+			return values[name]
+		},
+	}
+}
+
+// PathMatchFromRequest returns the PathMatch of a request routed by a
+// http.ServeMux pattern with a trailing TrailWildcard.
+func PathMatchFromRequest(req *http.Request) PathMatch {
+	return PathMatch{
+		Path:  req.URL.Path,
+		Trail: req.PathValue(TrailWildcard),
+		value: req.PathValue,
+	}
+}
+
+// Value returns the segment matched by the named wildcard of the pattern,
+// "" if there is none.
+func (m PathMatch) Value(name string) string {
+	if m.value == nil {
+		return ""
+	}
+	return m.value(name)
 }
 
 // PrefixToStrip returns the path up to the trail, without the separator,

@@ -123,11 +123,8 @@ func TestResolveRootPath(t *testing.T) {
 				ctx = request.WithCluster(ctx, tc.cluster)
 			}
 			values := map[string]string{terminatorWildcard: terminatorName, framework.ClusterWildcard: segment}
-			match := framework.PathMatch{
-				Path:  "/services/terminatingworkspaces/test-terminator/clusters/" + segment + "/" + tc.trail, // trailing slash when trail is empty
-				Value: func(name string) string { return values[name] },
-				Trail: tc.trail,
-			}
+			// trailing slash when trail is empty
+			match := framework.NewPathMatch("/services/terminatingworkspaces/test-terminator/clusters/"+segment+"/"+tc.trail, tc.trail, values)
 
 			var gotResolver, gotPrefix string
 			var gotCtx context.Context

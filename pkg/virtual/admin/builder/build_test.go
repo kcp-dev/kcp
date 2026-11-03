@@ -90,11 +90,7 @@ func TestResolveRootPath(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			match := framework.PathMatch{
-				Path:  tc.path,
-				Value: func(name string) string { return map[string]string{framework.ClusterWildcard: tc.cluster}[name] },
-				Trail: tc.trail,
-			}
+			match := framework.NewPathMatch(tc.path, tc.trail, map[string]string{framework.ClusterWildcard: tc.cluster})
 
 			accepted, prefixToTrim, ctx := resolveRootPath(t.Context(), match)
 
