@@ -1,0 +1,18 @@
+# output names current workspace
+exec kubectl-ws .
+stdout 'Current workspace is'
+stdout ${ORG@R}
+! stderr .
+
+# short output names only current workspace
+exec kubectl-ws . --short
+cmpenv stdout ws.txt
+! stderr .
+
+# kubectl kcp workspace current agrees with kubectl ws
+exec kubectl-kcp workspace current --short
+cmpenv stdout ws.txt
+! stderr .
+
+-- ws.txt --
+$ORG

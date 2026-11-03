@@ -1,0 +1,76 @@
+# a child workspace to navigate into and back from
+exec kubectl-create-workspace nav
+stdout 'is ready to use'
+
+# ws <name> enters a workspace relative to the current one
+exec kubectl-ws nav
+stdout 'Current workspace is'
+exec kubectl-ws . --short
+cmpenv stdout nav.txt
+
+# ws .. enters the parent workspace
+exec kubectl-ws ..
+stdout 'Current workspace is'
+exec kubectl-ws . --short
+cmpenv stdout org.txt
+
+# ws - goes back to the workspace we came from
+exec kubectl-ws -
+stdout 'Current workspace is'
+exec kubectl-ws . --short
+cmpenv stdout nav.txt
+
+# ws - again swaps back
+exec kubectl-ws -
+exec kubectl-ws . --short
+cmpenv stdout org.txt
+
+# ws : enters the root workspace
+exec kubectl-ws :
+stdout 'Current workspace is .root.'
+exec kubectl-ws . --short
+cmp stdout root.txt
+
+# use :<abs> enters an absolute workspace
+exec kubectl-kcp workspace use :${ORG}
+stdout 'Current workspace is'
+exec kubectl-ws . --short
+cmpenv stdout org.txt
+
+# use : enters the root workspace
+exec kubectl-kcp workspace use :
+exec kubectl-ws . --short
+cmp stdout root.txt
+
+# use <name> enters a relative workspace
+exec kubectl-kcp workspace use :${ORG}:nav
+exec kubectl-ws . --short
+cmpenv stdout nav.txt
+
+# use .. enters the parent workspace
+exec kubectl-kcp workspace use ..
+stdout 'Current workspace is'
+exec kubectl-ws . --short
+cmpenv stdout org.txt
+
+# use . only reports the current workspace
+exec kubectl-kcp workspace use .
+stdout 'Current workspace is'
+exec kubectl-ws . --short
+cmpenv stdout org.txt
+
+# use - goes back to the workspace we came from
+exec kubectl-kcp workspace use -
+exec kubectl-ws . --short
+cmpenv stdout nav.txt
+
+# use ~ enters the same home workspace as bare ws
+exec kubectl-kcp workspace use ~
+stdout 'Current workspace is'
+
+-- nav.txt --
+$ORG:nav
+-- org.txt --
+$ORG
+-- root.txt --
+root

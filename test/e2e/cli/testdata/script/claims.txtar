@@ -1,0 +1,80 @@
+# claims get / accept / reject on a binding
+
+exec kubectl-create-workspace provider
+stdout 'is ready to use'
+exec kubectl-create-workspace consumer
+stdout 'is ready to use'
+
+exec kubectl-kcp workspace use provider
+exec kubectl apply -f apiexport.yaml
+stdout 'apiexport.apis.kcp.io/widgets created'
+
+exec kubectl wait --for=condition=IdentityValid apiexport/widgets --timeout=60s
+stdout 'condition met'
+
+exec kubectl-kcp workspace use :${ORG}:consumer
+# every claim starts out rejected so accept and reject have something to flip
+eventually kubectl-kcp bind apiexport ${ORG}:provider:widgets --reject-all-permission-claims
+stdout 'widgets created and bound.'
+
+# no argument, just list the current claims
+exec kubectl-kcp claims get apibinding
+cmp stdout rejected.txt
+
+exec kubectl-kcp claims accept widgets --resource configmaps
+stdout 'claim .configmaps. on APIBinding .widgets. is accepted'
+exec kubectl-kcp claims get apibinding widgets
+cmp stdout accepted.txt
+
+exec kubectl-kcp claims reject widgets --resource configmaps
+stdout 'claim .configmaps. on APIBinding .widgets. is rejected'
+exec kubectl-kcp claims get apibinding widgets
+cmp stdout rejected.txt
+
+-- apiexport.yaml --
+apiVersion: apis.kcp.io/v1alpha1
+kind: APIResourceSchema
+metadata:
+  name: txtar.widgets.example.kcp.io
+spec:
+  group: example.kcp.io
+  names:
+    kind: Widget
+    listKind: WidgetList
+    plural: widgets
+    singular: widget
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      type: object
+      properties:
+        size:
+          type: string
+---
+apiVersion: apis.kcp.io/v1alpha2
+kind: APIExport
+metadata:
+  name: widgets
+spec:
+  resources:
+  - group: example.kcp.io
+    name: widgets
+    schema: txtar.widgets.example.kcp.io
+  permissionClaims:
+  - group: ""
+    resource: configmaps
+    verbs: ["get", "list", "watch"]
+  - group: ""
+    resource: secrets
+    verbs: ["*"]
+-- rejected.txt --
+APIBINDING   GROUP-RESOURCE   VERBS   STATUS
+widgets      configmaps       *       Rejected
+widgets      secrets          *       Rejected
+-- accepted.txt --
+APIBINDING   GROUP-RESOURCE   VERBS   STATUS
+widgets      configmaps       *       Accepted
+widgets      secrets          *       Rejected

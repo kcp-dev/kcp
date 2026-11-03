@@ -1,0 +1,38 @@
+# two levels of workspaces to address
+exec kubectl-create-workspace outer
+stdout 'is ready to use'
+exec kubectl-create-workspace inner --workspace outer
+stdout 'is ready to use'
+
+# a relative name resolves against the current workspace
+exec kubectl-ws outer
+stdout 'Current workspace is'
+exec kubectl-ws . --short
+stdout ${ORG@R}:outer
+
+# back to the fixture workspace
+exec kubectl-ws ..
+exec kubectl-ws . --short
+cmpenv stdout org.txt
+
+# a nested relative path resolves against the current workspace
+exec kubectl-ws outer:inner
+stdout 'Current workspace is'
+exec kubectl-ws . --short
+stdout ${ORG@R}:outer:inner
+
+# ..:.. walks up two levels
+exec kubectl-ws ..:..
+exec kubectl-ws . --short
+cmpenv stdout org.txt
+
+# a leading colon makes the path absolute, from anywhere
+exec kubectl-kcp workspace use :${ORG}:outer:inner
+stdout 'Current workspace is'
+exec kubectl-ws . --short
+cmpenv stdout inner.txt
+
+-- org.txt --
+$ORG
+-- inner.txt --
+$ORG:outer:inner

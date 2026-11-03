@@ -1,0 +1,13 @@
+# --enter switches to the new workspace
+exec kubectl-create-workspace entered --enter
+stdout 'Workspace "entered" \(type root:universal\) is ready to use\.'
+stdout 'Current workspace is'
+
+exec kubectl-ws . --short
+cmpenv stdout entered.txt
+
+exec kubectl-kcp workspace current --short
+cmpenv stdout entered.txt
+
+-- entered.txt --
+$ORG:entered

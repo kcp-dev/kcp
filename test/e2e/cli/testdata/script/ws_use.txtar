@@ -1,0 +1,22 @@
+# create a child workspace and enter it
+exec kubectl-create-workspace team
+stdout 'is ready to use'
+exec kubectl-kcp workspace use team
+stdout 'Current workspace is'
+stdout ${ORG@R}
+! stderr .
+exec kubectl-ws . --short
+cmpenv stdout team.txt
+
+# commands now resolve against the entered workspace
+exec kubectl-create-workspace sub
+stdout 'is ready to use'
+exec kubectl-ws cd sub --short
+cmpenv stdout sub.txt
+exec kubectl-kcp workspace current --short
+cmpenv stdout sub.txt
+
+-- team.txt --
+$ORG:team
+-- sub.txt --
+$ORG:team:sub
