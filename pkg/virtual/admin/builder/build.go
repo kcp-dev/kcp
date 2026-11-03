@@ -19,14 +19,13 @@ package builder
 import (
 	"context"
 	"errors"
-	"strings"
+	"path"
 	"sync"
 
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
-	"github.com/kcp-dev/logicalcluster/v3"
 	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -45,6 +44,16 @@ import (
 // apiDomainKey is the single, static API domain of the Admin workspace: the
 // VW serves one fixed API set regardless of the caller.
 const apiDomainKey = dynamiccontext.APIDomainKey(admin.VirtualWorkspaceName)
+
+// pathPatterns returns the mux patterns of the virtual workspace:
+// rootPathPrefix itself and, for cluster-aware clients, below an optional
+// clusters/<cluster> segment. The views are identical for every value.
+func pathPatterns(rootPathPrefix string) []string {
+	return []string{
+		path.Clean(rootPathPrefix),
+		path.Join(rootPathPrefix, "clusters/{cluster}"),
+	}
+}
 
 // BuildVirtualWorkspace builds the Admin workspace virtual workspace. It
 // serves two cache-backed, installation-wide views: every shard's Shard
@@ -65,22 +74,11 @@ func BuildVirtualWorkspace(
 	identities *apiidentity.Projector,
 	identitiesSynced func() bool,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	if !strings.HasSuffix(rootPathPrefix, "/") {
-		rootPathPrefix += "/"
-	}
 	readyCh := make(chan struct{})
 
 	vw := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			cluster, prefixToStrip, ok := digestURL(urlPath, rootPathPrefix)
-			if !ok {
-				return false, "", ctx
-			}
-			completedContext = genericapirequest.WithCluster(ctx, cluster)
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, apiDomainKey)
-			return true, prefixToStrip, completedContext
-		}),
-		Authorizer: newAuthorizer(),
+		RootPathResolver: framework.RootPathResolverFunc(resolveRootPath),
+		Authorizer:       newAuthorizer(),
 		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
 			case <-readyCh:
@@ -109,46 +107,18 @@ func BuildVirtualWorkspace(
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: admin.VirtualWorkspaceName, VirtualWorkspace: vw},
+		{Name: admin.VirtualWorkspaceName, Patterns: pathPatterns(rootPathPrefix), VirtualWorkspace: vw},
 	}, nil
 }
 
-// digestURL accepts /services/admin and everything below it. An optional
-// /clusters/<name-or-*> segment (added by cluster-aware clients) is parsed
-// and stripped; the views are identical for every value.
-func digestURL(urlPath, rootPathPrefix string) (cluster genericapirequest.Cluster, logicalPath string, accepted bool) {
-	if !strings.HasPrefix(urlPath, rootPathPrefix) {
-		return genericapirequest.Cluster{}, "", false
+// resolveRootPath presents the cluster-less aggregate view under the root
+// cluster name, so cluster-scoped machinery has a stable, valid cluster,
+// unless the request names a cluster.
+func resolveRootPath(ctx context.Context, match framework.PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	if match.Value(framework.ClusterWildcard) == "" {
+		ctx = genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: core.RootCluster})
 	}
-
-	prefix := strings.TrimSuffix(rootPathPrefix, "/")
-	realPath := strings.TrimPrefix(urlPath, prefix)
-	if realPath != "" && !strings.HasPrefix(realPath, "/") {
-		return genericapirequest.Cluster{}, "", false
-	}
-
-	// the aggregate view is cluster-less; present it under the root cluster
-	// name so cluster-scoped machinery has a stable, valid cluster.
-	cluster = genericapirequest.Cluster{Name: core.RootCluster}
-
-	if withoutClustersPrefix, ok := strings.CutPrefix(realPath, "/clusters/"); ok {
-		parts := strings.SplitN(withoutClustersPrefix, "/", 2)
-		path := logicalcluster.NewPath(parts[0])
-		if path == logicalcluster.Wildcard {
-			cluster = genericapirequest.Cluster{Wildcard: true}
-		} else if name, ok := path.Name(); ok {
-			cluster = genericapirequest.Cluster{Name: name}
-		} else {
-			return genericapirequest.Cluster{}, "", false
-		}
-		realPath = "/"
-		if len(parts) > 1 {
-			realPath += parts[1]
-		}
-		return cluster, strings.TrimSuffix(urlPath, realPath), true
-	}
-
-	return cluster, prefix, true
+	return true, match.PrefixToStrip(), dynamiccontext.WithAPIDomainKey(ctx, apiDomainKey)
 }
 
 // adminAPIDefinitionSetProvider serves the fixed API set of this virtual
