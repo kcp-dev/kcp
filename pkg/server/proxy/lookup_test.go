@@ -17,7 +17,6 @@ limitations under the License.
 package proxy
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -26,45 +25,9 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
-	"github.com/kcp-dev/kcp/pkg/index"
+	"github.com/kcp-dev/kcp/pkg/index/indextest"
 	apiexportbuilder "github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 )
-
-// fakeIndex is a test double for index.Index.
-type fakeIndex struct {
-	result           index.Result
-	found            bool
-	baseURL          string
-	recentlyMigrated bool
-
-	registered int
-	released   int
-}
-
-func (f *fakeIndex) BaseURL(shardName string) (string, bool) {
-	return f.baseURL, f.baseURL != ""
-}
-
-func (f *fakeIndex) Lookup(path logicalcluster.Path) (index.Result, bool) {
-	return f.result, f.found
-}
-
-func (f *fakeIndex) LookupURL(path logicalcluster.Path) (index.Result, bool) {
-	return f.result, f.found
-}
-
-func (f *fakeIndex) RecentlyMigrated(cluster logicalcluster.Name) bool {
-	return f.recentlyMigrated
-}
-
-func (f *fakeIndex) ClusterContext(parent context.Context, cluster logicalcluster.Name) (context.Context, context.CancelFunc) {
-	f.registered++
-	ctx, cancel := context.WithCancel(parent)
-	return ctx, func() {
-		f.released++
-		cancel()
-	}
-}
 
 func TestClusterResolveHandlerMigration(t *testing.T) {
 	t.Parallel()
@@ -144,14 +107,10 @@ func TestClusterResolveHandlerMigration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			fake := &fakeIndex{
-				found:            true,
-				recentlyMigrated: tt.recentlyMigrated,
-				result: index.Result{
-					Cluster: logicalcluster.Name(cluster),
-					Shard:   "shard-1",
-					URL:     "https://shard-1.example/clusters/" + cluster,
-				},
+			fake := &indextest.Index{
+				Clusters:                 map[logicalcluster.Name]string{cluster: "shard-1"},
+				Shards:                   map[string]string{"shard-1": "https://shard-1.example"},
+				RecentlyMigratedClusters: map[logicalcluster.Name]bool{cluster: tt.recentlyMigrated},
 			}
 
 			delegateCalled := false
@@ -185,12 +144,13 @@ func TestClusterResolveHandlerMigration(t *testing.T) {
 			if delegateCalled != tt.wantDelegate {
 				t.Errorf("delegate called = %v, want %v", delegateCalled, tt.wantDelegate)
 			}
-			if (fake.registered > 0) != tt.wantRegistered {
-				t.Errorf("registered = %d, want registered=%v", fake.registered, tt.wantRegistered)
+			registered, released := fake.Registered.Load(), fake.Released.Load()
+			if (registered > 0) != tt.wantRegistered {
+				t.Errorf("registered = %d, want registered=%v", registered, tt.wantRegistered)
 			}
 			// Any registered in-flight watch must be released when the request finishes.
-			if fake.registered != fake.released {
-				t.Errorf("registered (%d) != released (%d): in-flight watch not released", fake.registered, fake.released)
+			if registered != released {
+				t.Errorf("registered (%d) != released (%d): in-flight watch not released", registered, released)
 			}
 		})
 	}

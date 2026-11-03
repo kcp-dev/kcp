@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
-	"k8s.io/apiserver/pkg/authorization/union"
 	genericapifilters "k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	genericfilters "k8s.io/apiserver/pkg/server/filters"
@@ -40,7 +39,6 @@ import (
 	"k8s.io/component-base/metrics/legacyregistry"
 	"k8s.io/klog/v2"
 
-	kcpkubernetesclientset "github.com/kcp-dev/client-go/kubernetes"
 	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
@@ -48,7 +46,6 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	"github.com/kcp-dev/kcp/pkg/authentication"
-	"github.com/kcp-dev/kcp/pkg/authorization/delegated"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
@@ -159,6 +156,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// watching a number of resources on each. The controller is then also satisfying the Index
 	// interface.
 	s.IndexController = index.NewController(ctx, s.KcpSharedInformerFactory.Core().V1alpha1().Shards(), getClientFunc)
+	s.CompletedConfig.ServiceAccounts.SetIndex(s.IndexController)
 
 	handler, err := NewHandler(ctx, mappings)
 	if err != nil {
@@ -211,9 +209,14 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	handler = genericfilters.WithCORS(handler, c.Options.CorsAllowedOriginList, nil, nil, nil, "true")
 
 	mux := http.NewServeMux()
+	// Readiness covers everything a request needs: the Shard informer, the
+	// core identities, and the workspace index having learned the clusters
+	// of every shard. Without the last one a path lookup 404s and a service
+	// account token 401s, so load balancers must hold traffic until then.
 	healthz.InstallReadyzHandler(mux,
 		healthz.NewInformerSyncHealthz(s.KcpSharedInformerFactory),
 		healthz.NamedCheck("core-identities", func(*http.Request) error { return s.CompletedConfig.CoreIdentitiesReady() }),
+		healthz.NamedCheck("workspace-index", func(*http.Request) error { return s.IndexController.Ready() }),
 	)
 	healthz.InstallLivezHandler(mux, healthz.PingHealthz)
 
@@ -222,43 +225,14 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 	// the endpoint is world-readable and leaks shard-wide operational data
 	// (logical-cluster counts, client-cert expiry, request patterns). Members
 	// of the system:kcp:admin and system:kcp:metrics-reader groups may
-	// scrape; with --root-kubeconfig a :root SubjectAccessReview
-	// is consulted as well, so the system:kcp:metrics-reader binding that
-	// authorizes scraping on the shards keeps working here during the
-	// deprecation. Registered before "/" so it takes precedence over the proxy
+	// scrape. Registered before "/" so it takes precedence over the proxy
 	// handler for this exact path.
-	metricsHandler, err := newProtectedMetricsHandler(c.AuthenticationInfo.Authenticator, c.RootShardConfig, requestInfoFactory)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create protected metrics handler: %w", err)
-	}
-	mux.Handle("/metrics", metricsHandler)
+	mux.Handle("/metrics", withMetricsAuthorization(legacyregistry.Handler(), c.AuthenticationInfo.Authenticator, newMetricsGroupAuthorizer(), requestInfoFactory))
 
 	mux.Handle("/", handler)
 	s.Handler = mux
 
 	return s, nil
-}
-
-func newProtectedMetricsHandler(auth authenticator.Request, rootShardConfig *restclient.Config, requestInfoResolver request.RequestInfoResolver) (http.Handler, error) {
-	authorizers := []union.NamedAuthorizer{{AuthorizerName: "MetricsGroups", Authorizer: newMetricsGroupAuthorizer()}}
-	if rootShardConfig != nil {
-		kubeClusterClient, err := kcpkubernetesclientset.NewForConfig(rootShardConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create root shard client for metrics authorization: %w", err)
-		}
-		authz, err := delegated.NewDelegatedAuthorizer(core.RootCluster, kubeClusterClient, delegated.Options{})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create metrics authorizer: %w", err)
-		}
-		authorizers = append(authorizers, union.NamedAuthorizer{AuthorizerName: "RootShardDelegated", Authorizer: authz})
-	}
-
-	unioned, err := union.New(authorizers...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create metrics authorizer union: %w", err)
-	}
-
-	return withMetricsAuthorization(legacyregistry.Handler(), auth, unioned, requestInfoResolver), nil
 }
 
 func withMetricsAuthorization(h http.Handler, auth authenticator.Request, authz authorizer.Authorizer, requestInfoResolver request.RequestInfoResolver) http.Handler {
@@ -285,23 +259,33 @@ func (s preparedServer) Run(ctx context.Context) error {
 	logger := klog.FromContext(ctx).WithValues("component", "proxy")
 
 	// Both factories read the Admin workspace of the peers: any reachable
-	// shard suffices, the root shard is not special. The core identities
-	// arrive through the second one; until they do, requests that need them
-	// fail and readiness reports it, nothing blocks here on the root shard.
+	// shard suffices, the root shard is not special. Nothing is awaited
+	// before serving: /readyz reports the informers' sync, the core
+	// identities and the workspace index, and requests that need any of
+	// them fail until they are there.
 	s.KcpSharedInformerFactory.Start(ctx.Done())
 	s.CoreIdentityInformerFactory.Start(ctx.Done())
-	s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
-	s.CoreIdentityInformerFactory.WaitForCacheSync(ctx.Done())
-	if err := s.CompletedConfig.CoreIdentitiesReady(); err != nil {
-		logger.Info("starting without all core identities, waiting for the registry", "reason", err.Error())
-	}
-
-	// start indexes
 	go s.IndexController.Start(ctx, 2)
-
+	s.CompletedConfig.ServiceAccounts.Start(ctx)
 	if s.AuthController != nil {
 		go s.AuthController.Start(ctx, 2)
 	}
+	// Wait for the sync off the serving path. Blocking here would keep the
+	// port closed for as long as no peer is reachable, so /livez would fail
+	// and the proxy be restarted in a loop instead of waiting for a shard,
+	// and /readyz could not tell why. Nothing waits on this goroutine and it
+	// gates nothing; it only logs. Traffic is gated by /readyz above
+	// (informer sync, core-identities, workspace-index), and requests needing
+	// anything not yet loaded fail until it is.
+	go func() {
+		s.KcpSharedInformerFactory.WaitForCacheSync(ctx.Done())
+		s.CoreIdentityInformerFactory.WaitForCacheSync(ctx.Done())
+		if err := s.CompletedConfig.CoreIdentitiesReady(); err != nil {
+			logger.Info("informers synced, core identities not all known yet", "reason", err.Error())
+			return
+		}
+		logger.Info("informers synced, core identities known")
+	}()
 
 	doneCh, _, err := s.CompletedConfig.ServingInfo.Serve(s.Handler, time.Second*60, ctx.Done())
 	if err != nil {
