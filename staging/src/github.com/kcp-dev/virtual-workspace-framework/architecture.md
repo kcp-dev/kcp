@@ -1,7 +1,7 @@
 # Virtual Workspace Apiserver Architecture
 
 The virtual workspace apiserver is based on k8s.io/apiserver and bundles multiple
-delegated apiservers into a single apiserver. 
+delegated apiservers into a single apiserver.
 
 Usual k8s.io/apiserver delegation would mean a common filter chain and hence
 
@@ -23,11 +23,39 @@ i.e.
   5. independent discovery endpoints <some-prefix>/apis.
 
 On the other hand, we want to keep using k8s.io/apiserver. To make this work with
-the upper requirements, the handler chain will 
+the upper requirements, the handler chain will
 
-  a) inject the virtual workspace into the context
-  b) rewrite the request path to remove the virtual workspace prefix.
-  
+  a) route the request to a virtual workspace by its path pattern
+  b) inject the virtual workspace into the context
+  c) rewrite the request path to remove the virtual workspace prefix.
+
+## Path patterns
+
+Every virtual workspace is registered with one or more http.ServeMux patterns
+(`rootapiserver.NamedVirtualWorkspace.Patterns`), e.g.
+
+    /services/apiexport/{exportCluster}/{exportName}/clusters/{cluster}
+
+The root apiserver registers each pattern twice, as is and with a trailing
+`/{trail...}` wildcard, so the pattern matches with and without a kube-like
+API path after it.
+
+The `{cluster}` wildcard (`framework.ClusterWildcard`) is resolved by the root
+apiserver - `*` becomes the wildcard cluster, a valid logical cluster name is set
+on the request context, anything else leaves the request unclaimed. Patterns
+without `{cluster}` serve cluster-less requests.
+
+The virtual workspace's `RootPathResolver` then receives the context and a
+`framework.PathMatch`: the request path, the matched wildcards and the trail.
+It accepts or rejects the request, returns the prefix to strip (usually
+`match.PrefixToStrip()`, the path up to the trail) and extends the context,
+e.g. with the API domain key derived from the wildcards.
+
+Virtual workspaces may share a pattern. They are tried in registration order,
+the first accepting one claims the request. This lets e.g. the
+initializingworkspaces virtual workspaces split one URL layout by wildcard vs.
+specific cluster and by requested resource.
+
 The delegated apiserver will wrap the s.Handler's director (which usually decides
 which requests to pass to gorestful) and check for the virtual workspace name in the
 context. If it matches, the request is forwarded to the original director, and
