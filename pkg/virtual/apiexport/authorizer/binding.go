@@ -181,7 +181,16 @@ func (a *boundAPIAuthorizer) Authorize(ctx context.Context, attr authorizer.Attr
 			}
 		}
 
-		allowedVerbs := apiBindingVerbs.Intersection(apiExportVerbs)
+		// a wildcard on either side allows everything the other side allows.
+		var allowedVerbs sets.Set[string]
+		switch {
+		case apiExportVerbs.Has(wildcardVerb):
+			allowedVerbs = apiBindingVerbs
+		case apiBindingVerbs.Has(wildcardVerb):
+			allowedVerbs = apiExportVerbs
+		default:
+			allowedVerbs = apiBindingVerbs.Intersection(apiExportVerbs)
+		}
 
 		if !allowedVerbs.HasAny(attr.GetVerb(), wildcardVerb) {
 			// if the requested verb is not found, the claim cannot be used.
