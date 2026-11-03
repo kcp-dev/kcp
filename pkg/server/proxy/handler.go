@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	"github.com/kcp-dev/kcp/pkg/server/proxy/types"
 )
 
@@ -32,7 +31,7 @@ type HttpHandler struct {
 func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// we already parsed and looked up the cluster in the clusterresolver middleware,
 	// and potentially have stored the shard URL in the context already
-	shardURL := lookup.ShardURLFrom(r.Context())
+	shardURL := ShardURLFrom(r.Context())
 	if shardURL != nil {
 		r.URL = shardURL
 	}
@@ -45,7 +44,7 @@ func (h *HttpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// set the forbidden handler as the default to prevent an
 		// attacker enumerating the mounted services
 		// this results in an attacker getting 403 instead of 404
-		defaultHandler = lookup.ForbiddenHandler()
+		defaultHandler = ForbiddenHandler()
 	}
 	mux.Handle("/", defaultHandler)
 

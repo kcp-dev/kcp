@@ -52,9 +52,9 @@ import (
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	frontproxyfilters "github.com/kcp-dev/kcp/pkg/proxy/filters"
 	"github.com/kcp-dev/kcp/pkg/proxy/index"
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
 	"github.com/kcp-dev/kcp/pkg/proxy/metrics"
 	kcpfilters "github.com/kcp-dev/kcp/pkg/server/filters"
+	kcpproxy "github.com/kcp-dev/kcp/pkg/server/proxy"
 	"github.com/kcp-dev/kcp/pkg/server/requestinfo"
 
 	_ "k8s.io/component-base/metrics/prometheus/workqueue"
@@ -198,7 +198,7 @@ func NewServer(ctx context.Context, c CompletedConfig) (*Server, error) {
 
 	if hasShardMapping {
 		// This middleware must happen before the authentication.
-		handler = lookup.WithClusterResolver(handler, mappings, s.IndexController)
+		handler = kcpproxy.WithClusterResolver(handler, mappings, s.IndexController)
 	}
 
 	requestInfoFactory := requestinfo.NewFactory()

@@ -28,7 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
-	"github.com/kcp-dev/kcp/pkg/proxy/lookup"
+	kcpproxy "github.com/kcp-dev/kcp/pkg/server/proxy"
 )
 
 func newTransport(clientCert, clientKeyFile, caFile string) (*http.Transport, error) {
@@ -70,7 +70,7 @@ func WithProxyAuthHeaders(delegate http.Handler, userHeader, groupHeader string,
 
 func newShardReverseProxy() *httputil.ReverseProxy {
 	rewrite := func(pr *httputil.ProxyRequest) {
-		shardURL := lookup.ShardURLFrom(pr.In.Context())
+		shardURL := kcpproxy.ShardURLFrom(pr.In.Context())
 		if shardURL == nil {
 			// should not happen if wiring is correct
 			utilruntime.HandleError(fmt.Errorf("no shard URL found in request context"))
