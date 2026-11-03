@@ -346,6 +346,16 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		errs = append(errs, err)
 	}
 
+	// Replication stops forwarding updates during deletion. Poll before deletion
+	// too, so idle participants cannot miss the cancellation request.
+	if !requeue && len(errs) == 0 &&
+		migration.Status.Phase != migrationv1alpha1.LogicalClusterMigrationPhaseCompleted &&
+		migration.Status.Phase != migrationv1alpha1.LogicalClusterMigrationPhaseFailed &&
+		migration.Status.Phase != migrationv1alpha1.LogicalClusterMigrationPhaseCancelled &&
+		(c.isOrigin(migration) || c.isDestination(migration)) {
+		c.queue.AddAfter(key, time.Second)
+	}
+
 	return requeue, utilerrors.NewAggregate(errs)
 }
 

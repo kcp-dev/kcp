@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v260910-e6c7c98fe.logicalclustermigrations.migration.kcp.io
+  name: v261014-8a1a11ca0.logicalclustermigrations.migration.kcp.io
 spec:
   group: migration.kcp.io
   names:
@@ -148,6 +148,11 @@ spec:
               - Aborting
               - Completed
               - Failed
+              - CancellationPreparing
+              - Restoring
+              - CancellationCleanup
+              - CancellationFinalize
+              - Cancelled
               type: string
           type: object
       type: object
