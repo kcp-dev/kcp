@@ -25,7 +25,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -184,7 +183,7 @@ func (c *controller) reconcile(ctx context.Context, apiBinding *apisv1alpha2.API
 
 		var claimErrs []error
 		for _, obj := range objs {
-			u, ok := obj.(*unstructured.Unstructured)
+			u, ok := obj.(logging.Object)
 			if !ok {
 				claimErrs = append(claimErrs, fmt.Errorf("unexpected type %T: %w", obj, err))
 				continue

@@ -23,11 +23,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	kubeinformers "github.com/kcp-dev/client-go/informers"
-	coreinformers "github.com/kcp-dev/client-go/informers/core/v1"
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
@@ -36,6 +36,8 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	apisinformers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha1"
 	shardinformers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
+
+	"github.com/kcp-dev/kcp/pkg/informer"
 )
 
 func TestDeleteHandlers(t *testing.T) {
@@ -53,10 +55,10 @@ func TestDeleteHandlers(t *testing.T) {
 					client := kcpfake.NewClientset()
 					factory := kcpinformers.NewSharedInformerFactory(client, 0)
 					kubeFactory := kubeinformers.NewSharedInformerFactory(nil, 0)
-					secrets, shards, slices := &recordingInformer{}, &recordingInformer{}, &recordingInformer{}
+					secrets, shards, slices := &recordingGVREventSource{}, &recordingInformer{}, &recordingInformer{}
 					c, err := NewController(client, factory.Apis().V1alpha2().APIExports(),
 						&recordingSliceInformer{informer: slices}, &recordingShardInformer{informer: shards},
-						nil, kubeFactory.Core().V1().Namespaces(), &recordingSecretInformer{informer: secrets}, "root")
+						nil, kubeFactory.Core().V1().Namespaces(), kubeFactory.Core().V1().Secrets(), secrets, "root")
 					require.NoError(t, err)
 					t.Cleanup(c.queue.ShutDown)
 					export := &apisv1alpha2.APIExport{ObjectMeta: metav1.ObjectMeta{
@@ -67,8 +69,8 @@ func TestDeleteHandlers(t *testing.T) {
 					switch resource {
 					case "Secret":
 						secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "identity", Namespace: "default"}}
-						obj, handler = secret, secrets.handler
-						c.listAPIExportsForSecret = func(got *corev1.Secret) ([]*apisv1alpha2.APIExport, error) {
+						obj, handler = secret, secrets.forGVR(corev1.SchemeGroupVersion.WithResource("secrets"))
+						c.listAPIExportsForSecret = func(got metav1.Object) ([]*apisv1alpha2.APIExport, error) {
 							require.Same(t, secret, got)
 							return []*apisv1alpha2.APIExport{export}, nil
 						}
@@ -112,12 +114,21 @@ func (i *recordingInformer) AddEventHandler(h cache.ResourceEventHandler) (cache
 	return nil, nil
 }
 
-type recordingSecretInformer struct {
-	coreinformers.SecretClusterInformer
-	informer *recordingInformer
+type recordingGVREventSource struct {
+	handler informer.GVREventHandler
 }
 
-func (i *recordingSecretInformer) Informer() kcpcache.ScopeableSharedIndexInformer { return i.informer }
+func (s *recordingGVREventSource) AddEventHandler(h informer.GVREventHandler) {
+	s.handler = h
+}
+
+func (s *recordingGVREventSource) forGVR(gvr schema.GroupVersionResource) cache.ResourceEventHandler {
+	return cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { s.handler.OnAdd(gvr, obj) },
+		UpdateFunc: func(oldObj, newObj interface{}) { s.handler.OnUpdate(gvr, oldObj, newObj) },
+		DeleteFunc: func(obj interface{}) { s.handler.OnDelete(gvr, obj) },
+	}
+}
 
 type recordingShardInformer struct {
 	shardinformers.ShardClusterInformer
