@@ -37,21 +37,22 @@ func Example() {
 	readyCh := make(chan struct{})
 
 	var _ = dynamic.DynamicVirtualWorkspace{
-		RootPathResolver: virtualframework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
+		RootPathResolver: virtualframework.RootPathResolverFunc(func(ctx context.Context, match virtualframework.PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context) {
 			if someAPIDefinitionSetGetter == nil {
 				// If the APIDefinitionSetGetter is not initialized, don't accept the request
 				return
 			}
 
+			// Extract the API domain key from the wildcards of the path pattern
+			// the virtual workspace was registered with, e.g. match.Value("domain").
 			var apiDomainKey dynamiccontext.APIDomainKey
 
-			// Resolve the request root path and extract the API domain key from it
-
-			// If the root path doesn't start by the right prefix or doesn't contain the API domain key,
+			// If the wildcards don't yield an API domain key,
 			// just don't accept the request and return.
 
 			// Add the apiDomainKey to the request context before passing the request to the virtual workspace APIServer
-			completedContext = dynamiccontext.WithAPIDomainKey(requestContext, apiDomainKey)
+			completedContext = dynamiccontext.WithAPIDomainKey(ctx, apiDomainKey)
+			prefixToStrip = match.PrefixToStrip()
 			accepted = true
 			return
 		}),

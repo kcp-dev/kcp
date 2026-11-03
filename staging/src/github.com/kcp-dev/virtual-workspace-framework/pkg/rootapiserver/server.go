@@ -35,8 +35,10 @@ import (
 	"k8s.io/apiserver/pkg/warning"
 	componentbaseversion "k8s.io/component-base/version"
 
+	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	"github.com/kcp-dev/virtual-workspace-framework/framework"
 	virtualcontext "github.com/kcp-dev/virtual-workspace-framework/pkg/context"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/hops"
 )
@@ -122,39 +124,111 @@ func getRootHandlerChain(c CompletedConfig, delegateAPIServer genericapiserver.D
 		delegateAfterDefaultHandlerChain := genericapiserver.DefaultBuildHandlerChain(
 			hops.WithRequestHops(auditAnnotationWrapper), c.Generic.Config)
 
+		mux := newPatternMux(c.Extra.VirtualWorkspaces, delegateAfterDefaultHandlerChain)
+
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			requestContext := req.Context()
 			// detect old kubectl plugins and inject warning headers
 			if req.UserAgent() == "Go-http-client/2.0" {
 				// TODO(sttts): in the future compare the plugin version to the server version and warn outside of skew compatibility guarantees.
-				warning.AddWarning(requestContext, "",
+				warning.AddWarning(req.Context(), "",
 					fmt.Sprintf("You are using an old kubectl-kcp plugin. Please update to a version matching the kcp server version %q.", componentbaseversion.Get().GitVersion))
 			}
 
-			for _, vw := range c.Extra.VirtualWorkspaces {
-				if accepted, prefixToStrip, completedContext := vw.ResolveRootPath(req.URL.Path, requestContext); accepted {
-					req.URL.Path = strings.TrimPrefix(req.URL.Path, prefixToStrip)
-					newURL, err := url.Parse(req.URL.String())
-					if err != nil {
-						responsewriters.ErrorNegotiated(
-							apierrors.NewInternalError(fmt.Errorf("unable to resolve %s, err %w", req.URL.Path, err)),
-							errorCodecs, schema.GroupVersion{},
-							w, req)
-						return
-					}
-					req.URL = newURL
-
-					cluster := request.ClusterFrom(completedContext)
-					if cluster != nil && !cluster.Name.Empty() {
-						completedContext = context.WithValue(completedContext, auditClusterKey, cluster)
-					}
-
-					req = req.WithContext(virtualcontext.WithVirtualWorkspaceName(completedContext, vw.Name))
-
-					break
-				}
-			}
-			delegateAfterDefaultHandlerChain.ServeHTTP(w, req)
+			mux.ServeHTTP(w, req)
 		})
 	}
+}
+
+// newPatternMux routes requests by the virtual workspaces' path patterns.
+// Unmatched requests go to delegate unclaimed.
+// Panics on malformed or conflicting patterns.
+func newPatternMux(vws []NamedVirtualWorkspace, delegate http.Handler) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.Handle("/", delegate)
+	for pattern, vws := range byPattern(vws) {
+		handler := newResolveHandler(vws, delegate)
+		mux.Handle(pattern, handler)
+		mux.Handle(pattern+"/{"+framework.TrailWildcard+"...}", handler)
+	}
+	return mux
+}
+
+// byPattern groups virtual workspaces by path pattern,
+// preserving registration order within a pattern.
+func byPattern(vws []NamedVirtualWorkspace) map[string][]NamedVirtualWorkspace {
+	grouped := make(map[string][]NamedVirtualWorkspace, len(vws))
+	for _, vw := range vws {
+		for _, pattern := range vw.Patterns {
+			grouped[pattern] = append(grouped[pattern], vw)
+		}
+	}
+	return grouped
+}
+
+// newResolveHandler resolves the cluster wildcard, if the pattern has one,
+// and lets the first accepting virtual workspace claim the request before delegating.
+// Requests no virtual workspace accepts are delegated unclaimed.
+func newResolveHandler(vws []NamedVirtualWorkspace, delegate http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ctx := req.Context()
+		if segment := req.PathValue(framework.ClusterWildcard); segment != "" {
+			cluster, ok := clusterFromSegment(segment)
+			if !ok {
+				delegate.ServeHTTP(w, req)
+				return
+			}
+			ctx = request.WithCluster(ctx, cluster)
+			req = req.WithContext(ctx)
+		}
+
+		match := framework.PathMatch{
+			Path:  req.URL.Path,
+			Value: req.PathValue,
+			Trail: req.PathValue(framework.TrailWildcard),
+		}
+
+		for _, vw := range vws {
+			accepted, prefixToStrip, completedContext := vw.ResolveRootPath(ctx, match)
+			if !accepted {
+				continue
+			}
+
+			req.URL.Path = strings.TrimPrefix(req.URL.Path, prefixToStrip)
+			newURL, err := url.Parse(req.URL.String())
+			if err != nil {
+				responsewriters.ErrorNegotiated(
+					apierrors.NewInternalError(fmt.Errorf("unable to resolve %s, err %w", req.URL.Path, err)),
+					errorCodecs, schema.GroupVersion{},
+					w, req)
+				return
+			}
+			req.URL = newURL
+
+			if cluster := request.ClusterFrom(completedContext); cluster != nil && !cluster.Name.Empty() {
+				completedContext = context.WithValue(completedContext, auditClusterKey, cluster)
+			}
+
+			req = req.WithContext(virtualcontext.WithVirtualWorkspaceName(completedContext, vw.Name))
+			break
+		}
+
+		delegate.ServeHTTP(w, req)
+	})
+}
+
+// clusterFromSegment parses a cluster path segment,
+// either the wildcard or a logical cluster name.
+func clusterFromSegment(segment string) (request.Cluster, bool) {
+	path := logicalcluster.NewPath(segment)
+	if path == logicalcluster.Wildcard {
+		return request.Cluster{Wildcard: true}, true
+	}
+	if !path.IsValid() {
+		return request.Cluster{}, false
+	}
+	name, ok := path.Name()
+	if !ok {
+		return request.Cluster{}, false
+	}
+	return request.Cluster{Name: name}, true
 }

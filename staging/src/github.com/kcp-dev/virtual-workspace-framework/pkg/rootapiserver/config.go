@@ -25,8 +25,14 @@ import (
 	"github.com/kcp-dev/virtual-workspace-framework/framework"
 )
 
+// NamedVirtualWorkspace is a virtual workspace served at a path pattern.
 type NamedVirtualWorkspace struct {
 	Name string
+	// Patterns are the http.ServeMux patterns of the paths the virtual
+	// workspace serves, without a trailing wildcard, e.g.
+	// /services/apiexport/{exportCluster}/{exportName}/clusters/{cluster}.
+	// The framework.ClusterWildcard, if present, sets the logical cluster.
+	Patterns []string
 	framework.VirtualWorkspace
 }
 
