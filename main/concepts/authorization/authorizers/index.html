@@ -5801,18 +5801,35 @@ This field is deprecated as of kcp v0.28.3 and will be removed in a future relea
 If the users authenticated against another workspace than the target of the request these fields will not be present - instead the user will be seen as <code>system:anonymous</code> with groups <code>system:authenticated</code> and <code>system:cluster:&lt;logical-cluster&gt;</code>, where <code>&lt;logical-cluster&gt;</code> is the name of the logical cluster backing the workspace they authenticated against.</p>
 </div>
 <h3 id="authorizer-order">Authorizer Order<a class="headerlink" href="#authorizer-order" title="Permanent link">&para;</a></h3>
-<p>By default, the authorizers are evaluated in the following order:</p>
+<p>The authorizers are evaluated in four fixed groups:</p>
 <ol>
-<li><strong>Always Allow Groups Authorizer</strong> (<code>AlwaysAllowGroups</code>)</li>
-<li><strong>Always Allow Paths Authorizer</strong> (<code>AlwaysAllowPaths</code>)</li>
-<li><strong>RBAC Chain</strong> (<code>RBAC</code>)</li>
-<li><strong>Webhook Authorizer</strong> (<code>Webhook</code>)</li>
+<li><strong>Bypass</strong>: These let e.g. system identities pass the authorization
+   checks and grant access to the paths listed in
+   <code>--authorization-always-allow-paths</code> for e.g. metrics endpoints.</li>
+<li><strong>Pre-gate</strong>: Basic checks validating if a request is valid in the
+   first place, e.g. whether the logical cluster a request is made for
+   exists.</li>
+<li><strong>Grant</strong>: User-configurable authorizers, namely the kube RBAC chain
+   (<code>RBAC</code>) and the configurable authorization webhook (<code>Webhook</code>),
+   order is configurable via the <code>--authorization-order</code> flag.</li>
+<li><strong>Gate</strong>: Final checks that may restrict access that was granted by
+   either RBAC or the authorization webhook.
+   This applies the filter for the required-groups annotation on
+   workspaces and the maximal permission policy of providers.</li>
 </ol>
-<p>The order in which authorizers are evaluated can be configured. This allows administrators to customize the authorization flow.
-It can be done by setting <code>--authorization-order</code> flag in the kcp server. This flag accepts a comma-separated list of authorizer names, which will be evaluated in the specified order.</p>
-<p>Here is an example on how to enable the Webhook to be the first one in the authorizers chain:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>--authorization-order<span class="o">=</span>Webhook,AlwaysAllowGroups,AlwaysAllowPaths,RBAC
+<p><code>--authorization-order</code> only selects and orders the grant authorizers. The bypass, pre-gate
+and gate authorizers always run in their fixed position, so an authorization webhook can
+neither be moved in front of the bypass authorizers nor behind the gates.</p>
+<p>Here is an example that lets the Webhook decide before the RBAC chain:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>--authorization-order<span class="o">=</span>Webhook,RBAC
 </code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>AlwaysAllowGroups</code> and <code>AlwaysAllowPaths</code> used to be values of <code>--authorization-order</code>.
+They are still accepted, but they are ignored:
+those authorizers are built from <code>--authorization-always-allow-paths</code> and the configured
+always-allow groups and always run first now.</p>
+</div>
 <h3 id="scopes">Scopes<a class="headerlink" href="#scopes" title="Permanent link">&para;</a></h3>
 <p>Scopes are a way to limit the access of a user to a specific logical cluster.
 Scopes are (optionally) attached to the user identity by setting the
