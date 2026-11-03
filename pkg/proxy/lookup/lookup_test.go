@@ -27,6 +27,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	"github.com/kcp-dev/kcp/pkg/index"
+	apiexportbuilder "github.com/kcp-dev/kcp/pkg/virtual/apiexport/builder"
 )
 
 // fakeIndex is a test double for index.Index.
@@ -242,6 +243,91 @@ func TestExtractClusterFromPath(t *testing.T) {
 			path:     "/services/foo/clusters/root/apis/v1",
 			expected: "root",
 		},
+		{
+			name:     "replication VW, cached resource named clusters",
+			path:     "/services/replication/1oget0q1249b2vcy/clusters/clusters/385doly4poks8a45/apis/wildwest.dev/v1alpha1/clusters",
+			expected: "385doly4poks8a45",
+		},
+		{
+			name:     "replication VW, cached resource named clusters, at the cluster's root",
+			path:     "/services/replication/1oget0q1249b2vcy/clusters/clusters/385doly4poks8a45",
+			expected: "385doly4poks8a45",
+		},
+		{
+			name:     "replication VW, cached resource named clusters, non-API endpoint",
+			path:     "/services/replication/1oget0q1249b2vcy/clusters/clusters/385doly4poks8a45/healthz",
+			expected: "385doly4poks8a45",
+		},
+		{
+			name:     "apiexport VW, export named clusters",
+			path:     "/services/apiexport/root:providers/clusters/clusters/root:orgs:bob/api/v1/namespaces",
+			expected: "root:orgs:bob",
+		},
+		{
+			name:     "apiexport VW, export named clusters, wildcard cluster",
+			path:     "/services/apiexport/root:providers/clusters/clusters/*/apis/wildwest.dev/v1alpha1/clusters",
+			expected: "*",
+		},
+		{
+			name:     "apiexport VW, export named clusters, trailing slash after the cluster",
+			path:     "/services/apiexport/root:providers/clusters/clusters/root:orgs:bob/",
+			expected: "root:orgs:bob",
+		},
+		{
+			name:     "apiexport VW, export and its workspace both named clusters",
+			path:     "/services/apiexport/clusters/clusters/clusters/root:orgs:bob/apis/wildwest.dev/v1alpha1/clusters",
+			expected: "root:orgs:bob",
+		},
+		{
+			name:     "apiexport VW, a later clusters segment does not move the cluster",
+			path:     "/services/apiexport/root:providers/export/clusters/root:orgs:a/x/clusters/root:orgs:b/apis/v1",
+			expected: "root:orgs:a",
+		},
+		{
+			name:     "apiexport VW without a clusters segment where its layout puts one",
+			path:     "/services/apiexport/root:providers/export/notclusters/root:orgs:bob/apis/v1",
+			expected: "",
+		},
+		{
+			name:     "apiexport VW cut short before its cluster",
+			path:     "/services/apiexport/root:providers/export/clusters",
+			expected: "",
+		},
+		{
+			name:     "initializingworkspaces VW",
+			path:     "/services/initializingworkspaces/root:org:custom/clusters/2x7k9fqp1abcd/apis/core.kcp.io/v1alpha1/logicalclusters",
+			expected: "2x7k9fqp1abcd",
+		},
+		{
+			name:     "terminatingworkspaces VW",
+			path:     "/services/terminatingworkspaces/root:org:custom/clusters/2x7k9fqp1abcd/apis/core.kcp.io/v1alpha1/logicalclusters",
+			expected: "2x7k9fqp1abcd",
+		},
+		{
+			name:     "apiresourceschema VW",
+			path:     "/services/apiresourceschema/root:consumer/clusters/*/apis/apis.kcp.io/v1alpha1/apiresourceschemas",
+			expected: "*",
+		},
+		{
+			name:     "admin VW",
+			path:     "/services/admin/clusters/root:orgs:bob/apis/core.kcp.io/v1alpha1/logicalclusters",
+			expected: "root:orgs:bob",
+		},
+		{
+			name:     "migratingworkspaces VW",
+			path:     "/services/migratingworkspaces/clusters/2x7k9fqp1abcd/apis/v1",
+			expected: "2x7k9fqp1abcd",
+		},
+		{
+			name:     "unknown VW, resource named clusters after the cluster",
+			path:     "/services/foo/clusters/root:orgs:bob/apis/wildwest.dev/v1alpha1/clusters/cluster-a",
+			expected: "root:orgs:bob",
+		},
+		{
+			name:     "unknown VW keeps the first segment after /clusters/, even an empty one",
+			path:     "/services/foo/clusters//clusters/root:orgs:bob/apis/v1",
+			expected: "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -252,5 +338,12 @@ func TestExtractClusterFromPath(t *testing.T) {
 				t.Errorf("extractClusterFromPath(%q) = %q, want %q", tt.path, result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestAPIExportVirtualWorkspaceName(t *testing.T) {
+	t.Parallel()
+	if apiExportVirtualWorkspaceName != apiexportbuilder.VirtualWorkspaceName {
+		t.Errorf("apiExportVirtualWorkspaceName = %q, want the apiexport virtual workspace's name %q", apiExportVirtualWorkspaceName, apiexportbuilder.VirtualWorkspaceName)
 	}
 }
