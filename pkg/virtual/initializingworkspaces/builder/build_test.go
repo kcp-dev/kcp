@@ -17,6 +17,7 @@ limitations under the License.
 package builder
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,73 +37,107 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	"github.com/kcp-dev/virtual-workspace-framework/framework"
-	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 )
 
-func TestDigestUrl(t *testing.T) {
+func TestPathPattern(t *testing.T) {
 	t.Parallel()
-	rootPathPrefix := "/services/initializingworkspaces/"
-	testCases := []struct {
-		urlPath             string
-		expectedAccept      bool
-		expectedCluster     request.Cluster
-		expectedKey         context.APIDomainKey
-		expectedLogicalPath string
+
+	require.Equal(t,
+		"/services/initializingworkspaces/{initializer}/clusters/{cluster}",
+		pathPattern("/services/initializingworkspaces/"))
+}
+
+func TestResolveRootPath(t *testing.T) {
+	t.Parallel()
+
+	const (
+		initializerName = "test-initializer"
+		clusterName     = "abc"
+	)
+
+	// registration order, the first accepting resolver wins
+	resolvers := []struct {
+		name    string
+		resolve framework.RootPathResolverFunc
 	}{
-		{
-			urlPath:             "/services/initializingworkspaces/test-initializer/clusters/test-cluster/apis/workload.kcp.io/v1alpha1/synctargets",
-			expectedAccept:      true,
-			expectedCluster:     request.Cluster{Name: "test-cluster", Wildcard: false, PartialMetadataRequest: false},
-			expectedKey:         "test-initializer",
-			expectedLogicalPath: "/services/initializingworkspaces/test-initializer/clusters/test-cluster",
+		{"wildcardLogicalClusters", resolveWildcardLogicalClusters},
+		{"logicalClusters", resolveLogicalClusters},
+		{"workspaceContent", resolveWorkspaceContent},
+	}
+
+	tests := map[string]struct {
+		cluster      request.Cluster
+		trail        string
+		wantResolver string
+		prefixToTrim string
+	}{
+		"wildcard logicalclusters": {
+			cluster:      request.Cluster{Wildcard: true},
+			trail:        "apis/core.kcp.io/v1alpha1/logicalclusters",
+			wantResolver: "wildcardLogicalClusters",
+			prefixToTrim: "/services/initializingworkspaces/test-initializer/clusters/*",
 		},
-		{
-			urlPath:             "/services/initializingworkspaces/test-initializer/clusters/*/apis/workload.kcp.io/v1alpha1/synctargets",
-			expectedAccept:      true,
-			expectedCluster:     request.Cluster{Name: "", Wildcard: true, PartialMetadataRequest: false},
-			expectedKey:         "test-initializer",
-			expectedLogicalPath: "/services/initializingworkspaces/test-initializer/clusters/*",
+		"wildcard other resource": {
+			cluster:      request.Cluster{Wildcard: true},
+			trail:        "api/v1/configmaps",
+			wantResolver: "wildcardLogicalClusters",
+			prefixToTrim: "/services/initializingworkspaces/test-initializer/clusters/*",
 		},
-		{
-			urlPath:             "/services/initializingworkspaces/test-initializer/clusters/",
-			expectedAccept:      true,
-			expectedCluster:     request.Cluster{Name: "", Wildcard: false, PartialMetadataRequest: false},
-			expectedKey:         "test-initializer",
-			expectedLogicalPath: "/services/initializingworkspaces/test-initializer/clusters",
+		"cluster logicalclusters": {
+			cluster:      request.Cluster{Name: clusterName},
+			trail:        "apis/core.kcp.io/v1alpha1/logicalclusters/cluster",
+			wantResolver: "logicalClusters",
+			prefixToTrim: "/services/initializingworkspaces/test-initializer/clusters/abc",
 		},
-		{
-			urlPath:             "/services/initializingworkspaces/test-initializer/clusters/*",
-			expectedAccept:      true,
-			expectedCluster:     request.Cluster{Name: "", Wildcard: true, PartialMetadataRequest: false},
-			expectedKey:         "test-initializer",
-			expectedLogicalPath: "/services/initializingworkspaces/test-initializer/clusters/*",
+		"cluster other resource keeps cluster segment": {
+			cluster:      request.Cluster{Name: clusterName},
+			trail:        "api/v1/configmaps",
+			wantResolver: "workspaceContent",
+			prefixToTrim: "/services/initializingworkspaces/test-initializer",
 		},
-		{
-			urlPath:             "/services/initializingworkspaces/test-initializer/",
-			expectedAccept:      false,
-			expectedCluster:     request.Cluster{Name: "", Wildcard: false, PartialMetadataRequest: false},
-			expectedKey:         "",
-			expectedLogicalPath: "",
-		},
-		{
-			urlPath:             "/services/initializingworkspaces/",
-			expectedAccept:      false,
-			expectedCluster:     request.Cluster{Name: "", Wildcard: false, PartialMetadataRequest: false},
-			expectedKey:         "",
-			expectedLogicalPath: "",
+		"no cluster": {
+			trail: "api/v1/configmaps",
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.urlPath, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			cluster, key, logicalPath, accepted := digestUrl(tc.urlPath, rootPathPrefix)
-			require.Equal(t, tc.expectedAccept, accepted, "Accepted should match expected value")
-			require.Equal(t, tc.expectedCluster, cluster, "Cluster should match expected value")
-			require.Equal(t, tc.expectedKey, key, "Key should match expected value")
-			require.Equal(t, tc.expectedLogicalPath, logicalPath, "LogicalPath should match expected value")
+
+			segment := tc.cluster.Name.String()
+			if tc.cluster.Wildcard {
+				segment = "*"
+			}
+			ctx := t.Context()
+			if segment != "" {
+				ctx = request.WithCluster(ctx, tc.cluster)
+			}
+			values := map[string]string{initializerWildcard: initializerName, framework.ClusterWildcard: segment}
+			match := framework.PathMatch{
+				Path:  "/services/initializingworkspaces/test-initializer/clusters/" + segment + "/" + tc.trail,
+				Value: func(name string) string { return values[name] },
+				Trail: tc.trail,
+			}
+
+			var gotResolver, gotPrefix string
+			var gotCtx context.Context
+			for _, r := range resolvers {
+				accepted, prefixToTrim, ctx := r.resolve(ctx, match)
+				if accepted {
+					gotResolver, gotPrefix, gotCtx = r.name, prefixToTrim, ctx
+					break
+				}
+			}
+
+			require.Equal(t, tc.wantResolver, gotResolver)
+			if tc.wantResolver == "" {
+				return
+			}
+			require.Equal(t, tc.prefixToTrim, gotPrefix)
+			require.Equal(t, dynamiccontext.APIDomainKey(initializerName), dynamiccontext.APIDomainKeyFrom(gotCtx))
 		})
 	}
 }
