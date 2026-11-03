@@ -2646,6 +2646,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#cancelling-an-in-progress-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cancelling an In-progress Migration
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#watching-connection-termination" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5268,6 +5279,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#cancelling-an-in-progress-migration" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Cancelling an In-progress Migration
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#watching-connection-termination" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -5466,28 +5488,49 @@
 </li>
 </ol>
 <h2 id="observing-migration-behavior">Observing Migration Behavior<a class="headerlink" href="#observing-migration-behavior" title="Permanent link">&para;</a></h2>
+<h3 id="cancelling-an-in-progress-migration">Cancelling an In-progress Migration<a class="headerlink" href="#cancelling-an-in-progress-migration" title="Permanent link">&para;</a></h3>
+<p>In the workspace containing the migration resource, request cancellation with:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>logicalclustermigration<span class="w"> </span>test-migration<span class="w"> </span>--wait<span class="o">=</span><span class="nb">false</span>
+</code></pre></div>
+<p>The finalizer keeps the resource until the workspace is restored on its origin
+shard. Watch progress with <code>kubectl get logicalclustermigrations -w</code>.</p>
+<p>During preparation, cancellation restores access on the origin. During copying,
+the destination first removes its partial copy. If origin cleanup has started,
+cancellation freezes the destination and copies its complete dataset back to the
+origin before removing the destination copy. The workspace remains unavailable
+until cancellation finishes. A failed copy or cleanup is retried; do not remove
+the finalizer manually to bypass it.</p>
+<p>Deleting a completed migration only removes the migration resource. To move a
+completed migration's workspace back, create another migration.</p>
+<p>The decision is made when the controller observes the deletion request. An
+operation already in flight may finish first, so a sufficiently late request can
+observe a completed migration rather than cancel it.</p>
+<p>For a deterministic test of cancellation during an in-flight copy, run:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./test/e2e/logicalclustermigration<span class="w"> </span>-run<span class="w"> </span><span class="s1">'^TestMigrationCancellationDuringCopy$'</span><span class="w"> </span>-count<span class="o">=</span><span class="m">1</span><span class="w"> </span>-v
+</code></pre></div>
+<p>Use shards running the same version with support for cancellation phases.</p>
 <h3 id="watching-connection-termination">Watching Connection Termination<a class="headerlink" href="#watching-connection-termination" title="Permanent link">&para;</a></h3>
 <p>To observe how active connections are handled during migration, set up a watch before starting the
 migration:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Terminal 1: Start a watch</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>org:test-workspace
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>kubectl<span class="w"> </span>get<span class="w"> </span>configmaps<span class="w"> </span>-w
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="c1"># Terminal 2: Start the migration</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>org
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>migration.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Terminal 1: Start a watch</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>org:test-workspace
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>kubectl<span class="w"> </span>get<span class="w"> </span>configmaps<span class="w"> </span>-w
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="c1"># Terminal 2: Start the migration</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>kubectl<span class="w"> </span>ws<span class="w"> </span>org
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>migration.yaml
 </code></pre></div>
 <p>The watch in Terminal 1 will be disconnected when the migration enters the <code>Preparing</code> phase.</p>
 <h3 id="checking-shard-assignment">Checking Shard Assignment<a class="headerlink" href="#checking-shard-assignment" title="Permanent link">&para;</a></h3>
 <p>Before and after migration, you can verify which shard hosts the workspace by checking the
 <code>core.kcp.io/shard</code> annotation on the <code>LogicalCluster</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Check via the workspace</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>test-workspace<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.metadata.annotations.core\.kcp\.io/shard}'</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Check via the workspace</span>
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>kubectl<span class="w"> </span>get<span class="w"> </span>workspace<span class="w"> </span>test-workspace<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.metadata.annotations.core\.kcp\.io/shard}'</span>
 </code></pre></div>
 <h2 id="running-the-e2e-tests">Running the E2E Tests<a class="headerlink" href="#running-the-e2e-tests" title="Permanent link">&para;</a></h2>
 <p>The migration feature includes end-to-end tests that verify the complete migration flow:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Run only migration tests</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-v<span class="w"> </span>./test/e2e/logicalclustermigration/...<span class="w"> </span>-args<span class="w"> </span>-feature-gates<span class="o">=</span><span class="nv">LogicalClusterMigration</span><span class="o">=</span><span class="nb">true</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Run only migration tests</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>-v<span class="w"> </span>./test/e2e/logicalclustermigration/...<span class="w"> </span>-args<span class="w"> </span>-feature-gates<span class="o">=</span><span class="nv">LogicalClusterMigration</span><span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
 <p>The tests verify:</p>
 <ul>
@@ -5506,7 +5549,7 @@ migration:</p>
 <li>The logical cluster exists and is not already migrating</li>
 </ul>
 <p>Inspect the migration conditions:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>logicalclustermigration<span class="w"> </span>test-migration<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions}'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>logicalclustermigration<span class="w"> </span>test-migration<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.conditions}'</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>jq
 </code></pre></div>
 <h3 id="migration-stuck-in-migrating-phase">Migration Stuck in Migrating Phase<a class="headerlink" href="#migration-stuck-in-migrating-phase" title="Permanent link">&para;</a></h3>
 <p>Check that:</p>
