@@ -62,4 +62,4 @@ $ kubectl create workspace my-workspace       # a short-cut for kubectl kcp work
 
 ## K9s plugin for kcp
 
-There is a plugin for the kubernetes terminal UI [k9s](https://k9scli.io/). Thr plugin enables ther user to navigate between kcp workspaces. [Link to the plugin](https://github.com/derailed/k9s/tree/master/plugins/kubectl-plugins/kubectl-kcp)
+There is a plugin for the kubernetes terminal UI [k9s](https://k9scli.io/). The plugin enables the user to navigate between kcp workspaces. [Link to the plugin](https://github.com/derailed/k9s/tree/master/plugins/kubectl-plugins/kubectl-kcp)
