@@ -34,7 +34,28 @@ const (
 	TrailWildcard = "trail"
 )
 
-// PathMatch is a request path matched against a virtual workspace pattern.
+// PathMatch is a parsed request path.
+//
+// Virtual workspaces registers in the framework with [http.ServeMux] patterns like this:
+//
+//	/services/apiexport/{exportCluster}/{exportName}/clusters/{cluster}
+//
+// The framework registers each pattern once by itself and once with a trail wildcard.
+//
+// A request with this path and the above pattern:
+//
+//	/services/apiexport/root:providers/widgets/clusters/root:org/apis/example.io/v1/widgets
+//
+// Is parsed into a PathMatch like this:
+//
+//	Path:                   "/services/apiexport/root:providers/widgets/clusters/root:org/apis/example.io/v1/widgets"
+//	Trail:                  "apis/example.io/v1/widgets"
+//	Value("exportCluster"): "root:providers"
+//	Value("exportName"):    "widgets"
+//	Value(ClusterWildcard): "root:org"
+//	PrefixToStrip():        "/services/apiexport/root:providers/widgets/clusters/root:org"
+//
+// For tests the [NewPathMatch] function can be used to build a valid PathMatch.
 type PathMatch struct {
 	// Path is the full request path.
 	Path string
