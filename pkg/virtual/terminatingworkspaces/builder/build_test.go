@@ -17,6 +17,7 @@ limitations under the License.
 package builder
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -24,14 +25,126 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/client-go/tools/cache"
 
 	kcpcache "github.com/kcp-dev/apimachinery/v2/pkg/cache"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/virtual-workspace-framework/framework"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
 	"github.com/kcp-dev/kcp/pkg/indexers"
 )
+
+func TestPathPattern(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t,
+		"/services/terminatingworkspaces/{terminator}/clusters/{cluster}",
+		pathPattern("/services/terminatingworkspaces/"))
+}
+
+func TestResolveRootPath(t *testing.T) {
+	t.Parallel()
+
+	const (
+		terminatorName = "test-terminator"
+		clusterName    = "abc"
+	)
+
+	// registration order, the first accepting resolver wins
+	resolvers := []struct {
+		name    string
+		resolve framework.RootPathResolverFunc
+	}{
+		{"wildcardLogicalClusters", resolveWildcardLogicalClusters},
+		{"logicalClusters", resolveLogicalClusters},
+		{"workspaceContent", resolveWorkspaceContent},
+	}
+
+	tests := map[string]struct {
+		cluster      request.Cluster
+		trail        string
+		wantResolver string
+		prefixToTrim string
+	}{
+		"wildcard logicalclusters": {
+			cluster:      request.Cluster{Wildcard: true},
+			trail:        "apis/core.kcp.io/v1alpha1/logicalclusters",
+			wantResolver: "wildcardLogicalClusters",
+			prefixToTrim: "/services/terminatingworkspaces/test-terminator/clusters/*",
+		},
+		"wildcard other resource": {
+			cluster:      request.Cluster{Wildcard: true},
+			trail:        "api/v1/configmaps",
+			wantResolver: "wildcardLogicalClusters",
+			prefixToTrim: "/services/terminatingworkspaces/test-terminator/clusters/*",
+		},
+		"cluster logicalclusters": {
+			cluster:      request.Cluster{Name: clusterName},
+			trail:        "apis/core.kcp.io/v1alpha1/logicalclusters/cluster",
+			wantResolver: "logicalClusters",
+			prefixToTrim: "/services/terminatingworkspaces/test-terminator/clusters/abc",
+		},
+		"cluster discovery": {
+			cluster:      request.Cluster{Name: clusterName},
+			trail:        "apis",
+			wantResolver: "logicalClusters",
+			prefixToTrim: "/services/terminatingworkspaces/test-terminator/clusters/abc",
+		},
+		"cluster other resource keeps cluster segment": {
+			cluster:      request.Cluster{Name: clusterName},
+			trail:        "api/v1/configmaps",
+			wantResolver: "workspaceContent",
+			prefixToTrim: "/services/terminatingworkspaces/test-terminator",
+		},
+		"cluster workspace root keeps cluster segment": {
+			cluster:      request.Cluster{Name: clusterName},
+			trail:        "",
+			wantResolver: "workspaceContent",
+			prefixToTrim: "/services/terminatingworkspaces/test-terminator",
+		},
+		"no cluster": {
+			trail: "api/v1/configmaps",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			segment := tc.cluster.Name.String()
+			if tc.cluster.Wildcard {
+				segment = "*"
+			}
+			ctx := t.Context()
+			if segment != "" {
+				ctx = request.WithCluster(ctx, tc.cluster)
+			}
+			values := map[string]string{terminatorWildcard: terminatorName, framework.ClusterWildcard: segment}
+			// trailing slash when trail is empty
+			match := framework.NewPathMatch("/services/terminatingworkspaces/test-terminator/clusters/"+segment+"/"+tc.trail, tc.trail, values)
+
+			var gotResolver, gotPrefix string
+			var gotCtx context.Context
+			for _, r := range resolvers {
+				accepted, prefixToTrim, ctx := r.resolve(ctx, match)
+				if accepted {
+					gotResolver, gotPrefix, gotCtx = r.name, prefixToTrim, ctx
+					break
+				}
+			}
+
+			require.Equal(t, tc.wantResolver, gotResolver)
+			if tc.wantResolver == "" {
+				return
+			}
+			require.Equal(t, tc.prefixToTrim, gotPrefix)
+			require.Equal(t, dynamiccontext.APIDomainKey(terminatorName), dynamiccontext.APIDomainKeyFrom(gotCtx))
+		})
+	}
+}
 
 func TestResolveTerminatorWorkspaceType(t *testing.T) {
 	t.Parallel()

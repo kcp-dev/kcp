@@ -18,6 +18,8 @@ package framework
 
 import (
 	"context"
+	"net/http"
+	"strings"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -25,30 +27,110 @@ import (
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/admission"
 )
 
-// RootPathResolverFunc is the type of a function that, based on the URL path of a request,
-// returns whether the request should be accepted and served by a given VirtuaWorkspace.
-// When it returns `true`, it will also set the VirtualWorkspace name in the request context,
-// as well as the prefix that should be removed from the request URL Path before forwarding
-// the request to the given VirtualWorkspace delegated APIServer.
-type RootPathResolverFunc func(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
+const (
+	// ClusterWildcard names the http.ServeMux wildcard of a virtual workspace path pattern that holds the logical cluster.
+	ClusterWildcard = "cluster"
+	// TrailWildcard names the http.ServeMux wildcard holding the kube-like API path after the virtual workspace path pattern.
+	TrailWildcard = "trail"
+)
 
-func (r RootPathResolverFunc) ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-	return r(urlPath, context)
+// PathMatch is a parsed request path.
+//
+// Virtual workspaces registers in the framework with [http.ServeMux] patterns like this:
+//
+//	/services/apiexport/{exportCluster}/{exportName}/clusters/{cluster}
+//
+// The framework registers each pattern once by itself and once with a trail wildcard.
+//
+// A request with this path and the above pattern:
+//
+//	/services/apiexport/root:providers/widgets/clusters/root:org/apis/example.io/v1/widgets
+//
+// Is parsed into a PathMatch like this:
+//
+//	Path:                   "/services/apiexport/root:providers/widgets/clusters/root:org/apis/example.io/v1/widgets"
+//	Trail:                  "apis/example.io/v1/widgets"
+//	Value("exportCluster"): "root:providers"
+//	Value("exportName"):    "widgets"
+//	Value(ClusterWildcard): "root:org"
+//	PrefixToStrip():        "/services/apiexport/root:providers/widgets/clusters/root:org"
+//
+// For tests the [NewPathMatch] function can be used to build a valid PathMatch.
+type PathMatch struct {
+	// Path is the full request path.
+	Path string
+	// Trail is the kube-like API path after the pattern, "" if none.
+	Trail string
+
+	value func(name string) string
+}
+
+// NewPathMatch returns a PathMatch with the given wildcard values.
+func NewPathMatch(path, trail string, values map[string]string) PathMatch {
+	return PathMatch{
+		Path:  path,
+		Trail: trail,
+		value: func(name string) string {
+			return values[name]
+		},
+	}
+}
+
+// PathMatchFromRequest returns the PathMatch of a request routed by a
+// http.ServeMux pattern with a trailing TrailWildcard.
+func PathMatchFromRequest(req *http.Request) PathMatch {
+	return PathMatch{
+		Path:  req.URL.Path,
+		Trail: req.PathValue(TrailWildcard),
+		value: req.PathValue,
+	}
+}
+
+// Value returns the segment matched by the named wildcard of the pattern,
+// "" if there is none.
+func (m PathMatch) Value(name string) string {
+	if m.value == nil {
+		return ""
+	}
+	return m.value(name)
+}
+
+// PrefixToStrip returns the path up to the trail, without the separator,
+// the default prefix to strip before delegating to the virtual workspace.
+// A path ending in the separator keeps it as the remaining path.
+func (m PathMatch) PrefixToStrip() string {
+	if m.Trail == "" {
+		return strings.TrimSuffix(m.Path, "/")
+	}
+	return strings.TrimSuffix(m.Path, "/"+m.Trail)
+}
+
+// RootPathResolverFunc adapts a function to RootPathResolver.
+type RootPathResolverFunc func(ctx context.Context, match PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context)
+
+func (r RootPathResolverFunc) ResolveRootPath(ctx context.Context, match PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	return r(ctx, match)
 }
 
 var _ RootPathResolver = RootPathResolverFunc(nil)
 
 type RootPathResolver interface {
-	// ResolveRootPath returns whether the request should be accepted and served by a given VirtualWorkspace. If accepted,
-	// the prefixToStrip is the prefix that is in-front of the kube-like API surface (including `/clusters/<something>`). E.g. for
+	// ResolveRootPath returns whether the request should be accepted and served by a given VirtualWorkspace.
+	//
+	// match holds the wildcards of the virtual workspace's path pattern;
+	// the logical cluster named by ClusterWildcard is already set on ctx.
+	//
+	// If accepted, prefixToStrip is the prefix in front of the kube-like API
+	// surface (including `/clusters/<something>`), usually match.PrefixToStrip().
+	// E.g. for
 	//
 	//   /services/initializingworkspaces/<initializer>/clusters/<something>/apis/workload.kcp.io/v1alpha1/synctargets
 	//
 	// the prefixToStrip is `/services/initializingworkspaces/<initializer/clusters/<something>`.
 	//
-	// Depending on virtual workspace type, the returned context holds e.g. the APIDomainKey, the logical cluster or
-	// other values like scope, if that is part of the URL path.
-	ResolveRootPath(urlPath string, context context.Context) (accepted bool, prefixToStrip string, completedContext context.Context)
+	// Depending on virtual workspace type, the returned context holds e.g. the APIDomainKey
+	// or other values like scope, if that is part of the URL path.
+	ResolveRootPath(ctx context.Context, match PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context)
 }
 
 // ReadyFunc is the type of readiness check functions exposed by types

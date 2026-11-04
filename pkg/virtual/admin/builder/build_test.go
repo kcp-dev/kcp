@@ -30,49 +30,74 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	adminv1alpha1 "github.com/kcp-dev/sdk/apis/admin/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
+	"github.com/kcp-dev/sdk/apis/core"
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
+	"github.com/kcp-dev/virtual-workspace-framework/framework"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/forwardingregistry"
 
 	"github.com/kcp-dev/kcp/pkg/apiidentity"
 )
 
-func TestDigestURL(t *testing.T) {
+func TestPathPatterns(t *testing.T) {
 	t.Parallel()
-	const prefix = "/services/admin"
 
-	tests := []struct {
-		urlPath      string
-		accepted     bool
-		wildcard     bool
-		clusterName  string
+	require.Equal(t,
+		[]string{"/services/admin", "/services/admin/clusters/{cluster}"},
+		pathPatterns("/services/admin"))
+}
+
+func TestResolveRootPath(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		path         string
+		cluster      string
+		trail        string
+		wantCluster  *genericapirequest.Cluster
 		prefixToTrim string
 	}{
-		{urlPath: "/services/admin", accepted: true, clusterName: "root", prefixToTrim: "/services/admin"},
-		{urlPath: "/services/admin/apis/core.kcp.io/v1alpha1/shards", accepted: true, clusterName: "root", prefixToTrim: "/services/admin"},
-		{urlPath: "/services/admin/apis/admin.kcp.io/v1alpha1/apiidentities", accepted: true, clusterName: "root", prefixToTrim: "/services/admin"},
-		{urlPath: "/services/admin/clusters/*/apis/core.kcp.io/v1alpha1/shards", accepted: true, wildcard: true, prefixToTrim: "/services/admin/clusters/*"},
-		{urlPath: "/services/admin/clusters/myws/apis/core.kcp.io/v1alpha1/shards", accepted: true, clusterName: "myws", prefixToTrim: "/services/admin/clusters/myws"},
-		{urlPath: "/services/adminfoo/apis", accepted: false},
-		{urlPath: "/services/other", accepted: false},
+		"plain": {
+			path:         "/services/admin/apis/core.kcp.io/v1alpha1/shards",
+			trail:        "apis/core.kcp.io/v1alpha1/shards",
+			wantCluster:  &genericapirequest.Cluster{Name: core.RootCluster},
+			prefixToTrim: "/services/admin",
+		},
+		"bare prefix": {
+			path:         "/services/admin",
+			wantCluster:  &genericapirequest.Cluster{Name: core.RootCluster},
+			prefixToTrim: "/services/admin",
+		},
+		"bare prefix, trailing slash": {
+			path:         "/services/admin/",
+			wantCluster:  &genericapirequest.Cluster{Name: core.RootCluster},
+			prefixToTrim: "/services/admin",
+		},
+		"cluster aware": {
+			path:         "/services/admin/clusters/myws/apis/core.kcp.io/v1alpha1/shards",
+			cluster:      "myws",
+			trail:        "apis/core.kcp.io/v1alpha1/shards",
+			prefixToTrim: "/services/admin/clusters/myws",
+		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.urlPath, func(t *testing.T) {
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			cluster, prefixToTrim, accepted := digestURL(tc.urlPath, prefix)
-			require.Equal(t, tc.accepted, accepted, "accepted")
-			if !tc.accepted {
-				return
-			}
-			require.Equal(t, tc.wildcard, cluster.Wildcard, "wildcard")
-			if !tc.wildcard {
-				require.Equal(t, tc.clusterName, cluster.Name.String(), "cluster")
-			}
-			require.Equal(t, tc.prefixToTrim, prefixToTrim, "prefixToTrim")
+
+			match := framework.NewPathMatch(tc.path, tc.trail, map[string]string{framework.ClusterWildcard: tc.cluster})
+
+			accepted, prefixToTrim, ctx := resolveRootPath(t.Context(), match)
+
+			require.True(t, accepted)
+			require.Equal(t, tc.prefixToTrim, prefixToTrim)
+			require.Equal(t, tc.wantCluster, genericapirequest.ClusterFrom(ctx))
+			require.Equal(t, apiDomainKey, dynamiccontext.APIDomainKeyFrom(ctx))
 		})
 	}
 }

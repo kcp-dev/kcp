@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
+	"path"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -54,6 +54,18 @@ const (
 	controllerName = "apiresourceschema-virtual-workspace"
 )
 
+const consumerClusterWildcard = "consumerCluster"
+
+// pathPatterns returns the mux patterns of the virtual workspace below rootPathPrefix.
+// The consumer cluster determines which APIBindings to look up.
+// The clusters/<cluster> segment is for compatibility with cluster-aware clients.
+func pathPatterns(rootPathPrefix string) []string {
+	return []string{
+		path.Join(rootPathPrefix, "{consumerCluster}"),
+		path.Join(rootPathPrefix, "{consumerCluster}/clusters/{cluster}"),
+	}
+}
+
 // BuildVirtualWorkspace builds the apiresourceschema virtual workspace.
 // URL pattern: /services/apiresourceschema/<consumer-cluster>/clusters/*/apis/apis.kcp.io/v1alpha1/apiresourceschemas.
 func BuildVirtualWorkspace(
@@ -61,27 +73,12 @@ func BuildVirtualWorkspace(
 	kubeClusterClient kcpkubernetesclientset.ClusterInterface,
 	cachedKcpInformers, wildcardKcpInformers kcpinformers.SharedInformerFactory,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	if !strings.HasSuffix(rootPathPrefix, "/") {
-		rootPathPrefix += "/"
-	}
-
 	readyCh := make(chan struct{})
 
 	klog.Background().Info("Building apiresourceschema virtual workspace", "rootPathPrefix", rootPathPrefix)
 
 	vw := &virtualworkspacesdynamic.DynamicVirtualWorkspace{
-		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, ctx context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			cluster, prefixToStrip, ok := digestURL(urlPath, rootPathPrefix)
-			klog.Background().V(6).Info("apiresourceschema VW RootPathResolver", "urlPath", urlPath, "rootPathPrefix", rootPathPrefix, "accepted", ok)
-			if !ok {
-				return false, "", ctx
-			}
-
-			completedContext = genericapirequest.WithCluster(ctx, cluster)
-			// Use the cluster name as the API domain key for caching
-			completedContext = dynamiccontext.WithAPIDomainKey(completedContext, dynamiccontext.APIDomainKey(cluster.Name.String()))
-			return true, prefixToStrip, completedContext
-		}),
+		RootPathResolver: framework.RootPathResolverFunc(resolveRootPath),
 
 		ReadyChecker: framework.ReadyFunc(func() error {
 			select {
@@ -125,78 +122,30 @@ func BuildVirtualWorkspace(
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: apiresourceschema.VirtualWorkspaceName, VirtualWorkspace: vw},
+		{Name: apiresourceschema.VirtualWorkspaceName, Patterns: pathPatterns(rootPathPrefix), VirtualWorkspace: vw},
 	}, nil
 }
 
-// digestURL parses the URL to extract the consumer cluster.
-// URL pattern: /services/apiresourceschema/<consumer-cluster>/clusters/*/apis/...
-// The consumer-cluster determines which APIBindings to look up.
-// The /clusters/* part is for compatibility with cluster-aware clients but is ignored
-// since this VW always serves schemas from the consumer cluster's bindings.
-func digestURL(urlPath, rootPathPrefix string) (
-	cluster genericapirequest.Cluster,
-	logicalPath string,
-	accepted bool,
-) {
-	if !strings.HasPrefix(urlPath, rootPathPrefix) {
-		return genericapirequest.Cluster{}, "", false
+// resolveRootPath serves the consumer cluster's bindings.
+// The cluster segment, if present, must be the wildcard or the consumer
+// cluster, so a client cannot name one cluster and be routed to another.
+func resolveRootPath(ctx context.Context, match framework.PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	consumerPath := logicalcluster.NewPath(match.Value(consumerClusterWildcard))
+	if consumerPath == logicalcluster.Wildcard {
+		return false, "", ctx
 	}
-
-	// Incoming requests to this virtual workspace will look like:
-	//  /services/apiresourceschema/<consumer-cluster>/clusters/*/apis/apis.kcp.io/v1alpha1/apiresourceschemas
-	//                             └────────────────┐
-	// Where the withoutRootPathPrefix starts here: ┘
-	withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
-
-	parts := strings.SplitN(withoutRootPathPrefix, "/", 2)
-	if len(parts) < 1 || parts[0] == "" {
-		return genericapirequest.Cluster{}, "", false
-	}
-
-	consumerClusterName := parts[0]
-	clusterPath := logicalcluster.NewPath(consumerClusterName)
-
-	// Wildcard is not supported for the consumer cluster - we need a specific cluster
-	if clusterPath == logicalcluster.Wildcard {
-		return genericapirequest.Cluster{}, "", false
-	}
-
-	clusterName, ok := clusterPath.Name()
+	consumer, ok := consumerPath.Name()
 	if !ok {
-		return genericapirequest.Cluster{}, "", false
+		return false, "", ctx
 	}
 
-	cluster = genericapirequest.Cluster{
-		Name: clusterName,
+	if cluster := match.Value(framework.ClusterWildcard); cluster != "" && cluster != "*" && cluster != consumer.String() {
+		return false, "", ctx
 	}
 
-	realPath := "/"
-	if len(parts) > 1 {
-		realPath = "/" + parts[1]
-	}
-
-	// Handle /clusters/<cluster-path>/... pattern that clients add
-	// We need to strip this part to get to the API path
-	if strings.HasPrefix(realPath, "/clusters/") {
-		withoutClustersPrefix := strings.TrimPrefix(realPath, "/clusters/")
-		clusterParts := strings.SplitN(withoutClustersPrefix, "/", 2)
-
-		// Enforce that the cluster path in /clusters/<path>/ matches the consumer cluster
-		// from the URL prefix, or is a wildcard. This prevents confusion where a client
-		// specifies one cluster but gets routed to another.
-		requestedCluster := clusterParts[0]
-		if requestedCluster != "*" && requestedCluster != consumerClusterName {
-			return genericapirequest.Cluster{}, "", false
-		}
-
-		realPath = "/"
-		if len(clusterParts) > 1 {
-			realPath += clusterParts[1]
-		}
-	}
-
-	return cluster, strings.TrimSuffix(urlPath, realPath), true
+	ctx = genericapirequest.WithCluster(ctx, genericapirequest.Cluster{Name: consumer})
+	// Use the cluster name as the API domain key for caching
+	return true, match.PrefixToStrip(), dynamiccontext.WithAPIDomainKey(ctx, dynamiccontext.APIDomainKey(consumer.String()))
 }
 
 // apiDefinitionSetProvider provides APIDefinitionSets for the virtual workspace.

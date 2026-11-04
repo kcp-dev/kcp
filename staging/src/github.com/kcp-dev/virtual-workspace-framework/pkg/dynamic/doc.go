@@ -22,14 +22,14 @@ limitations under the License.
 //
 // APIs served by the virtual workspace are partitioned in API domains. Each API domain
 // is defined by an api domain key and will expose a set of APIs
-// that will be served at a dedicated URL path. API domain key is generally extracted from the URL sub-path
-// where related APIs will be exposed.
+// that will be served at a dedicated URL path. API domain key is generally extracted from the
+// wildcards of the path pattern the virtual workspace is registered with.
 //
 // APIs are served by an apiserver.DynamicAPIServer which is setup in the virtual workspace Register() method.
 //
 // # Typical operation
 //
-// The RootPathResolver() method would usually interpret the URL sub-path, extract the API domain key from it,
+// The RootPathResolver() method would usually extract the API domain key from the matched path pattern wildcards,
 // and pass the request to the apiserver.DynamicAPIServer, along with the API domain key, if the API domain key contains APIs.
 //
 // The BootstrapAPISetManagement() method would typically create and initialize an apidefinition.APIDefinitionSetGetter, returned as a result,

@@ -21,59 +21,32 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
-
-	"github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
+	"github.com/kcp-dev/virtual-workspace-framework/framework"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 )
 
-func TestDigestUrl(t *testing.T) {
+func TestPathPattern(t *testing.T) {
 	t.Parallel()
-	rootPathPrefix := "/services/replication/"
-	testCases := []struct {
-		urlPath             string
-		expectedAccept      bool
-		expectedCluster     genericapirequest.Cluster
-		expectedKey         context.APIDomainKey
-		expectedLogicalPath string
-	}{
-		{
-			urlPath:             "/services/replication/my-cluster/my-clustercachedresource/clusters/my-cluster/apis",
-			expectedAccept:      true,
-			expectedKey:         "my-cluster/my-clustercachedresource",
-			expectedCluster:     genericapirequest.Cluster{Name: "my-cluster", Wildcard: false},
-			expectedLogicalPath: "/services/replication/my-cluster/my-clustercachedresource/clusters/my-cluster",
-		},
-		{
-			urlPath:             "/services/replication/my-cluster/my-clustercachedresource/clusters/my-cluster",
-			expectedAccept:      true,
-			expectedKey:         "my-cluster/my-clustercachedresource",
-			expectedCluster:     genericapirequest.Cluster{Name: "my-cluster", Wildcard: false},
-			expectedLogicalPath: "/services/replication/my-cluster/my-clustercachedresource/clusters/my-cluster",
-		},
-		{
-			urlPath:             "/services/replication/my-cluster/my-clustercachedresource/clusters/other-cluster",
-			expectedAccept:      true,
-			expectedKey:         "my-cluster/my-clustercachedresource",
-			expectedCluster:     genericapirequest.Cluster{Name: "other-cluster", Wildcard: false},
-			expectedLogicalPath: "/services/replication/my-cluster/my-clustercachedresource/clusters/other-cluster",
-		},
-		{
-			urlPath:             "/services/replication/my-cluster/my-clustercachedresource/clusters",
-			expectedAccept:      false,
-			expectedKey:         "",
-			expectedCluster:     genericapirequest.Cluster{},
-			expectedLogicalPath: "",
-		},
-	}
 
-	for _, tc := range testCases {
-		t.Run(tc.urlPath, func(t *testing.T) {
-			t.Parallel()
-			clusterName, key, logicalPath, accepted := digestURL(tc.urlPath, rootPathPrefix)
-			require.Equal(t, tc.expectedAccept, accepted, "Accepted should match expected value")
-			require.Equal(t, tc.expectedKey, key, "Key should match expected value")
-			require.Equal(t, tc.expectedCluster, clusterName, "cluster name should match expected value")
-			require.Equal(t, tc.expectedLogicalPath, logicalPath, "LogicalPath should match expected value")
-		})
+	require.Equal(t,
+		"/services/replication/{sliceCluster}/{sliceName}/clusters/{cluster}",
+		pathPattern("/services/replication/"))
+}
+
+func TestResolveRootPath(t *testing.T) {
+	t.Parallel()
+
+	// /services/replication/<slice cluster>/<slice name>/clusters/<cluster>/...
+	values := map[string]string{
+		sliceClusterWildcard:      "slice-cluster",
+		sliceNameWildcard:         "slice-name",
+		framework.ClusterWildcard: "target-cluster",
 	}
+	match := framework.NewPathMatch("/services/replication/slice-cluster/slice-name/clusters/target-cluster/apis", "apis", values)
+
+	accepted, prefixToStrip, ctx := resolveRootPath(t.Context(), match)
+
+	require.True(t, accepted)
+	require.Equal(t, "/services/replication/slice-cluster/slice-name/clusters/target-cluster", prefixToStrip)
+	require.Equal(t, dynamiccontext.APIDomainKey("slice-cluster/slice-name"), dynamiccontext.APIDomainKeyFrom(ctx))
 }

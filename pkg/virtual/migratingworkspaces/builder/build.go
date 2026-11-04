@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path"
 	"slices"
-	"strings"
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -31,7 +31,6 @@ import (
 	transport "k8s.io/client-go/transport"
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/logicalcluster/v3"
 	"github.com/kcp-dev/virtual-workspace-framework/framework"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/handler"
 	"github.com/kcp-dev/virtual-workspace-framework/pkg/rootapiserver"
@@ -41,31 +40,20 @@ import (
 	"github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces"
 )
 
+// pathPattern returns the mux pattern of the virtual workspace below rootPathPrefix.
+func pathPattern(rootPathPrefix string) string {
+	return path.Join(rootPathPrefix, "clusters/{cluster}")
+}
+
 func BuildVirtualWorkspace(
 	cfg *rest.Config,
 	rootPathPrefix string,
 ) ([]rootapiserver.NamedVirtualWorkspace, error) {
-	if !strings.HasSuffix(rootPathPrefix, "/") {
-		rootPathPrefix += "/"
-	}
-
 	// Build clients that talk directly to the local shard.
 	localCfg := rest.CopyConfig(cfg)
 
 	vw := &handler.VirtualWorkspace{
-		RootPathResolver: framework.RootPathResolverFunc(func(urlPath string, requestContext context.Context) (accepted bool, prefixToStrip string, completedContext context.Context) {
-			cluster, prefixToStrip, ok := digestURL(urlPath, rootPathPrefix)
-			if !ok {
-				return false, "", requestContext
-			}
-
-			if cluster.Wildcard {
-				return false, "", requestContext
-			}
-
-			completedContext = genericapirequest.WithCluster(requestContext, cluster)
-			return true, prefixToStrip, completedContext
-		}),
+		RootPathResolver: framework.RootPathResolverFunc(resolveRootPath),
 		Authorizer: authorizer.AuthorizerFunc(func(ctx context.Context, a authorizer.Attributes) (authorizer.Decision, string, error) {
 			if a.GetUser() == nil {
 				return authorizer.DecisionDeny, "no user info", nil
@@ -84,8 +72,20 @@ func BuildVirtualWorkspace(
 	}
 
 	return []rootapiserver.NamedVirtualWorkspace{
-		{Name: migratingworkspaces.VirtualWorkspaceName, VirtualWorkspace: vw},
+		{
+			Name:             migratingworkspaces.VirtualWorkspaceName,
+			Patterns:         []string{pathPattern(rootPathPrefix)},
+			VirtualWorkspace: vw,
+		},
 	}, nil
+}
+
+// resolveRootPath accepts requests for a specific cluster only.
+func resolveRootPath(ctx context.Context, match framework.PathMatch) (accepted bool, prefixToStrip string, completedContext context.Context) {
+	if cluster := genericapirequest.ClusterFrom(ctx); cluster == nil || cluster.Wildcard {
+		return false, "", ctx
+	}
+	return true, match.PrefixToStrip(), ctx
 }
 
 // migratingHandler is a narrow reverse proxy that forwards the
@@ -146,46 +146,4 @@ func (h *migratingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	logger.V(2).Info("migrating VW proxying dump", "cluster", cluster.Name, "url", outReq.URL.String())
 	h.proxy.ServeHTTP(w, outReq)
-}
-
-func digestURL(urlPath, rootPathPrefix string) (
-	cluster genericapirequest.Cluster,
-	logicalPath string,
-	accepted bool,
-) {
-	if !strings.HasPrefix(urlPath, rootPathPrefix) {
-		return genericapirequest.Cluster{}, "", false
-	}
-	withoutRootPathPrefix := strings.TrimPrefix(urlPath, rootPathPrefix)
-
-	// Incoming requests look like:
-	//   /services/migratingworkspaces/clusters/<lc-name>/apis/...
-	//                                └─── withoutRootPathPrefix
-	if !strings.HasPrefix(withoutRootPathPrefix, "clusters/") {
-		return genericapirequest.Cluster{}, "", false
-	}
-
-	withoutClustersPrefix := strings.TrimPrefix(withoutRootPathPrefix, "clusters/")
-	parts := strings.SplitN(withoutClustersPrefix, "/", 2)
-	clusterPath := logicalcluster.NewPath(parts[0])
-
-	realPath := "/"
-	if len(parts) > 1 {
-		realPath += parts[1]
-	}
-
-	cluster = genericapirequest.Cluster{}
-	if clusterPath == logicalcluster.Wildcard {
-		cluster.Wildcard = true
-	} else {
-		var ok bool
-		cluster.Name, ok = clusterPath.Name()
-		if !ok {
-			return genericapirequest.Cluster{}, "", false
-		}
-	}
-
-	// Strip the entire prefix including the cluster path, leaving just the
-	// kube API path (e.g. /api/v1/configmaps).
-	return cluster, strings.TrimSuffix(urlPath, realPath), true
 }
