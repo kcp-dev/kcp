@@ -217,7 +217,7 @@ func privateMigrationServerWithRestart(t *testing.T, shardArgs map[string][]stri
 		)
 	}
 	root := startShard("root", rootPort)
-	destination := startShard("shard-1", destinationPort, "--root-shard-kubeconfig-file="+rootConfig, "--cache-kubeconfig="+rootConfig)
+	destination := startShard("shard-1", destinationPort, "--cache-kubeconfig="+rootConfig)
 	// Cleanup runs in reverse order: delete workspaces first, then stop the
 	// proxy's wildcard watches before shutting down the shards they watch.
 	t.Cleanup(stopProxy)
@@ -237,7 +237,7 @@ func privateMigrationServerWithRestart(t *testing.T, shardArgs map[string][]stri
 			root = startShard("root", rootPort)
 		case "shard-1":
 			destination.Stop()
-			destination = startShard("shard-1", destinationPort, "--root-shard-kubeconfig-file="+rootConfig, "--cache-kubeconfig="+rootConfig)
+			destination = startShard("shard-1", destinationPort, "--cache-kubeconfig="+rootConfig)
 		default:
 			t.Fatalf("unknown shard %q", name)
 		}
