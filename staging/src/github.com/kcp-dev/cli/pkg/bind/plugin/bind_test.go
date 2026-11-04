@@ -19,6 +19,7 @@ package plugin
 import (
 	"testing"
 
+	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	apisv1alpha2 "github.com/kcp-dev/sdk/apis/apis/v1alpha2"
 )
 
@@ -261,4 +262,57 @@ func TestBindOptionsAcceptRejectAll(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestAddAllPermissionClaims verifies that accept-all and reject-all copy the
+// group, resource and identity hash of every APIExport permission claim.
+func TestAddAllPermissionClaims(t *testing.T) {
+	t.Parallel()
+
+	exportClaims := []apisv1alpha1.PermissionClaim{
+		{GroupResource: apisv1alpha1.GroupResource{Group: "", Resource: "configmaps"}},
+		{GroupResource: apisv1alpha1.GroupResource{Group: "example.kcp.io", Resource: "widgets"}, IdentityHash: "abc123"},
+	}
+
+	testCases := []struct {
+		description string
+		acceptAll   bool
+		wantState   apisv1alpha2.AcceptablePermissionClaimState
+	}{
+		{description: "accept-all", acceptAll: true, wantState: apisv1alpha2.ClaimAccepted},
+		{description: "reject-all", acceptAll: false, wantState: apisv1alpha2.ClaimRejected},
+	}
+
+	for _, c := range testCases {
+		t.Run(c.description, func(t *testing.T) {
+			t.Parallel()
+			b := &BindOptions{
+				AcceptAllPermissionClaims: c.acceptAll,
+				RejectAllPermissionClaims: !c.acceptAll,
+			}
+			b.addAllPermissionClaims(exportClaims)
+
+			got := b.rejectedPermissionClaims
+			other := b.acceptedPermissionClaims
+			if c.acceptAll {
+				got, other = other, got
+			}
+			if len(other) != 0 {
+				t.Errorf("expected no claims in the opposite list, got %d", len(other))
+			}
+			if len(got) != len(exportClaims) {
+				t.Fatalf("expected %d claims, got %d", len(exportClaims), len(got))
+			}
+			for i, claim := range got {
+				want := exportClaims[i]
+				if claim.Group != want.Group || claim.Resource != want.Resource || claim.IdentityHash != want.IdentityHash {
+					t.Errorf("claim %d: expected %s.%s with identity hash %q, got %s.%s with identity hash %q",
+						i, want.Resource, want.Group, want.IdentityHash, claim.Resource, claim.Group, claim.IdentityHash)
+				}
+				if claim.State != c.wantState {
+					t.Errorf("claim %d: expected state %s, got %s", i, c.wantState, claim.State)
+				}
+			}
+		})
+	}
 }
