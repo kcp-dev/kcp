@@ -438,7 +438,9 @@ Wildcard informers require the `APIExport` identity. This identity varies by
 installation as it is cryptographically created during creation of the `APIExport`.
 
 The core and tenancy APIs have their `APIExport` in the root logical cluster.
-Their identities are published in the `APIIdentity` registry on the cache
-server (see [the Admin workspace](#the-admin-workspace-admin)), which is where a starting
-shard reads them. The root shard is not contacted. Once they are known the
+Their identities are read from the `APIExport` objects replicated to the cache
+server (`status.identityHash`), which is where a starting shard gets them. The
+root shard is not contacted. The front-proxy reads the same identities through
+the `APIIdentity` view of the Admin workspace (see
+[the Admin workspace](#the-admin-workspace-admin)). Once they are known the
 informers can be started.
