@@ -5938,10 +5938,12 @@ and watching the corresponding cache server.</p>
 <p>Wildcard informers require the <code>APIExport</code> identity. This identity varies by
 installation as it is cryptographically created during creation of the <code>APIExport</code>.</p>
 <p>The core and tenancy APIs have their <code>APIExport</code> in the root logical cluster.
-A new shard will connect to that root logical cluster in order to extract the
-identities for these APIs. It will cache these for later use in case of a network
-partition or unavailability of the root shard. After retrieving these identities
-the informers can be started.</p>
+Their identities are read from the <code>APIExport</code> objects replicated to the cache
+server (<code>status.identityHash</code>), which is where a starting shard gets them. The
+root shard is not contacted. The front-proxy reads the same identities through
+the <code>APIIdentity</code> view of the Admin workspace (see
+<a href="#the-admin-workspace-admin">the Admin workspace</a>). Once they are known the
+informers can be started.</p>
 
 
 
