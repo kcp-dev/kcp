@@ -47,12 +47,18 @@ import (
 )
 
 const (
+	// sliceClusterWildcard is the cluster containing the ClusterCachedResourceEndpointSlice.
 	sliceClusterWildcard = "sliceCluster"
-	sliceNameWildcard    = "sliceName"
+	// sliceNameWildcard is the ClusterCachedResourceEndpointSlice name.
+	sliceNameWildcard = "sliceName"
 )
 
 // pathPattern returns the mux pattern of the virtual workspace below rootPathPrefix.
 func pathPattern(rootPathPrefix string) string {
+	//	/services/replication/<slice cluster>/<slice name>/clusters/<cluster>/...
+	//	`slice cluster` is the provider cluster, containing the *EndpointSlice.
+	//	`slice name` is the name of the *EndpointSlice.
+	//	`cluster` is the consumer cluster.
 	return path.Join(rootPathPrefix, "{sliceCluster}/{sliceName}/clusters/{cluster}")
 }
 

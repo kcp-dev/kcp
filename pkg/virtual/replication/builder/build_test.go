@@ -36,16 +36,17 @@ func TestPathPattern(t *testing.T) {
 func TestResolveRootPath(t *testing.T) {
 	t.Parallel()
 
+	// /services/replication/<slice cluster>/<slice name>/clusters/<cluster>/...
 	values := map[string]string{
-		sliceClusterWildcard:      "my-cluster",
-		sliceNameWildcard:         "my-clustercachedresource",
-		framework.ClusterWildcard: "other-cluster",
+		sliceClusterWildcard:      "slice-cluster",
+		sliceNameWildcard:         "slice-name",
+		framework.ClusterWildcard: "target-cluster",
 	}
-	match := framework.NewPathMatch("/services/replication/my-cluster/my-clustercachedresource/clusters/other-cluster/apis", "apis", values)
+	match := framework.NewPathMatch("/services/replication/slice-cluster/slice-name/clusters/target-cluster/apis", "apis", values)
 
 	accepted, prefixToStrip, ctx := resolveRootPath(t.Context(), match)
 
 	require.True(t, accepted)
-	require.Equal(t, "/services/replication/my-cluster/my-clustercachedresource/clusters/other-cluster", prefixToStrip)
-	require.Equal(t, dynamiccontext.APIDomainKey("my-cluster/my-clustercachedresource"), dynamiccontext.APIDomainKeyFrom(ctx))
+	require.Equal(t, "/services/replication/slice-cluster/slice-name/clusters/target-cluster", prefixToStrip)
+	require.Equal(t, dynamiccontext.APIDomainKey("slice-cluster/slice-name"), dynamiccontext.APIDomainKeyFrom(ctx))
 }
