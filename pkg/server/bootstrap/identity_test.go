@@ -110,6 +110,38 @@ func TestCoreIdentityHandler(t *testing.T) {
 		require.NoError(t, ready())
 	})
 
+	t.Run("feeds the identities of the core exports in root from APIExports", func(t *testing.T) {
+		t.Parallel()
+		_, handler, ready := NewCoreWildcardIdentities(testGroupExportNames, testGroupResourceExportNames)
+
+		handler.OnAdd(export("root", "tenancy.kcp.io", oldHash), true)
+		require.Error(t, ready(), "the shards identity is still unknown")
+
+		// A scoped informer on root hands out exports without the cluster annotation.
+		unannotated := export("", "shards.core.kcp.io", newHash)
+		unannotated.Annotations = nil
+		handler.OnAdd(unannotated, true)
+		require.NoError(t, ready())
+	})
+
+	t.Run("replaces the identity of a rotated APIExport", func(t *testing.T) {
+		t.Parallel()
+		ids := newIdentities(testGroupExportNames, testGroupResourceExportNames)
+		handler := coreIdentityHandler(ids)
+		handler.OnAdd(export("root", "tenancy.kcp.io", oldHash), true)
+		watch := newExpirableWatchBody(io.NopCloser(strings.NewReader("")), true)
+		ids.trackWatch(oldHash, watch)
+
+		handler.OnUpdate(export("root", "tenancy.kcp.io", oldHash), export("root", "tenancy.kcp.io", newHash))
+
+		if got, want := decorate(t, ids, tenancyPath), tenancyPath+":"+newHash; got != want {
+			t.Errorf("expected %q, got %q", want, got)
+		}
+		if !watch.expired {
+			t.Error("watches using the replaced identity must be expired")
+		}
+	})
+
 	ignored := []struct {
 		name string
 		obj  interface{}
@@ -117,7 +149,11 @@ func TestCoreIdentityHandler(t *testing.T) {
 		{name: "an entry owned by an export of another workspace", obj: entry("root:org", "tenancy.kcp.io", newHash)},
 		{name: "an entry owned by an export that serves no core API", obj: entry("root", "cowboys", newHash)},
 		{name: "a tombstone", obj: cache.DeletedFinalStateUnknown{Key: newHash, Obj: entry("root", "tenancy.kcp.io", newHash)}},
-		{name: "another object", obj: export("root", "tenancy.kcp.io", newHash)},
+		{name: "a same-named export of another workspace", obj: export("root:org", "tenancy.kcp.io", newHash)},
+		{name: "an export that serves no core API", obj: export("root", "cowboys", newHash)},
+		{name: "a core export without identity yet", obj: export("root", "tenancy.kcp.io", "")},
+		{name: "an export tombstone", obj: cache.DeletedFinalStateUnknown{Key: "root|tenancy.kcp.io", Obj: export("root", "tenancy.kcp.io", newHash)}},
+		{name: "another object", obj: &metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{Name: "tenancy.kcp.io"}}},
 	}
 	for _, scenario := range ignored {
 		t.Run("ignores "+scenario.name, func(t *testing.T) {

@@ -116,8 +116,9 @@ type Config struct {
 type ExtraConfig struct {
 	// coreIdentityHandler feeds the identities of the core APIExports, which
 	// the clients built from IdentityConfig inject into their wildcard
-	// requests, from the APIIdentity registry on the cache server. It is
-	// registered on the registry informer in the kcp-start-informers hook.
+	// requests, from the APIExports replicated to the cache server (and the
+	// local ones on the shard hosting root). It is registered on those
+	// APIExport informers in the kcp-start-informers hook.
 	coreIdentityHandler cache.ResourceEventHandler
 	// coreIdentitiesReady fails while the identity of a core APIExport is
 	// still unknown. The clients cannot wildcard-list/watch most kcp
@@ -331,8 +332,8 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	}
 
 	// The kcp * informers need the identities of the core APIExports. They
-	// come from the APIIdentity registry on the cache server and are fed by
-	// the registry informer in the kcp-start-informers post-start hook, which
+	// come from the APIExports replicated to the cache server and are fed by
+	// the APIExport informers in the kcp-start-informers post-start hook, which
 	// waits for them before the informers below start (i.e. no race).
 	var kcpShardIdentityRoundTripper func(rt http.RoundTripper) http.RoundTripper
 	kcpShardIdentityRoundTripper, c.coreIdentityHandler, c.coreIdentitiesReady = bootstrap.NewCoreWildcardIdentities(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames)

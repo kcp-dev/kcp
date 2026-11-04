@@ -590,11 +590,14 @@ func (s *Server) Run(ctx context.Context) error {
 			logger.Info("bootstrapped root workspace phase 0")
 		}
 
-		// The identities of the core APIExports come from the APIIdentity
-		// registry on the cache server. On the shard hosting the root
-		// workspace the APIExport controller claims them right after phase 0
-		// above; on every other shard they are already there.
-		_, _ = s.CacheKcpSharedInformerFactory.Admin().V1alpha1().APIIdentities().Informer().AddEventHandler(s.coreIdentityHandler)
+		// The identities of the core APIExports come from the APIExports
+		// replicated to the cache server, the source of truth. The shard
+		// hosting the root workspace reads its own copies too: replication
+		// to the cache only starts with the controllers, and those need the
+		// informers started below, which need the identities. Both informers
+		// were started above; the handler ignores every non-core export.
+		_, _ = s.CacheKcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().AddEventHandler(s.coreIdentityHandler)
+		_, _ = s.KcpSharedInformerFactory.Apis().V1alpha2().APIExports().Informer().AddEventHandler(s.coreIdentityHandler)
 		logger.Info("waiting for the identities of the core APIExports")
 		if err := wait.PollUntilContextCancel(hookCtx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 			if err := s.coreIdentitiesReady(); err != nil {

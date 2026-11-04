@@ -140,13 +140,13 @@ func Run(ctx context.Context, o *options.Options) error {
 	nonIdentityConfig.Host = u.String()
 
 	// The identities of the core APIExports, which the wildcard informers
-	// need, come from the APIIdentity registry on the cache server.
+	// need, come from the APIExports replicated to the cache server.
 	identityRoundTripper, coreIdentityHandler, coreIdentitiesReady := bootstrap.NewCoreWildcardIdentities(bootstrap.KcpRootGroupExportNames, bootstrap.KcpRootGroupResourceExportNames)
 	identityConfig := rest.CopyConfig(nonIdentityConfig)
 	identityConfig.Wrap(identityRoundTripper)
 	cacheKcpInformers := kcpinformers.NewSharedInformerFactory(cacheKcpClusterClient, 10*time.Minute)
-	_, _ = cacheKcpInformers.Admin().V1alpha1().APIIdentities().Informer().AddEventHandler(coreIdentityHandler)
-	go cacheKcpInformers.Admin().V1alpha1().APIIdentities().Informer().Run(ctx.Done())
+	_, _ = cacheKcpInformers.Apis().V1alpha2().APIExports().Informer().AddEventHandler(coreIdentityHandler)
+	go cacheKcpInformers.Apis().V1alpha2().APIExports().Informer().Run(ctx.Done())
 	if err := wait.PollUntilContextCancel(ctx, time.Millisecond*500, true, func(ctx context.Context) (bool, error) {
 		if err := coreIdentitiesReady(); err != nil {
 			logger.V(3).Info("the identities of the core APIExports are not known yet, keeping trying", "err", err)
