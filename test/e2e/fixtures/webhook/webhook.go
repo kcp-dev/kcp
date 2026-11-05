@@ -29,6 +29,8 @@ import (
 	"testing"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -183,6 +185,125 @@ func (s *AdmissionWebhookServer) ServeHTTP(resp http.ResponseWriter, req *http.R
 }
 
 func (s *AdmissionWebhookServer) Calls() int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.calls
+}
+
+// ConversionWebhookServer is an HTTPS server that handles CRD ConversionReview requests.
+// Callers supply a ConvertFn that receives each object as a plain map and the desired API
+// version string, and returns the converted map. The server handles all HTTP framing and
+// JSON (de)serialization. Call StartTLS before using GetURL.
+type ConversionWebhookServer struct {
+	// ConvertFn is called once per object in each ConversionReview request.
+	ConvertFn func(obj map[string]interface{}, desiredAPIVersion string) (map[string]interface{}, error)
+
+	t     *testing.T
+	host  string
+	port  string
+	lock  sync.Mutex
+	calls int
+}
+
+// StartTLS starts the conversion webhook server with TLS using the given certificate and key
+// files. host is the rest.Config.Host of the kcp server (used to derive the listen address).
+func (s *ConversionWebhookServer) StartTLS(t *testing.T, certFile, keyFile, host, port string) {
+	t.Helper()
+	s.t = t
+
+	u, err := url.Parse(host)
+	if err != nil {
+		t.Fatalf("error parsing host %q: %v", host, err)
+	}
+	h, _, err := net.SplitHostPort(u.Host)
+	if err != nil {
+		t.Fatalf("error splitting host:port from %q: %v", u.Host, err)
+	}
+	s.host = h
+	s.port = port
+
+	serv := &http.Server{Addr: net.JoinHostPort(s.host, s.port), Handler: s}
+	t.Cleanup(func() {
+		if shutErr := serv.Shutdown(context.TODO()); shutErr != nil {
+			t.Logf("unable to shut down conversion webhook server gracefully: %v", shutErr)
+		}
+	})
+
+	go func() {
+		if listenErr := serv.ListenAndServeTLS(certFile, keyFile); listenErr != nil && !errors.Is(listenErr, http.ErrServerClosed) {
+			t.Logf("conversion webhook server error: %v", listenErr)
+		}
+	}()
+}
+
+// GetURL returns the HTTPS URL clients should send ConversionReview requests to.
+func (s *ConversionWebhookServer) GetURL() string {
+	return (&url.URL{
+		Scheme: "https",
+		Host:   net.JoinHostPort(s.host, s.port),
+		Path:   "/convert",
+	}).String()
+}
+
+// ServeHTTP implements http.Handler. It decodes the ConversionReview, calls ConvertFn for
+// each object, and writes the converted ConversionReview back to the client.
+func (s *ConversionWebhookServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to read request body: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	var review apiextensionsv1.ConversionReview
+	if err := json.Unmarshal(body, &review); err != nil {
+		http.Error(w, fmt.Sprintf("failed to unmarshal ConversionReview: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	converted := make([]runtime.RawExtension, 0, len(review.Request.Objects))
+	for _, rawObj := range review.Request.Objects {
+		var obj map[string]interface{}
+		if err := json.Unmarshal(rawObj.Raw, &obj); err != nil {
+			http.Error(w, fmt.Sprintf("failed to unmarshal object: %v", err), http.StatusBadRequest)
+			return
+		}
+		out, convErr := s.ConvertFn(obj, review.Request.DesiredAPIVersion)
+		if convErr != nil {
+			s.t.Logf("conversion error: %v", convErr)
+			http.Error(w, convErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		raw, err := json.Marshal(out)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to marshal converted object: %v", err), http.StatusInternalServerError)
+			return
+		}
+		converted = append(converted, runtime.RawExtension{Raw: raw})
+	}
+
+	review.Response = &apiextensionsv1.ConversionResponse{
+		UID:              review.Request.UID,
+		ConvertedObjects: converted,
+		Result:           metav1.Status{Status: metav1.StatusSuccess},
+	}
+
+	respBytes, err := json.Marshal(review)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to marshal response: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if _, writeErr := w.Write(respBytes); writeErr != nil {
+		s.t.Logf("failed to write conversion response: %v", writeErr)
+	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.calls++
+}
+
+// Calls returns the number of ConversionReview requests handled so far.
+func (s *ConversionWebhookServer) Calls() int {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	return s.calls
