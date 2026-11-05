@@ -1,7 +1,7 @@
 apiVersion: apis.kcp.io/v1alpha1
 kind: APIResourceSchema
 metadata:
-  name: v261014-8a1a11ca0.logicalclustermigrations.migration.kcp.io
+  name: v261105-de63120c6.logicalclustermigrations.migration.kcp.io
 spec:
   group: migration.kcp.io
   names:
@@ -143,6 +143,7 @@ spec:
               enum:
               - Preparing
               - Migrating
+              - Verifying
               - OriginCleanup
               - DestinationFinalize
               - Aborting

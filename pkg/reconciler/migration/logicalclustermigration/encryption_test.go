@@ -152,9 +152,10 @@ func TestEncryptionFailureDoesNotAdvanceMigration(t *testing.T) {
 		Status:     migrationv1alpha1.LogicalClusterMigrationStatus{Phase: migrationv1alpha1.LogicalClusterMigrationPhaseMigrating},
 	}
 	c := &Controller{
-		ddsif:                       newEmptyDDSIF(),
-		migratingLogicalClusters:    NewMigratingLogicalClusters(),
-		deleteLogicalClusterContext: func(logicalcluster.Path, error) {},
+		ddsif:                           newEmptyDDSIF(),
+		migratingLogicalClusters:        NewMigratingLogicalClusters(),
+		cancelLogicalClusterConnections: func(logicalcluster.Path, error) {},
+		deleteLogicalClusterContext:     func(logicalcluster.Path, error) {},
 		copyPageFromOrigin: func(ctx context.Context, _ logicalcluster.Name, _, _ string) (int64, string, error) {
 			return 0, "", writeDumpEntries(ctx, kv, nil, "/dest", transformers, []migrationv1alpha1.EtcdEntry{{Key: "core/secrets/cluster/default/s1", Value: []byte("secret")}})
 		},

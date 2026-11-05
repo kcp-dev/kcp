@@ -207,6 +207,11 @@ func (c *controller) process(ctx context.Context, key string) (bool, error) {
 	logger := logging.WithObject(klog.FromContext(ctx), obj)
 	ctx = klog.NewContext(ctx, logger)
 
+	if obj.Annotations["internal.kcp.io/migrating"] != "" {
+		logger.V(4).Info("logical cluster is migrating, skipping label reconciliation")
+		return false, nil
+	}
+
 	var errs []error
 	requeue, err := c.reconcile(ctx, obj)
 	if err != nil {

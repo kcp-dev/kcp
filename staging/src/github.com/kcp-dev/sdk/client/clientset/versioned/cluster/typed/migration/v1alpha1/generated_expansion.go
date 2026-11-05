@@ -18,6 +18,8 @@ limitations under the License.
 
 package v1alpha1
 
+type LogicalClusterDigestClusterExpansion interface{}
+
 type LogicalClusterDumpClusterExpansion interface{}
 
 type LogicalClusterMigrationClusterExpansion interface{}

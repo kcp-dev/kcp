@@ -1,0 +1,103 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.3
+  name: logicalclusterdigests.migration.kcp.io
+spec:
+  group: migration.kcp.io
+  names:
+    kind: LogicalClusterDigest
+    listKind: LogicalClusterDigestList
+    plural: logicalclusterdigests
+    singular: logicalclusterdigest
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          LogicalClusterDigest is an ephemeral request/response type used by the
+          destination shard during a logical cluster migration to fetch key/hash
+          digests of the migrating logical cluster from the origin shard after the
+          data copy completes.
+
+          The server populates Status.Entries on Create. The object is not
+          persisted.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              LogicalClusterDigestSpec is the desired state for a digest request.
+
+              The logical cluster to inspect is taken from the request's cluster context
+              (i.e. the URL the request arrived on).
+            properties:
+              continue:
+                description: |-
+                  continue is the token returned by a previous LogicalClusterDigest's
+                  status.continue. If set, the scan resumes at that key. If empty,
+                  the scan starts from the beginning of the logical cluster's etcd
+                  keyspace.
+                type: string
+              limit:
+                description: |-
+                  limit caps the number of digest entries returned in a single page.
+                  If zero, the server picks a default page size.
+                format: int64
+                type: integer
+            type: object
+          status:
+            description: LogicalClusterDigestStatus carries the digest payload populated
+              by the server.
+            properties:
+              continue:
+                description: |-
+                  continue is set when there are more entries to fetch. Pass it as
+                  spec.continue on the next LogicalClusterDigest request to get the
+                  next page. Empty means this was the last page.
+                type: string
+              entries:
+                description: |-
+                  entries is the page of etcd key digests belonging to the logical
+                  cluster, computed over the plaintext (unencrypted) values.
+                items:
+                  description: |-
+                    EtcdEntryDigest is a single etcd key and the SHA-256 digest of its plaintext
+                    value.
+                  properties:
+                    hash:
+                      description: |-
+                        hash is the hex-encoded SHA-256 digest of the entry's plaintext value
+                        (with storage encryption removed).
+                      type: string
+                    key:
+                      description: key is the etcd key with the shard's storage prefix
+                        stripped.
+                      type: string
+                  required:
+                  - hash
+                  - key
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
