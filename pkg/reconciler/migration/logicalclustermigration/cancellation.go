@@ -43,7 +43,8 @@ func (c *Controller) startCancellation(m *migrationv1alpha1.LogicalClusterMigrat
 		m.Status.OriginShard = c.shardName
 		// The destination cannot have started copying in Preparing.
 		m.Status.Phase = migrationv1alpha1.LogicalClusterMigrationPhaseCancellationFinalize
-	case migrationv1alpha1.LogicalClusterMigrationPhaseMigrating:
+	case migrationv1alpha1.LogicalClusterMigrationPhaseMigrating,
+		migrationv1alpha1.LogicalClusterMigrationPhaseVerifying:
 		if !c.isDestination(m) {
 			return false
 		}

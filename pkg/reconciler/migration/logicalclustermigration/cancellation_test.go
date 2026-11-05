@@ -64,6 +64,7 @@ func TestCancellationHandoff(t *testing.T) {
 		{"", "CancellationFinalize", "origin"},
 		{"Preparing", "CancellationFinalize", "origin"},
 		{"Migrating", "CancellationCleanup", "destination"},
+		{"Verifying", "CancellationCleanup", "destination"},
 		{"OriginCleanup", "CancellationPreparing", "origin"},
 		{"DestinationFinalize", "CancellationPreparing", "destination"},
 	} {

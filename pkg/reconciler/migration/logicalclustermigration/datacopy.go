@@ -79,6 +79,87 @@ func (c *Controller) copyPageFromOriginViaHTTP(ctx context.Context, lcName logic
 	return int64(len(dump.Status.Entries)), dump.Status.Continue, nil
 }
 
+// verificationMismatchError indicates that the destination shard's stored
+// data for a logical cluster does not match the origin shard's digests.
+type verificationMismatchError struct {
+	reason string
+}
+
+func (e *verificationMismatchError) Error() string {
+	return e.reason
+}
+
+// verifyPageFromOriginViaHTTP requests a single page of a LogicalClusterDigest
+// from the origin shard's migrating virtual workspace, starting at
+// continueToken, and verifies that the local shard's etcd contains the exact
+// same keys and plaintext digests over the page's key range.
+func (c *Controller) verifyPageFromOriginViaHTTP(ctx context.Context, lcName logicalcluster.Name, originShardName, continueToken string) (string, error) {
+	logger := klog.FromContext(ctx)
+
+	shardClient, err := c.acquireOriginClient(lcName, originShardName)
+	if err != nil {
+		return "", err
+	}
+	client := shardClient.Cluster(lcName.Path())
+
+	logger.V(2).Info("requesting logical cluster digest page from origin", "logicalCluster", lcName, "originShard", originShardName, "continue", continueToken)
+
+	digest, err := client.MigrationV1alpha1().LogicalClusterDigests().Create(ctx, &migrationv1alpha1.LogicalClusterDigest{
+		Spec: migrationv1alpha1.LogicalClusterDigestSpec{
+			Continue: continueToken,
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch logical cluster digest from origin: %w", err)
+	}
+
+	if err := verifyDigestPage(ctx, c.etcdClient, c.etcdClient, c.etcdStoragePrefix, lcName, continueToken, digest.Status.Continue, digest.Status.Entries, c.resourceTransformers); err != nil {
+		return "", err
+	}
+
+	return digest.Status.Continue, nil
+}
+
+func verifyDigestPage(
+	ctx context.Context,
+	kv clientv3.KV,
+	leases kcpetcd.LeaseTimeToLive,
+	prefix string,
+	lcName logicalcluster.Name,
+	continueToken, nextContinue string,
+	originEntries []migrationv1alpha1.EtcdEntryDigest,
+	transformers value.ResourceTransformers,
+) error {
+	limit := int64(len(originEntries)) + 1
+	localEntries, _, err := kcpetcd.ScanEtcdDigests(ctx, kv, leases, prefix, lcName, continueToken, nextContinue, limit, transformers)
+	if err != nil {
+		return fmt.Errorf("failed to compute local logical cluster digest: %w", err)
+	}
+	return compareDigestEntries(originEntries, localEntries)
+}
+
+func compareDigestEntries(originEntries, localEntries []migrationv1alpha1.EtcdEntryDigest) error {
+	n := min(len(originEntries), len(localEntries))
+	for i := range n {
+		if originEntries[i].Key < localEntries[i].Key {
+			return &verificationMismatchError{reason: fmt.Sprintf("missing destination key %q", originEntries[i].Key)}
+		}
+		if originEntries[i].Key > localEntries[i].Key {
+			return &verificationMismatchError{reason: fmt.Sprintf("unexpected destination key %q", localEntries[i].Key)}
+		}
+		if originEntries[i].Hash != localEntries[i].Hash {
+			return &verificationMismatchError{reason: fmt.Sprintf("digest mismatch for key %q: origin=%s destination=%s", originEntries[i].Key, originEntries[i].Hash, localEntries[i].Hash)}
+		}
+	}
+	if len(originEntries) > len(localEntries) {
+		return &verificationMismatchError{reason: fmt.Sprintf("missing destination key %q", originEntries[len(localEntries)].Key)}
+	}
+	if len(localEntries) > len(originEntries) {
+		return &verificationMismatchError{reason: fmt.Sprintf("unexpected destination key %q", localEntries[len(originEntries)].Key)}
+	}
+	return nil
+}
+
 // leaseGranularitySeconds rounds TTLs up so similar entries share a lease.
 const leaseGranularitySeconds = 60
 
