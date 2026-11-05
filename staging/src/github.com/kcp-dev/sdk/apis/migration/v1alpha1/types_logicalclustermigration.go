@@ -64,12 +64,13 @@ type LogicalClusterMigrationSpec struct {
 
 // LogicalClusterMigrationPhaseType is the type of the current phase of the migration.
 //
-// +kubebuilder:validation:Enum=Preparing;Migrating;OriginCleanup;DestinationFinalize;Aborting;Completed;Failed;CancellationPreparing;Restoring;CancellationCleanup;CancellationFinalize;Cancelled
+// +kubebuilder:validation:Enum=Preparing;Migrating;Verifying;OriginCleanup;DestinationFinalize;Aborting;Completed;Failed;CancellationPreparing;Restoring;CancellationCleanup;CancellationFinalize;Cancelled
 type LogicalClusterMigrationPhaseType string
 
 const (
 	LogicalClusterMigrationPhasePreparing             LogicalClusterMigrationPhaseType = "Preparing"
 	LogicalClusterMigrationPhaseMigrating             LogicalClusterMigrationPhaseType = "Migrating"
+	LogicalClusterMigrationPhaseVerifying             LogicalClusterMigrationPhaseType = "Verifying"
 	LogicalClusterMigrationPhaseOriginCleanup         LogicalClusterMigrationPhaseType = "OriginCleanup"
 	LogicalClusterMigrationPhaseDestinationFinalize   LogicalClusterMigrationPhaseType = "DestinationFinalize"
 	LogicalClusterMigrationPhaseAborting              LogicalClusterMigrationPhaseType = "Aborting"
@@ -129,8 +130,12 @@ const (
 	LCMigrationStarted conditionsv1alpha1.ConditionType = "MigrationStarted"
 
 	// LCMigrationDataCopied indicates the destination shard has finished copying
-	// and verifying all data.
+	// all data from the origin shard.
 	LCMigrationDataCopied conditionsv1alpha1.ConditionType = "DataCopied"
+
+	// LCMigrationDataVerified indicates the destination shard has verified that
+	// all copied data matches the origin shard.
+	LCMigrationDataVerified conditionsv1alpha1.ConditionType = "DataVerified"
 
 	// LCMigrationOriginCleaned indicates the origin shard has deleted all objects
 	// belonging to the migration logical cluster.

@@ -135,6 +135,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		corev1alpha1.ShardSpec{}.OpenAPIModelName():                                   schema_sdk_apis_core_v1alpha1_ShardSpec(ref),
 		corev1alpha1.ShardStatus{}.OpenAPIModelName():                                 schema_sdk_apis_core_v1alpha1_ShardStatus(ref),
 		migrationv1alpha1.EtcdEntry{}.OpenAPIModelName():                              schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref),
+		migrationv1alpha1.EtcdEntryDigest{}.OpenAPIModelName():                        schema_sdk_apis_migration_v1alpha1_EtcdEntryDigest(ref),
+		migrationv1alpha1.LogicalClusterDigest{}.OpenAPIModelName():                   schema_sdk_apis_migration_v1alpha1_LogicalClusterDigest(ref),
+		migrationv1alpha1.LogicalClusterDigestSpec{}.OpenAPIModelName():               schema_sdk_apis_migration_v1alpha1_LogicalClusterDigestSpec(ref),
+		migrationv1alpha1.LogicalClusterDigestStatus{}.OpenAPIModelName():             schema_sdk_apis_migration_v1alpha1_LogicalClusterDigestStatus(ref),
 		migrationv1alpha1.LogicalClusterDump{}.OpenAPIModelName():                     schema_sdk_apis_migration_v1alpha1_LogicalClusterDump(ref),
 		migrationv1alpha1.LogicalClusterDumpSpec{}.OpenAPIModelName():                 schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpSpec(ref),
 		migrationv1alpha1.LogicalClusterDumpStatus{}.OpenAPIModelName():               schema_sdk_apis_migration_v1alpha1_LogicalClusterDumpStatus(ref),
@@ -4433,6 +4437,145 @@ func schema_sdk_apis_migration_v1alpha1_EtcdEntry(ref common.ReferenceCallback) 
 				Required: []string{"key", "value"},
 			},
 		},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_EtcdEntryDigest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EtcdEntryDigest is a single etcd key and the SHA-256 digest of its plaintext value.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Description: "key is the etcd key with the shard's storage prefix stripped.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "hash is the hex-encoded SHA-256 digest of the entry's plaintext value (with storage encryption removed).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"key", "hash"},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_LogicalClusterDigest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogicalClusterDigest is an ephemeral request/response type used by the destination shard during a logical cluster migration to fetch key/hash digests of the migrating logical cluster from the origin shard after the data copy completes.\n\nThe server populates Status.Entries on Create. The object is not persisted.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(migrationv1alpha1.LogicalClusterDigestSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(migrationv1alpha1.LogicalClusterDigestStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			migrationv1alpha1.LogicalClusterDigestSpec{}.OpenAPIModelName(), migrationv1alpha1.LogicalClusterDigestStatus{}.OpenAPIModelName(), v1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_LogicalClusterDigestSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogicalClusterDigestSpec is the desired state for a digest request.\n\nThe logical cluster to inspect is taken from the request's cluster context (i.e. the URL the request arrived on).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"continue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "continue is the token returned by a previous LogicalClusterDigest's status.continue. If set, the scan resumes at that key. If empty, the scan starts from the beginning of the logical cluster's etcd keyspace.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "limit caps the number of digest entries returned in a single page. If zero, the server picks a default page size.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_sdk_apis_migration_v1alpha1_LogicalClusterDigestStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LogicalClusterDigestStatus carries the digest payload populated by the server.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"entries": {
+						SchemaProps: spec.SchemaProps{
+							Description: "entries is the page of etcd key digests belonging to the logical cluster, computed over the plaintext (unencrypted) values.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(migrationv1alpha1.EtcdEntryDigest{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+					"continue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "continue is set when there are more entries to fetch. Pass it as spec.continue on the next LogicalClusterDigest request to get the next page. Empty means this was the last page.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			migrationv1alpha1.EtcdEntryDigest{}.OpenAPIModelName()},
 	}
 }
 

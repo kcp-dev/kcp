@@ -127,6 +127,7 @@ func NewController(
 		originClients: make(map[string]*originClientEntry),
 	}
 	c.copyPageFromOrigin = c.copyPageFromOriginViaHTTP
+	c.verifyPageFromOrigin = c.verifyPageFromOriginViaHTTP
 
 	// Events are queued from the cache server as that is used to
 	// coordinate the migration between the participating shards.
@@ -199,6 +200,12 @@ type Controller struct {
 	// copyPageFromOriginViaHTTP) so reconcileMigrating's pagination and
 	// requeue logic can be unit-tested without a live origin shard.
 	copyPageFromOrigin func(ctx context.Context, lcName logicalcluster.Name, originShardName, continueToken string) (int64, string, error)
+
+	// verifyPageFromOrigin fetches a single page of a LogicalClusterDigest
+	// from the origin shard and compares it against the local shard's etcd.
+	// Extracted as a field (defaulting to verifyPageFromOriginViaHTTP) for
+	// unit testing.
+	verifyPageFromOrigin func(ctx context.Context, lcName logicalcluster.Name, originShardName, continueToken string) (string, error)
 
 	// originClientsMu guards originClients.
 	originClientsMu sync.Mutex

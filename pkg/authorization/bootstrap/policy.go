@@ -160,8 +160,8 @@ func clusterRoles() []rbacv1.ClusterRole {
 			// logical cluster migration
 			ObjectMeta: metav1.ObjectMeta{Name: SystemExternalLogicalClusterAdmin},
 			Rules: []rbacv1.PolicyRule{
-				// pull data from origin to destination shard during migration
-				rbacv1helpers.NewRule("create").Groups(migration.GroupName).Resources("logicalclusterdumps").RuleOrDie(),
+				// pull data and digests from origin to destination shard during migration
+				rbacv1helpers.NewRule("create").Groups(migration.GroupName).Resources("logicalclusterdumps", "logicalclusterdigests").RuleOrDie(),
 				// allows shards to update LogicalClusterMigrations wherever it is placed
 				rbacv1helpers.NewRule("get", "update", "patch").Groups(migration.GroupName).Resources("logicalclustermigrations", "logicalclustermigrations/status").RuleOrDie(),
 				// Allow restoring bounds CRDs.

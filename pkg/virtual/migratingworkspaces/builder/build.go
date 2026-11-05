@@ -123,7 +123,7 @@ func (h *migratingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if req.URL.Path != migratingworkspaces.HandlerPath {
+	if !migratingworkspaces.IsHandlerPath(req.URL.Path) {
 		http.NotFound(w, req)
 		return
 	}
@@ -131,7 +131,7 @@ func (h *migratingHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	outReq := req.Clone(ctx)
 	outReq.URL.Scheme = "https"
 	outReq.URL.Host = h.host
-	outReq.URL.Path = cluster.Name.Path().RequestPath() + migratingworkspaces.HandlerPath
+	outReq.URL.Path = cluster.Name.Path().RequestPath() + req.URL.Path
 	outReq.Host = h.host
 	outReq.RequestURI = ""
 

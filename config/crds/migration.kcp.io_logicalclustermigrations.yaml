@@ -148,6 +148,7 @@ spec:
                 enum:
                 - Preparing
                 - Migrating
+                - Verifying
                 - OriginCleanup
                 - DestinationFinalize
                 - Aborting

@@ -41,6 +41,7 @@ import (
 
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces"
 )
 
 var (
@@ -90,11 +91,16 @@ func (h *Handler) Close() error {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := klog.FromContext(ctx)
+
+	isDigest := r.URL.Path == migratingworkspaces.DigestHandlerPath
+	resource := migrationv1alpha1.Resource("logicalclusterdumps")
+	if isDigest {
+		resource = migrationv1alpha1.Resource("logicalclusterdigests")
+	}
 
 	if r.Method != http.MethodPost {
 		writeError(w, r, apierrors.NewMethodNotSupported(
-			migrationv1alpha1.Resource("logicalclusterdumps"),
+			resource,
 			r.Method,
 		))
 		return
@@ -113,7 +119,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if !slices.Contains(user.GetGroups(), bootstrappolicy.SystemExternalLogicalClusterAdmin) {
 		writeError(w, r, apierrors.NewForbidden(
-			migrationv1alpha1.Resource("logicalclusterdumps"),
+			resource,
 			"",
 			fmt.Errorf("user is not in group %s", bootstrappolicy.SystemExternalLogicalClusterAdmin),
 		))
@@ -122,11 +128,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if !h.migratingLogicalClusters.IsMigrating(cluster.Name) {
 		writeError(w, r, apierrors.NewNotFound(
-			migrationv1alpha1.Resource("logicalclusterdumps"),
+			resource,
 			string(cluster.Name),
 		))
 		return
 	}
+
+	if isDigest {
+		h.serveDigest(ctx, w, r, cluster.Name)
+		return
+	}
+	h.serveDump(ctx, w, r, cluster.Name)
+}
+
+func (h *Handler) serveDump(ctx context.Context, w http.ResponseWriter, r *http.Request, clusterName logicalcluster.Name) {
+	logger := klog.FromContext(ctx)
 
 	// Decode the request body. Spec is empty today so we don't actually
 	// need anything from it, but parsing it ensures the client sent
@@ -144,9 +160,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.V(2).Info("dumping logical cluster page from etcd", "cluster", cluster.Name, "continue", dump.Spec.Continue)
+	logger.V(2).Info("dumping logical cluster page from etcd", "cluster", clusterName, "continue", dump.Spec.Continue)
 
-	entries, nextContinue, err := scanEtcdEntries(ctx, h.etcdClient, h.etcdClient, h.etcdStoragePrefix, cluster.Name, dump.Spec.Continue, dump.Spec.Limit, dump.Spec.MaxBytes, h.resourceTransformers)
+	entries, nextContinue, err := scanEtcdEntries(ctx, h.etcdClient, h.etcdClient, h.etcdStoragePrefix, clusterName, dump.Spec.Continue, dump.Spec.Limit, dump.Spec.MaxBytes, h.resourceTransformers)
 	if err != nil {
 		writeError(w, r, apierrors.NewInternalError(fmt.Errorf("failed to dump logical cluster: %w", err)))
 		return
@@ -169,6 +185,44 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		logger.Error(err, "failed to write dump response")
+	}
+}
+
+func (h *Handler) serveDigest(ctx context.Context, w http.ResponseWriter, r *http.Request, clusterName logicalcluster.Name) {
+	logger := klog.FromContext(ctx)
+
+	var digest migrationv1alpha1.LogicalClusterDigest
+	if r.ContentLength != 0 {
+		if err := json.NewDecoder(r.Body).Decode(&digest); err != nil {
+			writeError(w, r, apierrors.NewBadRequest(fmt.Sprintf("failed to decode request body: %v", err)))
+			return
+		}
+	}
+
+	logger.V(2).Info("computing logical cluster digest page from etcd", "cluster", clusterName, "continue", digest.Spec.Continue)
+
+	entries, nextContinue, err := kcpetcd.ScanEtcdDigests(ctx, h.etcdClient, h.etcdClient, h.etcdStoragePrefix, clusterName, digest.Spec.Continue, "", digest.Spec.Limit, h.resourceTransformers)
+	if err != nil {
+		writeError(w, r, apierrors.NewInternalError(fmt.Errorf("failed to compute logical cluster digest: %w", err)))
+		return
+	}
+
+	resp := &migrationv1alpha1.LogicalClusterDigest{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: migrationv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "LogicalClusterDigest",
+		},
+		ObjectMeta: digest.ObjectMeta,
+		Status: migrationv1alpha1.LogicalClusterDigestStatus{
+			Entries:  entries,
+			Continue: nextContinue,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		logger.Error(err, "failed to write digest response")
 	}
 }
 
@@ -214,7 +268,7 @@ func scanEtcdEntries(ctx context.Context, kv clientv3.KV, leases leaseTimeToLive
 	var totalBytes int64
 	ttls := map[int64]int64{}
 	for {
-		clusterPrefix, start, err := nextClusterRange(ctx, kv, prefix, key, target)
+		clusterPrefix, start, err := kcpetcd.NextClusterRange(ctx, kv, prefix, key, target)
 		if err != nil {
 			return nil, "", err
 		}
@@ -287,42 +341,6 @@ func scanEtcdEntries(ctx context.Context, kv clientv3.KV, leases leaseTimeToLive
 			key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
 		}
 	}
-}
-
-// nextClusterRange seeks over unrelated cluster prefixes without reading their
-// values. A trailing slash keeps similarly named clusters outside each range.
-// Discovery still uses a shard-wide range, so etcd's range-counting cost remains.
-func nextClusterRange(ctx context.Context, kv clientv3.KV, prefix, key string, target logicalcluster.Name) (string, string, error) {
-	end := clientv3.GetPrefixRangeEnd(prefix)
-	for key < end {
-		if err := ctx.Err(); err != nil {
-			return "", "", err
-		}
-		resp, err := kv.Get(ctx, key, clientv3.WithRange(end), clientv3.WithKeysOnly(), clientv3.WithLimit(1))
-		if err != nil {
-			return "", "", fmt.Errorf("failed to discover cluster storage range: %w", err)
-		}
-		if len(resp.Kvs) == 0 {
-			return "", "", nil
-		}
-		found := string(resp.Kvs[0].Key)
-		// SplitKey expects a complete object key (at least four segments).
-		if len(strings.Split(strings.TrimPrefix(found, prefix), "/")) < 4 {
-			key = found + "\x00"
-			continue
-		}
-		parts, ok := kcpetcd.SplitKey(prefix, found, target)
-		if !ok || parts.Rest == "" {
-			key = found + "\x00"
-			continue
-		}
-		clusterPrefix := parts.ClusterPrefix(prefix) + "/"
-		if parts.Cluster == target {
-			return clusterPrefix, found, nil
-		}
-		key = clientv3.GetPrefixRangeEnd(clusterPrefix)
-	}
-	return "", "", nil
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {
