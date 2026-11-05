@@ -28,6 +28,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 
+	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
 	"github.com/kcp-dev/kcp/pkg/etcd/etcdtest"
 )
 
@@ -44,7 +45,7 @@ func TestScanEtcdEntries_singlePageReturnsEverythingWhenItFits(t *testing.T) {
 		"/registry/apps/deployments/root:other/default/x": "v3",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, "", 0, 0, nil)
+	entries, next, err := kcpetcd.ScanEtcdEntries(context.Background(), kv, nil, prefix, target, "", "", 0, 0, nil)
 	require.NoError(t, err)
 	require.Empty(t, next)
 
@@ -78,7 +79,7 @@ func TestScanEtcdEntries_limitPaginatesAndCoversAllEntriesAcrossPages(t *testing
 		pages++
 		require.LessOrEqual(t, pages, len(kvs)+1, "too many pages, pagination is likely stuck")
 
-		entries, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, continueToken, 2, 0, nil)
+		entries, next, err := kcpetcd.ScanEtcdEntries(context.Background(), kv, nil, prefix, target, continueToken, "", 2, 0, nil)
 		require.NoError(t, err)
 		require.LessOrEqual(t, len(entries), 2)
 
@@ -115,7 +116,7 @@ func TestScanEtcdEntries_maxBytesStopsPageBeforeLimit(t *testing.T) {
 		"/registry/apps/deployments/root:ws/default/c": "0123456789",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, "", 1000, 25, nil)
+	entries, next, err := kcpetcd.ScanEtcdEntries(context.Background(), kv, nil, prefix, target, "", "", 1000, 25, nil)
 	require.NoError(t, err)
 	require.Len(t, entries, 2)
 	require.NotEmpty(t, next)
@@ -133,7 +134,7 @@ func TestScanEtcdEntries_singleEntryLargerThanMaxBytesIsStillReturnedAlone(t *te
 		"/registry/apps/deployments/root:ws/default/small2": "v",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, "", 1000, 10, nil)
+	entries, next, err := kcpetcd.ScanEtcdEntries(context.Background(), kv, nil, prefix, target, "", "", 1000, 10, nil)
 	require.NoError(t, err)
 	require.Len(t, entries, 1, "the oversized entry must be returned alone, not dropped")
 	require.NotEmpty(t, next, "pagination must continue after the oversized entry")
@@ -152,12 +153,12 @@ func TestScanEtcdEntries_resumesFromContinueTokenWithoutDuplicatesOrGaps(t *test
 		"/registry/apps/deployments/root:ws/default/d": "v",
 	})
 
-	first, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, "", 2, 0, nil)
+	first, next, err := kcpetcd.ScanEtcdEntries(context.Background(), kv, nil, prefix, target, "", "", 2, 0, nil)
 	require.NoError(t, err)
 	require.Len(t, first, 2)
 	require.NotEmpty(t, next)
 
-	second, next2, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, next, 1000, 0, nil)
+	second, next2, err := kcpetcd.ScanEtcdEntries(context.Background(), kv, nil, prefix, target, next, "", 1000, 0, nil)
 	require.NoError(t, err)
 	require.Empty(t, next2)
 
@@ -182,7 +183,7 @@ func TestScanEtcdEntries_ignoresOtherClusters(t *testing.T) {
 		"/registry/core/configmaps/root:other/default/b":  "v",
 	})
 
-	entries, next, err := scanEtcdEntries(context.Background(), kv, nil, prefix, target, "", 0, 0, nil)
+	entries, next, err := kcpetcd.ScanEtcdEntries(context.Background(), kv, nil, prefix, target, "", "", 0, 0, nil)
 	require.NoError(t, err)
 	require.Empty(t, next)
 	require.Empty(t, entries)
@@ -210,7 +211,7 @@ func TestScanEtcdEntries_carriesRemainingLeaseTTLAndSkipsExpired(t *testing.T) {
 		2: -1, // expired
 	}}
 
-	entries, _, err := scanEtcdEntries(context.Background(), kv, leases, prefix, target, "", 0, 0, nil)
+	entries, _, err := kcpetcd.ScanEtcdEntries(context.Background(), kv, leases, prefix, target, "", "", 0, 0, nil)
 	require.NoError(t, err)
 
 	ttls := map[string]int64{}
@@ -263,7 +264,7 @@ func TestScanEtcdEntriesTargetedRanges(t *testing.T) {
 			token := ""
 			for page := 0; ; page++ {
 				require.Less(t, page, 20)
-				entries, next, err := scanEtcdEntries(t.Context(), kv, nil, "/registry", "team-a", token, limit, 12, nil)
+				entries, next, err := kcpetcd.ScanEtcdEntries(t.Context(), kv, nil, "/registry", "team-a", token, "", limit, 12, nil)
 				require.NoError(t, err)
 				got = append(got, entryKeys(entries)...)
 				if next == "" {
@@ -290,7 +291,7 @@ func TestScanEtcdEntriesSkipsUnrelatedObjects(t *testing.T) {
 				data[fmt.Sprintf("/registry/core/configmaps/other/default/object-%05d", i)] = "unrelated"
 			}
 			kv := etcdtest.NewFakeKV(data)
-			entries, token, err := scanEtcdEntries(t.Context(), kv, nil, "/registry/", "target", "", 1000, 0, nil)
+			entries, token, err := kcpetcd.ScanEtcdEntries(t.Context(), kv, nil, "/registry/", "target", "", "", 1000, 0, nil)
 			require.NoError(t, err)
 			require.Empty(t, token)
 			require.Len(t, entries, 1)

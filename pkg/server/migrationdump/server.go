@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strings"
 
 	clientv3 "go.etcd.io/etcd/client/v3"
 
@@ -41,6 +40,7 @@ import (
 
 	bootstrappolicy "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/virtual/migratingworkspaces"
 )
 
 var (
@@ -50,10 +50,6 @@ var (
 
 func init() {
 	errorScheme.AddUnversionedTypes(metav1.Unversioned, &metav1.Status{})
-}
-
-type leaseTimeToLive interface {
-	TimeToLive(ctx context.Context, id clientv3.LeaseID, opts ...clientv3.LeaseOption) (*clientv3.LeaseTimeToLiveResponse, error)
 }
 
 // migratingClusters is a local interface for checking if a cluster is migrating.
@@ -90,11 +86,16 @@ func (h *Handler) Close() error {
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := klog.FromContext(ctx)
+
+	isDigest := r.URL.Path == migratingworkspaces.DigestHandlerPath
+	resource := migrationv1alpha1.Resource("logicalclusterdumps")
+	if isDigest {
+		resource = migrationv1alpha1.Resource("logicalclusterdigests")
+	}
 
 	if r.Method != http.MethodPost {
 		writeError(w, r, apierrors.NewMethodNotSupported(
-			migrationv1alpha1.Resource("logicalclusterdumps"),
+			resource,
 			r.Method,
 		))
 		return
@@ -113,7 +114,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if !slices.Contains(user.GetGroups(), bootstrappolicy.SystemExternalLogicalClusterAdmin) {
 		writeError(w, r, apierrors.NewForbidden(
-			migrationv1alpha1.Resource("logicalclusterdumps"),
+			resource,
 			"",
 			fmt.Errorf("user is not in group %s", bootstrappolicy.SystemExternalLogicalClusterAdmin),
 		))
@@ -122,11 +123,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if !h.migratingLogicalClusters.IsMigrating(cluster.Name) {
 		writeError(w, r, apierrors.NewNotFound(
-			migrationv1alpha1.Resource("logicalclusterdumps"),
+			resource,
 			string(cluster.Name),
 		))
 		return
 	}
+
+	if isDigest {
+		h.serveDigest(ctx, w, r, cluster.Name)
+		return
+	}
+	h.serveDump(ctx, w, r, cluster.Name)
+}
+
+func (h *Handler) serveDump(ctx context.Context, w http.ResponseWriter, r *http.Request, clusterName logicalcluster.Name) {
+	logger := klog.FromContext(ctx)
 
 	// Decode the request body. Spec is empty today so we don't actually
 	// need anything from it, but parsing it ensures the client sent
@@ -144,9 +155,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.V(2).Info("dumping logical cluster page from etcd", "cluster", cluster.Name, "continue", dump.Spec.Continue)
+	logger.V(2).Info("dumping logical cluster page from etcd", "cluster", clusterName, "continue", dump.Spec.Continue)
 
-	entries, nextContinue, err := scanEtcdEntries(ctx, h.etcdClient, h.etcdClient, h.etcdStoragePrefix, cluster.Name, dump.Spec.Continue, dump.Spec.Limit, dump.Spec.MaxBytes, h.resourceTransformers)
+	entries, nextContinue, err := kcpetcd.ScanEtcdEntries(ctx, h.etcdClient, h.etcdClient, h.etcdStoragePrefix, clusterName, dump.Spec.Continue, "", dump.Spec.Limit, dump.Spec.MaxBytes, h.resourceTransformers)
 	if err != nil {
 		writeError(w, r, apierrors.NewInternalError(fmt.Errorf("failed to dump logical cluster: %w", err)))
 		return
@@ -172,157 +183,42 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// scanEtcdEntries returns a single page of etcd key/value pairs belonging
-// to the given logical cluster, resuming at continueToken if set.
-//
-// The page stops growing once it holds limit entries or once adding another
-// entry would push the accumulated value size past maxBytes, whichever
-// happens first (a single entry larger than maxBytes is still returned
-// alone, so the scan always makes progress). If limit or maxBytes is zero
-// or negative, a default is used.
-//
-// The second return value is the continue token for the next page, or the
-// empty string if the scan reached the end of the logical cluster's
-// keyspace.
-func scanEtcdEntries(ctx context.Context, kv clientv3.KV, leases leaseTimeToLive, storagePrefix string, target logicalcluster.Name, continueToken string, limit, maxBytes int64, transformers value.ResourceTransformers) ([]migrationv1alpha1.EtcdEntry, string, error) {
-	prefix := storagePrefix
-	if !strings.HasSuffix(prefix, "/") {
-		prefix += "/"
-	}
+func (h *Handler) serveDigest(ctx context.Context, w http.ResponseWriter, r *http.Request, clusterName logicalcluster.Name) {
+	logger := klog.FromContext(ctx)
 
-	if limit <= 0 {
-		limit = kcpetcd.ScanPageSize
-	}
-	if maxBytes <= 0 {
-		maxBytes = kcpetcd.DumpMaxBytes
-	}
-
-	key := prefix
-	if continueToken != "" {
-		key = prefix + strings.TrimPrefix(continueToken, "/")
-	}
-
-	// Cap the raw etcd scan chunk size at the caller's requested page
-	// limit (but never above ScanPageSize) so a small page request
-	// doesn't pull more keys from etcd than it can possibly use.
-	etcdScanLimit := limit
-	if etcdScanLimit > kcpetcd.ScanPageSize {
-		etcdScanLimit = kcpetcd.ScanPageSize
-	}
-
-	var entries []migrationv1alpha1.EtcdEntry
-	var totalBytes int64
-	ttls := map[int64]int64{}
-	for {
-		clusterPrefix, start, err := nextClusterRange(ctx, kv, prefix, key, target)
-		if err != nil {
-			return nil, "", err
-		}
-		if clusterPrefix == "" {
-			return entries, "", nil
-		}
-		key = start
-		for {
-			resp, err := kv.Get(ctx, key,
-				clientv3.WithRange(clientv3.GetPrefixRangeEnd(clusterPrefix)),
-				clientv3.WithLimit(etcdScanLimit),
-			)
-			if err != nil {
-				return nil, "", fmt.Errorf("failed to list etcd keys: %w", err)
-			}
-
-			for _, entry := range resp.Kvs {
-				if err := ctx.Err(); err != nil {
-					return nil, "", err
-				}
-				if !kcpetcd.BelongsToCluster(prefix, string(entry.Key), target) {
-					continue
-				}
-				if int64(len(entries)) >= limit {
-					return entries, strings.TrimPrefix(string(entry.Key), prefix), nil
-				}
-
-				var ttl int64
-				if entry.Lease != 0 {
-					var ok bool
-					if ttl, ok = ttls[entry.Lease]; !ok {
-						ttlResp, err := leases.TimeToLive(ctx, clientv3.LeaseID(entry.Lease))
-						if err != nil {
-							return nil, "", fmt.Errorf("failed to get lease of etcd key %q: %w", entry.Key, err)
-						}
-						ttl = ttlResp.TTL
-						ttls[entry.Lease] = ttl
-					}
-					// The lease has expired (etcd reports -1) and etcd is about to
-					// delete the key, so don't resurrect it on the destination.
-					if ttl <= 0 {
-						continue
-					}
-				}
-
-				relativeKey := strings.TrimPrefix(string(entry.Key), prefix)
-				transformer, err := kcpetcd.TransformerForKey(transformers, relativeKey)
-				if err != nil {
-					return nil, "", err
-				}
-				data, _, err := transformer.TransformFromStorage(ctx, entry.Value, value.DefaultContext(entry.Key))
-				if err != nil {
-					return nil, "", fmt.Errorf("failed to transform source key %q: %w", entry.Key, err)
-				}
-				if len(entries) > 0 && totalBytes+int64(len(data)) > maxBytes {
-					return entries, relativeKey, nil
-				}
-				entries = append(entries, migrationv1alpha1.EtcdEntry{
-					Key:        relativeKey,
-					Value:      data,
-					TTLSeconds: ttl,
-				})
-				totalBytes += int64(len(data))
-			}
-
-			if !resp.More {
-				key = clientv3.GetPrefixRangeEnd(clusterPrefix)
-				break
-			}
-			key = string(resp.Kvs[len(resp.Kvs)-1].Key) + "\x00"
+	var digest migrationv1alpha1.LogicalClusterDigest
+	if r.ContentLength != 0 {
+		if err := json.NewDecoder(r.Body).Decode(&digest); err != nil {
+			writeError(w, r, apierrors.NewBadRequest(fmt.Sprintf("failed to decode request body: %v", err)))
+			return
 		}
 	}
-}
 
-// nextClusterRange seeks over unrelated cluster prefixes without reading their
-// values. A trailing slash keeps similarly named clusters outside each range.
-// Discovery still uses a shard-wide range, so etcd's range-counting cost remains.
-func nextClusterRange(ctx context.Context, kv clientv3.KV, prefix, key string, target logicalcluster.Name) (string, string, error) {
-	end := clientv3.GetPrefixRangeEnd(prefix)
-	for key < end {
-		if err := ctx.Err(); err != nil {
-			return "", "", err
-		}
-		resp, err := kv.Get(ctx, key, clientv3.WithRange(end), clientv3.WithKeysOnly(), clientv3.WithLimit(1))
-		if err != nil {
-			return "", "", fmt.Errorf("failed to discover cluster storage range: %w", err)
-		}
-		if len(resp.Kvs) == 0 {
-			return "", "", nil
-		}
-		found := string(resp.Kvs[0].Key)
-		// SplitKey expects a complete object key (at least four segments).
-		if len(strings.Split(strings.TrimPrefix(found, prefix), "/")) < 4 {
-			key = found + "\x00"
-			continue
-		}
-		parts, ok := kcpetcd.SplitKey(prefix, found, target)
-		if !ok || parts.Rest == "" {
-			key = found + "\x00"
-			continue
-		}
-		clusterPrefix := parts.ClusterPrefix(prefix) + "/"
-		if parts.Cluster == target {
-			return clusterPrefix, found, nil
-		}
-		key = clientv3.GetPrefixRangeEnd(clusterPrefix)
+	logger.V(2).Info("computing logical cluster digest page from etcd", "cluster", clusterName, "continue", digest.Spec.Continue)
+
+	entries, nextContinue, err := kcpetcd.ScanEtcdDigests(ctx, h.etcdClient, h.etcdClient, h.etcdStoragePrefix, clusterName, digest.Spec.Continue, "", digest.Spec.Limit, h.resourceTransformers)
+	if err != nil {
+		writeError(w, r, apierrors.NewInternalError(fmt.Errorf("failed to compute logical cluster digest: %w", err)))
+		return
 	}
-	return "", "", nil
+
+	resp := &migrationv1alpha1.LogicalClusterDigest{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: migrationv1alpha1.SchemeGroupVersion.String(),
+			Kind:       "LogicalClusterDigest",
+		},
+		ObjectMeta: digest.ObjectMeta,
+		Status: migrationv1alpha1.LogicalClusterDigestStatus{
+			Entries:  entries,
+			Continue: nextContinue,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		logger.Error(err, "failed to write digest response")
+	}
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, err error) {

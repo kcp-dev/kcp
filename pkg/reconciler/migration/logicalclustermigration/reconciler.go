@@ -72,10 +72,11 @@ func (c *Controller) reconcile(ctx context.Context, migration *migrationv1alpha1
 		}
 	}
 
-	// Requeue on the origin shard during Migrating, where the destination is
-	// active but the origin still owns the LC. This ensures the deletion
-	// detection above re-runs even if the LC informer event is missed.
-	requeueForDeletionDetection := isOrigin && migration.Status.Phase == migrationv1alpha1.LogicalClusterMigrationPhaseMigrating
+	// Requeue on the origin shard during Migrating and Verifying, where the
+	// destination is active but the origin still owns the LC. This ensures the
+	// deletion detection above re-runs even if the LC informer event is missed.
+	requeueForDeletionDetection := isOrigin && (migration.Status.Phase == migrationv1alpha1.LogicalClusterMigrationPhaseMigrating ||
+		migration.Status.Phase == migrationv1alpha1.LogicalClusterMigrationPhaseVerifying)
 
 	// Route through the process. The overview of the process id
 	// described in the doc.go, details are in the methods.
@@ -153,6 +154,12 @@ func (c *Controller) reconcile(ctx context.Context, migration *migrationv1alpha1
 	case migrationv1alpha1.LogicalClusterMigrationPhaseMigrating:
 		if isDestination {
 			return c.reconcileMigrating(ctx, migration)
+		}
+		return requeueForDeletionDetection, nil
+
+	case migrationv1alpha1.LogicalClusterMigrationPhaseVerifying:
+		if isDestination {
+			return c.reconcileVerifying(ctx, migration)
 		}
 		return requeueForDeletionDetection, nil
 
@@ -265,9 +272,11 @@ func (c *Controller) reconcileMigrating(ctx context.Context, migration *migratio
 		if err := c.migratingLogicalClusters.Set(lcName, migrationPath); err != nil {
 			return false, err
 		}
+		reason := errors.New("logical cluster is being migrated to this shard")
+		c.cancelLogicalClusterConnections(lcName.Path(), reason)
 		// Terminate wildcard connections before data is copied onto
 		// this shard, as they may watch objects in this LC.
-		c.deleteLogicalClusterContext(logicalcluster.Wildcard, errors.New("logical cluster is being migrated to this shard"))
+		c.deleteLogicalClusterContext(logicalcluster.Wildcard, reason)
 	}
 
 	// Purge local informer stores - this should be a noop but just to
@@ -293,14 +302,9 @@ func (c *Controller) reconcileMigrating(ctx context.Context, migration *migratio
 	if requeue {
 		logger.V(2).Info("copied data page, more remaining", "logicalCluster", lcName, "entriesCopied", migration.Status.EntriesCopied)
 	} else {
-		// Copy is done, release this migration's hold on the origin
-		// shard's shared client. It's only actually torn down once no
-		// other concurrent migration from the same origin shard is still
-		// using it.
-		c.releaseOriginClient(lcName, migration.Status.OriginShard)
-		logger.V(2).Info("data copied, transitioning to OriginCleanup", "logicalCluster", lcName, "entriesCopied", migration.Status.EntriesCopied)
+		logger.V(2).Info("data copied, transitioning to Verifying", "logicalCluster", lcName, "entriesCopied", migration.Status.EntriesCopied)
 	}
-	return requeue, nil
+	return true, nil
 }
 
 // applyDumpPageResult records the result of copying one LogicalClusterDump
@@ -328,6 +332,79 @@ func applyDumpPageResult(migration *migrationv1alpha1.LogicalClusterMigration, c
 	}
 
 	conditions.MarkTrue(migration, migrationv1alpha1.LCMigrationDataCopied)
+	migration.Status.Phase = migrationv1alpha1.LogicalClusterMigrationPhaseVerifying
+	return false
+}
+
+func (c *Controller) reconcileVerifying(ctx context.Context, migration *migrationv1alpha1.LogicalClusterMigration) (bool, error) {
+	logger := klog.FromContext(ctx)
+	lcName := logicalcluster.Name(migration.Spec.LogicalCluster)
+
+	migrationPath := logicalcluster.From(migration).Path().Join(migration.Name).String()
+	if !c.migratingLogicalClusters.IsMigrating(lcName) {
+		if err := c.migratingLogicalClusters.Set(lcName, migrationPath); err != nil {
+			return false, err
+		}
+		reason := errors.New("logical cluster is being migrated to this shard")
+		c.cancelLogicalClusterConnections(lcName.Path(), reason)
+		c.deleteLogicalClusterContext(logicalcluster.Wildcard, reason)
+	}
+
+	c.ddsif.PurgeCluster(lcName)
+
+	nextContinue, err := c.verifyPageFromOrigin(ctx, lcName, migration.Status.OriginShard, migration.Status.DumpContinue)
+	if err != nil {
+		var mismatchErr *verificationMismatchError
+		if errors.As(err, &mismatchErr) {
+			c.releaseOriginClient(lcName, migration.Status.OriginShard)
+			conditions.MarkFalse(
+				migration,
+				migrationv1alpha1.LCMigrationDataVerified,
+				"VerificationFailed",
+				conditionsv1alpha1.ConditionSeverityError,
+				"%v", err,
+			)
+			conditions.MarkFalse(
+				migration,
+				migrationv1alpha1.LCMigrationCancelled,
+				"VerificationFailed",
+				conditionsv1alpha1.ConditionSeverityError,
+				"Data verification failed; restoring the logical cluster on its origin shard: %v", err,
+			)
+			migration.Status.DumpContinue = ""
+			migration.Status.Phase = migrationv1alpha1.LogicalClusterMigrationPhaseCancellationCleanup
+			logger.Error(err, "migrated data verification failed, transitioning to CancellationCleanup", "logicalCluster", lcName)
+			return true, nil
+		}
+		conditions.MarkFalse(
+			migration,
+			migrationv1alpha1.LCMigrationDataVerified,
+			"VerifyFailed",
+			conditionsv1alpha1.ConditionSeverityError,
+			"%v", err,
+		)
+		return true, err
+	}
+
+	requeue := applyVerifyPageResult(migration, nextContinue)
+	if requeue {
+		logger.V(2).Info("verified data page, more remaining", "logicalCluster", lcName)
+	} else {
+		c.releaseOriginClient(lcName, migration.Status.OriginShard)
+		logger.V(2).Info("data verified, transitioning to OriginCleanup", "logicalCluster", lcName)
+	}
+	return requeue, nil
+}
+
+func applyVerifyPageResult(migration *migrationv1alpha1.LogicalClusterMigration, nextContinue string) (requeue bool) {
+	migration.Status.DumpContinue = nextContinue
+	conditions.Delete(migration, migrationv1alpha1.LCMigrationDataVerified)
+
+	if nextContinue != "" {
+		return true
+	}
+
+	conditions.MarkTrue(migration, migrationv1alpha1.LCMigrationDataVerified)
 	migration.Status.Phase = migrationv1alpha1.LogicalClusterMigrationPhaseOriginCleanup
 	return false
 }
@@ -401,6 +478,7 @@ func (c *Controller) reconcileDestinationFinalize(ctx context.Context, migration
 
 	// We need to re-create the bound CRDs for all APIBindings
 	// in the LC as they are not part of the dump.
+	c.deleteLogicalClusterContext(lcName.Path(), errors.New("logical cluster migration finalizing"))
 	if err := c.ensureBoundCRDs(ctx, lcName); err != nil {
 		return true, fmt.Errorf("failed to ensure bound CRDs for %s: %w", lcName, err)
 	}
@@ -409,6 +487,7 @@ func (c *Controller) reconcileDestinationFinalize(ctx context.Context, migration
 	// Maybe needs some targeted relisting for api sharing before
 	// allowing access so the stateful objects (*EndpointSlice) are
 	// updated?
+	c.deleteLogicalClusterContext(lcName.Path(), errors.New("logical cluster migration completed"))
 	c.migratingLogicalClusters.Remove(lcName)
 
 	// Update DDSIF for kcp reconcilers to pick the LC up.
@@ -503,7 +582,8 @@ func removeFinalizer(migration *migrationv1alpha1.LogicalClusterMigration) bool 
 func originOwnsLC(phase migrationv1alpha1.LogicalClusterMigrationPhaseType) bool {
 	switch phase {
 	case migrationv1alpha1.LogicalClusterMigrationPhasePreparing,
-		migrationv1alpha1.LogicalClusterMigrationPhaseMigrating:
+		migrationv1alpha1.LogicalClusterMigrationPhaseMigrating,
+		migrationv1alpha1.LogicalClusterMigrationPhaseVerifying:
 		return true
 	default:
 		return false

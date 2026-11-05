@@ -28,6 +28,14 @@ const VirtualWorkspaceName string = "migratingworkspaces"
 // HandlerPath is the URL path that the dump handler responds to.
 const HandlerPath = "/apis/migration.kcp.io/v1alpha1/logicalclusterdumps"
 
+// DigestHandlerPath is the URL path that the digest handler responds to.
+const DigestHandlerPath = "/apis/migration.kcp.io/v1alpha1/logicalclusterdigests"
+
+// IsHandlerPath reports whether path is served by the migration dump/digest handler.
+func IsHandlerPath(p string) bool {
+	return p == HandlerPath || p == DigestHandlerPath
+}
+
 // URLFor returns the absolute path prefix for the migrating workspaces VW.
 func URLFor() string {
 	return path.Join("/services", VirtualWorkspaceName)

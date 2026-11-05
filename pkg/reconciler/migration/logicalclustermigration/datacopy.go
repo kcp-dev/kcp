@@ -79,6 +79,125 @@ func (c *Controller) copyPageFromOriginViaHTTP(ctx context.Context, lcName logic
 	return int64(len(dump.Status.Entries)), dump.Status.Continue, nil
 }
 
+// verificationMismatchError indicates that the destination shard's stored
+// data for a logical cluster does not match the origin shard's digests.
+type verificationMismatchError struct {
+	reason string
+}
+
+func (e *verificationMismatchError) Error() string {
+	return e.reason
+}
+
+// verifyPageFromOriginViaHTTP requests a single page of a LogicalClusterDigest
+// from the origin shard's migrating virtual workspace, starting at
+// continueToken, and verifies that the local shard's etcd contains the exact
+// same keys and plaintext digests over the page's key range.
+func (c *Controller) verifyPageFromOriginViaHTTP(ctx context.Context, lcName logicalcluster.Name, originShardName, continueToken string) (string, error) {
+	logger := klog.FromContext(ctx)
+
+	shardClient, err := c.acquireOriginClient(lcName, originShardName)
+	if err != nil {
+		return "", err
+	}
+	client := shardClient.Cluster(lcName.Path())
+
+	logger.V(2).Info("requesting logical cluster digest page from origin", "logicalCluster", lcName, "originShard", originShardName, "continue", continueToken)
+
+	digest, err := client.MigrationV1alpha1().LogicalClusterDigests().Create(ctx, &migrationv1alpha1.LogicalClusterDigest{
+		Spec: migrationv1alpha1.LogicalClusterDigestSpec{
+			Continue: continueToken,
+		},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch logical cluster digest from origin: %w", err)
+	}
+
+	if err := verifyDigestPage(ctx, c.etcdClient, c.etcdClient, c.etcdStoragePrefix, lcName, continueToken, digest.Status.Continue, digest.Status.Entries, c.resourceTransformers); err != nil {
+		return "", err
+	}
+
+	return digest.Status.Continue, nil
+}
+
+func verifyDigestPage(
+	ctx context.Context,
+	kv clientv3.KV,
+	leases kcpetcd.LeaseTimeToLive,
+	prefix string,
+	lcName logicalcluster.Name,
+	continueToken, nextContinue string,
+	originEntries []migrationv1alpha1.EtcdEntryDigest,
+	transformers value.ResourceTransformers,
+) error {
+	var localEntries []migrationv1alpha1.EtcdEntryDigest
+	nonTTLCount := 0
+	localContinue := continueToken
+	for {
+		page, next, err := kcpetcd.ScanEtcdDigests(ctx, kv, leases, prefix, lcName, localContinue, nextContinue, 0, transformers)
+		if err != nil {
+			return fmt.Errorf("failed to compute local logical cluster digest: %w", err)
+		}
+		localEntries = append(localEntries, page...)
+		for _, entry := range page {
+			if !isTTLBacked(entry) {
+				nonTTLCount++
+			}
+		}
+		if next == "" || nonTTLCount > len(originEntries) {
+			break
+		}
+		localContinue = next
+	}
+	return compareDigestEntries(originEntries, localEntries)
+}
+
+func isTTLBacked(entry migrationv1alpha1.EtcdEntryDigest) bool {
+	return entry.TTLSeconds > 0
+}
+
+func compareDigestEntries(originEntries, localEntries []migrationv1alpha1.EtcdEntryDigest) error {
+	i, j := 0, 0
+	for i < len(originEntries) && j < len(localEntries) {
+		if originEntries[i].Key < localEntries[j].Key {
+			// A TTL-backed entry (e.g. an Event) may expire on the destination
+			// between being included in the origin digest and being verified.
+			if isTTLBacked(originEntries[i]) {
+				i++
+				continue
+			}
+			return &verificationMismatchError{reason: fmt.Sprintf("missing destination key %q", originEntries[i].Key)}
+		}
+		if originEntries[i].Key > localEntries[j].Key {
+			// A TTL-backed entry whose lease was rounded up on the destination
+			// may still be present locally after expiring on the origin shard.
+			if isTTLBacked(localEntries[j]) {
+				j++
+				continue
+			}
+			return &verificationMismatchError{reason: fmt.Sprintf("unexpected destination key %q", localEntries[j].Key)}
+		}
+		if originEntries[i].Hash != localEntries[j].Hash {
+			return &verificationMismatchError{reason: fmt.Sprintf("digest mismatch for key %q: origin=%s destination=%s", originEntries[i].Key, originEntries[i].Hash, localEntries[j].Hash)}
+		}
+		i++
+		j++
+	}
+	for ; i < len(originEntries); i++ {
+		if isTTLBacked(originEntries[i]) {
+			continue
+		}
+		return &verificationMismatchError{reason: fmt.Sprintf("missing destination key %q", originEntries[i].Key)}
+	}
+	for ; j < len(localEntries); j++ {
+		if isTTLBacked(localEntries[j]) {
+			continue
+		}
+		return &verificationMismatchError{reason: fmt.Sprintf("unexpected destination key %q", localEntries[j].Key)}
+	}
+	return nil
+}
+
 // leaseGranularitySeconds rounds TTLs up so similar entries share a lease.
 const leaseGranularitySeconds = 60
 
