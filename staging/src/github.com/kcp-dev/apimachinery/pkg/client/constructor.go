@@ -21,6 +21,7 @@ import (
 	"sync"
 	"weak"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 
 	"github.com/kcp-dev/logicalcluster/v3"
@@ -138,6 +139,24 @@ type clientCache[R any] struct {
 	// the entry alive: when the cache is GC'd, evictRef dies with it and
 	// the weak entry can be pruned lazily.
 	evictRef *evictorRef
+
+	groupVersionOnce sync.Once
+	groupVersionVal  schema.GroupVersion
+	groupVersionErr  error
+}
+
+func (c *clientCache[R]) groupVersion() (schema.GroupVersion, error) {
+	c.groupVersionOnce.Do(func() {
+		instance, err := c.constructor.NewForConfigAndClient(rest.CopyConfig(c.cfg), c.client)
+		if err != nil {
+			c.groupVersionErr = err
+			return
+		}
+		if getter, ok := any(instance).(interface{ RESTClient() rest.Interface }); ok {
+			c.groupVersionVal = getter.RESTClient().APIVersion()
+		}
+	})
+	return c.groupVersionVal, c.groupVersionErr
 }
 
 // ClusterOrDie returns a new client scoped to the given logical cluster, or panics if there
@@ -164,6 +183,17 @@ func (c *clientCache[R]) Cluster(clusterPath logicalcluster.Path) (R, error) {
 	}
 
 	cfg := SetCluster(rest.CopyConfig(c.cfg), clusterPath)
+	if limiter, ok := cfg.RateLimiter.(ClusterAwareRateLimiter); ok {
+		cfg.RateLimiter = limiter.Cluster(clusterPath)
+		if groupLimiter, ok := cfg.RateLimiter.(GroupAwareRateLimiter); ok {
+			groupVersion, err := c.groupVersion()
+			if err != nil {
+				var result R
+				return result, err
+			}
+			cfg.RateLimiter = groupLimiter.Group(groupVersion)
+		}
+	}
 	instance, err := c.constructor.NewForConfigAndClient(cfg, c.client)
 	if err != nil {
 		var result R
