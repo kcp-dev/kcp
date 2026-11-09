@@ -20,12 +20,10 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"sort"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,12 +35,13 @@ import (
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
 
 	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/etcd/etcdtest"
 )
 
 func TestScannerScanOnce(t *testing.T) {
 	t.Parallel()
 
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		// built-in namespaced
 		"/registry/core/configmaps/root:ws/default/cm1": "v",
 		"/registry/core/configmaps/root:ws/default/cm2": "v",
@@ -81,7 +80,7 @@ func TestScannerScanOncePaginates(t *testing.T) {
 	for i := range total {
 		kvs[fmt.Sprintf("/registry/core/configmaps/root:ws/default/cm-%05d", i)] = "v"
 	}
-	kv := newFakeKV(kvs)
+	kv := etcdtest.NewFakeKV(kvs)
 
 	s := newTestScanner(kv, NewRegistry(0))
 
@@ -93,7 +92,7 @@ func TestScannerScanOncePaginates(t *testing.T) {
 func TestScannerTickGatesOnConfiguration(t *testing.T) {
 	t.Parallel()
 
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/core/configmaps/root:ws/default/cm1": "v",
 	})
 
@@ -172,61 +171,5 @@ func (l fakeLogicalClusterClusterLister) List(_ labels.Selector) ([]*corev1alpha
 }
 
 func (l fakeLogicalClusterClusterLister) Cluster(cluster logicalcluster.Name) corev1alpha1listers.LogicalClusterLister {
-	panic("not implemented")
-}
-
-// fakeKV implements clientv3.KV for range reads with pagination, mirroring the
-// harness used by the logicalclustermigration data cleanup tests.
-type fakeKV struct {
-	kvs map[string]string
-}
-
-func newFakeKV(kvs map[string]string) *fakeKV { return &fakeKV{kvs: kvs} }
-
-func (f *fakeKV) Get(_ context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
-	op := clientv3.OpGet(key, opts...)
-	rangeEnd := string(op.RangeBytes())
-	limit := op.Limit()
-
-	keys := make([]string, 0, len(f.kvs))
-	for k := range f.kvs {
-		if k >= key && (rangeEnd == "" || k < rangeEnd) {
-			keys = append(keys, k)
-		}
-	}
-	sort.Strings(keys)
-
-	more := false
-	if limit > 0 && int64(len(keys)) > limit {
-		keys = keys[:limit]
-		more = true
-	}
-
-	resp := &clientv3.GetResponse{More: more}
-	for _, k := range keys {
-		resp.Kvs = append(resp.Kvs, &mvccpb.KeyValue{Key: []byte(k), Value: []byte(f.kvs[k])})
-	}
-	return resp, nil
-}
-
-func (f *fakeKV) Put(context.Context, string, string, ...clientv3.OpOption) (*clientv3.PutResponse, error) {
-	panic("not implemented")
-}
-
-func (f *fakeKV) Delete(context.Context, string, ...clientv3.OpOption) (*clientv3.DeleteResponse, error) {
-	panic("not implemented")
-}
-
-func (f *fakeKV) Compact(context.Context, int64, ...clientv3.CompactOption) (*clientv3.CompactResponse, error) {
-	panic("not implemented")
-}
-
-func (f *fakeKV) Do(context.Context, clientv3.Op) (clientv3.OpResponse, error) {
-	panic("not implemented")
-}
-
-func (f *fakeKV) Txn(context.Context) clientv3.Txn { panic("not implemented") }
-
-func (f *fakeKV) GetStream(ctx context.Context, key string, opts ...clientv3.OpOption) (clientv3.GetStreamChan, error) {
 	panic("not implemented")
 }

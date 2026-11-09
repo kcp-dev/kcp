@@ -36,6 +36,7 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 
 	bootstrap "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
+	"github.com/kcp-dev/kcp/pkg/etcd/etcdtest"
 )
 
 func TestScanDecryptsUsingOriginalKey(t *testing.T) {
@@ -53,7 +54,7 @@ func TestScanDecryptsUsingOriginalKey(t *testing.T) {
 	_, _, err = transformer.TransformFromStorage(ctx, encrypted, value.DefaultContext("/shard/dest/core/secrets/cluster/default/s1"))
 	require.Error(t, err)
 	transformers := encryptionconfig.StaticTransformers{schema.GroupResource{Resource: "secrets"}: transformer}
-	kv := newFakeKV(map[string]string{key: string(encrypted)})
+	kv := etcdtest.NewFakeKV(map[string]string{key: string(encrypted)})
 	entries, next, err := scanEtcdEntries(ctx, kv, nil, "/shard/source", logicalcluster.Name("cluster"), "", 0, 0, transformers)
 	require.NoError(t, err)
 	require.Empty(t, next)
@@ -61,7 +62,7 @@ func TestScanDecryptsUsingOriginalKey(t *testing.T) {
 	require.Equal(t, "core/secrets/cluster/default/s1", entries[0].Key)
 	require.Equal(t, plain, entries[0].Value)
 	// A failed decrypt must not return a page that the destination can acknowledge.
-	kv.kvs[key] = "corrupt ciphertext"
+	kv.KVs[key] = "corrupt ciphertext"
 	entries, next, err = scanEtcdEntries(ctx, kv, nil, "/shard/source", logicalcluster.Name("cluster"), "", 0, 0, transformers)
 	require.Error(t, err)
 	require.Empty(t, entries)

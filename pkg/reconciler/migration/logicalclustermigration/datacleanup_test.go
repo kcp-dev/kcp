@@ -22,10 +22,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/etcd/api/v3/mvccpb"
-	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/kcp-dev/logicalcluster/v3"
+
+	"github.com/kcp-dev/kcp/pkg/etcd/etcdtest"
 )
 
 func TestScanEtcdKeys_singlePageEmitsAllPrefixFamilies(t *testing.T) {
@@ -37,7 +37,7 @@ func TestScanEtcdKeys_singlePageEmitsAllPrefixFamilies(t *testing.T) {
 	// All keys fit in one page. Three distinct (group, resource) families
 	// for the target, plus an unrelated cluster's data that must NOT be
 	// emitted.
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/apps/deployments/root:ws/default/foo": "v",
 		"/registry/apps/deployments/root:ws/default/bar": "v",
 		"/registry/core/configmaps/root:ws/default/cm1":  "v",
@@ -69,7 +69,7 @@ func TestScanEtcdKeys_multiPageEmitsAllPrefixFamilies(t *testing.T) {
 	// 5 distinct prefix families for the target. With pageSize=2, the
 	// scanner must paginate at least 3 times and still emit every family
 	// exactly once.
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/apps/deployments/root:ws/default/a":                "v",
 		"/registry/apps/deployments/root:ws/default/b":                "v",
 		"/registry/apps/replicasets/root:ws/default/a":                "v",
@@ -102,7 +102,7 @@ func TestScanEtcdKeys_noTargetKeysEmitsNothing(t *testing.T) {
 	prefix := "/registry/"
 	target := logicalcluster.Name("root:ws")
 
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/apps/deployments/root:other/default/a": "v",
 		"/registry/core/configmaps/root:other/default/b":  "v",
 	})
@@ -118,7 +118,7 @@ func TestScanEtcdKeys_crdAndIdentityResources(t *testing.T) {
 	prefix := "/registry/"
 	target := logicalcluster.Name("root:ws")
 
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/widgets.example.io/widgets/customresources/root:ws/default/w1": "v",
 		"/registry/widgets.example.io/widgets/customresources/root:ws/default/w2": "v",
 		"/registry/things.example.io/things/abc123def/root:ws/default/t1":         "v",
@@ -141,7 +141,7 @@ func TestScanEtcdKeys_crdAndIdentityResources(t *testing.T) {
 // collectScan invokes scanEtcdKeys with the given page size and collects
 // every prefix it emits. It exists so each test reads as a single
 // require.Equal.
-func collectScan(t *testing.T, kv *fakeKV, prefix string, target logicalcluster.Name, pageSize int64) ([]string, error) {
+func collectScan(t *testing.T, kv *etcdtest.FakeKV, prefix string, target logicalcluster.Name, pageSize int64) ([]string, error) {
 	t.Helper()
 
 	out := make(chan string)
@@ -156,58 +156,4 @@ func collectScan(t *testing.T, kv *fakeKV, prefix string, target logicalcluster.
 		got = append(got, p)
 	}
 	return got, <-errCh
-}
-
-// fakeKV is a minimal in-memory fake of clientv3.KV for unit-testing range
-// scans. It supports only the operations scanEtcdKeys uses: Get with a
-// range end, optional limit, and optional keys-only. Other methods are not
-// implemented and panic if called.
-type fakeKV struct {
-	kvs map[string]string
-}
-
-func newFakeKV(kvs map[string]string) *fakeKV { return &fakeKV{kvs: kvs} }
-
-func (f *fakeKV) Get(_ context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
-	op := clientv3.OpGet(key, opts...)
-	rangeEnd := string(op.RangeBytes())
-	limit := op.Limit()
-
-	keys := make([]string, 0, len(f.kvs))
-	for k := range f.kvs {
-		if k >= key && (rangeEnd == "" || k < rangeEnd) {
-			keys = append(keys, k)
-		}
-	}
-	sort.Strings(keys)
-
-	more := false
-	if limit > 0 && int64(len(keys)) > limit {
-		keys = keys[:limit]
-		more = true
-	}
-
-	resp := &clientv3.GetResponse{More: more}
-	for _, k := range keys {
-		resp.Kvs = append(resp.Kvs, &mvccpb.KeyValue{Key: []byte(k), Value: []byte(f.kvs[k])})
-	}
-	return resp, nil
-}
-
-func (f *fakeKV) Put(context.Context, string, string, ...clientv3.OpOption) (*clientv3.PutResponse, error) {
-	panic("not implemented")
-}
-func (f *fakeKV) Delete(context.Context, string, ...clientv3.OpOption) (*clientv3.DeleteResponse, error) {
-	panic("not implemented")
-}
-func (f *fakeKV) Compact(context.Context, int64, ...clientv3.CompactOption) (*clientv3.CompactResponse, error) {
-	panic("not implemented")
-}
-func (f *fakeKV) Do(context.Context, clientv3.Op) (clientv3.OpResponse, error) {
-	panic("not implemented")
-}
-func (f *fakeKV) Txn(context.Context) clientv3.Txn { panic("not implemented") }
-
-func (f *fakeKV) GetStream(ctx context.Context, key string, opts ...clientv3.OpOption) (clientv3.GetStreamChan, error) {
-	panic("not implemented")
 }
