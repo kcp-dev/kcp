@@ -34,6 +34,8 @@ import (
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpfake "github.com/kcp-dev/sdk/client/clientset/versioned/cluster/fake"
+
+	"github.com/kcp-dev/kcp/pkg/etcd/etcdtest"
 )
 
 func cancellationMigration(phase migrationv1alpha1.LogicalClusterMigrationPhaseType) *migrationv1alpha1.LogicalClusterMigration {
@@ -121,7 +123,7 @@ func TestCancellationRestoreResumesAndRetainsDestinationOnFailure(t *testing.T) 
 }
 
 type cancellationKV struct {
-	*fakeKV
+	*etcdtest.FakeKV
 	err     error
 	deleted []string
 }
@@ -137,7 +139,7 @@ func (kv *cancellationKV) Delete(_ context.Context, key string, _ ...clientv3.Op
 func TestCancellationCleanupFailureRetainsFinalizer(t *testing.T) {
 	t.Parallel()
 	m := cancellationMigration(migrationv1alpha1.LogicalClusterMigrationPhaseCancellationCleanup)
-	kv := &cancellationKV{fakeKV: newFakeKV(map[string]string{
+	kv := &cancellationKV{FakeKV: etcdtest.NewFakeKV(map[string]string{
 		"/registry/core/configmaps/consumer/default/partial": "value",
 		"/registry/core/configmaps/other/default/untouched":  "value",
 	}), err: errors.New("etcd unavailable")}
@@ -284,7 +286,7 @@ func TestMigrationPollsBeforeCancellationIsObserved(t *testing.T) {
 	m.Status.Phase = migrationv1alpha1.LogicalClusterMigrationPhaseCancellationCleanup
 	_, err = client.Cluster(logicalcluster.NewPath("org")).MigrationV1alpha1().LogicalClusterMigrations().Update(t.Context(), m, metav1.UpdateOptions{})
 	require.NoError(t, err)
-	kv := &cancellationKV{fakeKV: newFakeKV(map[string]string{})}
+	kv := &cancellationKV{FakeKV: etcdtest.NewFakeKV(map[string]string{})}
 	c.etcdStoragePrefix = "/registry"
 	c.etcdClient = &clientv3.Client{KV: kv}
 	c.commit = func(_ context.Context, _, next *logicalClusterMigrationResource) error {

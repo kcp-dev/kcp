@@ -23,11 +23,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/kcp-dev/logicalcluster/v3"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
+
+	"github.com/kcp-dev/kcp/pkg/etcd/etcdtest"
 )
 
 func TestScanEtcdEntries_singlePageReturnsEverythingWhenItFits(t *testing.T) {
@@ -36,7 +37,7 @@ func TestScanEtcdEntries_singlePageReturnsEverythingWhenItFits(t *testing.T) {
 	prefix := "/registry/"
 	target := logicalcluster.Name("root:ws")
 
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/apps/deployments/root:ws/default/foo": "v1",
 		"/registry/core/configmaps/root:ws/default/cm1":  "v2",
 		// other cluster, must not be returned
@@ -68,7 +69,7 @@ func TestScanEtcdEntries_limitPaginatesAndCoversAllEntriesAcrossPages(t *testing
 		"/registry/apps/deployments/root:ws/default/d": "v",
 		"/registry/apps/deployments/root:ws/default/e": "v",
 	}
-	kv := newFakeKV(kvs)
+	kv := etcdtest.NewFakeKV(kvs)
 
 	var got []string
 	continueToken := ""
@@ -108,7 +109,7 @@ func TestScanEtcdEntries_maxBytesStopsPageBeforeLimit(t *testing.T) {
 
 	// Each value is 10 bytes. A 25 byte budget should only fit 2 of them
 	// even though limit allows far more.
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/apps/deployments/root:ws/default/a": "0123456789",
 		"/registry/apps/deployments/root:ws/default/b": "0123456789",
 		"/registry/apps/deployments/root:ws/default/c": "0123456789",
@@ -126,7 +127,7 @@ func TestScanEtcdEntries_singleEntryLargerThanMaxBytesIsStillReturnedAlone(t *te
 	prefix := "/registry/"
 	target := logicalcluster.Name("root:ws")
 
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/apps/deployments/root:ws/default/big":    fmt.Sprintf("%0100d", 0),
 		"/registry/apps/deployments/root:ws/default/small1": "v",
 		"/registry/apps/deployments/root:ws/default/small2": "v",
@@ -144,7 +145,7 @@ func TestScanEtcdEntries_resumesFromContinueTokenWithoutDuplicatesOrGaps(t *test
 	prefix := "/registry/"
 	target := logicalcluster.Name("root:ws")
 
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/apps/deployments/root:ws/default/a": "v",
 		"/registry/apps/deployments/root:ws/default/b": "v",
 		"/registry/apps/deployments/root:ws/default/c": "v",
@@ -176,7 +177,7 @@ func TestScanEtcdEntries_ignoresOtherClusters(t *testing.T) {
 	prefix := "/registry/"
 	target := logicalcluster.Name("root:ws")
 
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/apps/deployments/root:other/default/a": "v",
 		"/registry/core/configmaps/root:other/default/b":  "v",
 	})
@@ -193,13 +194,13 @@ func TestScanEtcdEntries_carriesRemainingLeaseTTLAndSkipsExpired(t *testing.T) {
 	prefix := "/registry/"
 	target := logicalcluster.Name("root:ws")
 
-	kv := newFakeKV(map[string]string{
+	kv := etcdtest.NewFakeKV(map[string]string{
 		"/registry/core/configmaps/root:ws/default/cm": "v",
 		"/registry/core/events/root:ws/default/e1":     "v",
 		"/registry/core/events/root:ws/default/e2":     "v",
 		"/registry/core/events/root:ws/default/e3":     "v",
 	})
-	kv.leases = map[string]int64{
+	kv.Leases = map[string]int64{
 		"/registry/core/events/root:ws/default/e1": 1,
 		"/registry/core/events/root:ws/default/e2": 1,
 		"/registry/core/events/root:ws/default/e3": 2,
@@ -257,7 +258,7 @@ func TestScanEtcdEntriesTargetedRanges(t *testing.T) {
 			}
 			data["/registry/invalid"] = "ignored"
 			data["/registry/example.io/widgets/customresources"] = "ignored"
-			kv := newFakeKV(data)
+			kv := etcdtest.NewFakeKV(data)
 			var got []string
 			token := ""
 			for page := 0; ; page++ {
@@ -272,7 +273,7 @@ func TestScanEtcdEntriesTargetedRanges(t *testing.T) {
 				token = next
 			}
 			require.Equal(t, want, got)
-			for _, key := range kv.valueKeys {
+			for _, key := range kv.ValueKeys {
 				require.Contains(t, want, key[len("/registry/"):], "unrelated values must never be read")
 			}
 		})
@@ -288,83 +289,16 @@ func TestScanEtcdEntriesSkipsUnrelatedObjects(t *testing.T) {
 			for i := range count {
 				data[fmt.Sprintf("/registry/core/configmaps/other/default/object-%05d", i)] = "unrelated"
 			}
-			kv := newFakeKV(data)
+			kv := etcdtest.NewFakeKV(data)
 			entries, token, err := scanEtcdEntries(t.Context(), kv, nil, "/registry/", "target", "", 1000, 0, nil)
 			require.NoError(t, err)
 			require.Empty(t, token)
 			require.Len(t, entries, 1)
-			require.Equal(t, []string{"/registry/core/configmaps/target/default/keep"}, kv.valueKeys)
-			require.LessOrEqual(t, kv.returnedKeys, 3, "discovery must skip entire unrelated ranges")
-			require.LessOrEqual(t, len(kv.requests), 4)
+			require.Equal(t, []string{"/registry/core/configmaps/target/default/keep"}, kv.ValueKeys)
+			require.LessOrEqual(t, kv.ReturnedKeys, 3, "discovery must skip entire unrelated ranges")
+			require.LessOrEqual(t, len(kv.Requests), 4)
 		})
 	}
-}
-
-// fakeKV is a minimal in-memory fake of clientv3.KV for unit-testing range
-// scans, mirroring the one used in
-// pkg/reconciler/migration/logicalclustermigration/datacleanup_test.go. It
-// supports only the operations scanEtcdEntries uses: Get with a range end
-// and an optional limit. Other methods are not implemented and panic if
-// called.
-type fakeKV struct {
-	kvs          map[string]string
-	leases       map[string]int64
-	requests     []clientv3.Op
-	valueKeys    []string
-	returnedKeys int
-}
-
-func newFakeKV(kvs map[string]string) *fakeKV { return &fakeKV{kvs: kvs} }
-
-func (f *fakeKV) Get(_ context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error) {
-	op := clientv3.OpGet(key, opts...)
-	f.requests = append(f.requests, op)
-	rangeEnd := string(op.RangeBytes())
-	limit := op.Limit()
-
-	keys := make([]string, 0, len(f.kvs))
-	for k := range f.kvs {
-		if k >= key && (rangeEnd == "" || k < rangeEnd) {
-			keys = append(keys, k)
-		}
-	}
-	sort.Strings(keys)
-
-	more := false
-	if limit > 0 && int64(len(keys)) > limit {
-		keys = keys[:limit]
-		more = true
-	}
-
-	resp := &clientv3.GetResponse{More: more}
-	for _, k := range keys {
-		entry := &mvccpb.KeyValue{Key: []byte(k), Lease: f.leases[k]}
-		if !op.IsKeysOnly() {
-			entry.Value = []byte(f.kvs[k])
-			f.valueKeys = append(f.valueKeys, k)
-		}
-		f.returnedKeys++
-		resp.Kvs = append(resp.Kvs, entry)
-	}
-	return resp, nil
-}
-
-func (f *fakeKV) Put(context.Context, string, string, ...clientv3.OpOption) (*clientv3.PutResponse, error) {
-	panic("not implemented")
-}
-func (f *fakeKV) Delete(context.Context, string, ...clientv3.OpOption) (*clientv3.DeleteResponse, error) {
-	panic("not implemented")
-}
-func (f *fakeKV) Compact(context.Context, int64, ...clientv3.CompactOption) (*clientv3.CompactResponse, error) {
-	panic("not implemented")
-}
-func (f *fakeKV) Do(context.Context, clientv3.Op) (clientv3.OpResponse, error) {
-	panic("not implemented")
-}
-func (f *fakeKV) Txn(context.Context) clientv3.Txn { panic("not implemented") }
-
-func (f *fakeKV) GetStream(ctx context.Context, key string, opts ...clientv3.OpOption) (clientv3.GetStreamChan, error) {
-	panic("not implemented")
 }
 
 type fakeLeases struct {
