@@ -148,6 +148,10 @@ var (
 		// annotation used by api-syncagent
 		exact(unreserved, "syncagent.kcp.io/agent-name"),
 		exact(unreserved, "syncagent.kcp.io/source-generation"),
+		// api-syncagent records synced related resources (for example a
+		// kubeconfig Secret) on the consumer object; the suffix names the
+		// related resource, hence the prefix match
+		prefix(unreserved, "related-resources.syncagent.kcp.io/"),
 	}
 
 	labelRules = []rule{
