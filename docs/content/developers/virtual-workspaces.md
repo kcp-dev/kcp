@@ -57,9 +57,9 @@ consult the [Kubernetes authorizer package documentation](https://pkg.go.dev/k8s
       implementation acts on behalf of the user, use the requester's identity or properly
       scoped impersonation.
 - [ ] **Do not replay client-supplied impersonation.** If the implementation forwards
-      requests, scrub impersonation headers first, so a caller's impersonation request is
-      not re-evaluated against a more privileged forwarding identity. `pkg/authentication.ScrubImpersonationHeaders`
-      is provided for this purpose.
+      requests, scrub impersonation headers first, so a caller's impersonation request
+      is not re-evaluated against a more privileged forwarding identity.
+      `authentication.ScrubImpersonationHeaders` is provided in virtual-workspace-framework for this purpose.
 
 ### Deployment and Interaction with Built-In Components
 
