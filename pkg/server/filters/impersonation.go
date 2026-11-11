@@ -34,7 +34,8 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	rbacregistryvalidation "k8s.io/kubernetes/pkg/registry/rbac/validation"
 
-	"github.com/kcp-dev/kcp/pkg/authentication"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/impersonation"
+
 	authorizationbootstrap "github.com/kcp-dev/kcp/pkg/authorization/bootstrap"
 )
 
@@ -81,7 +82,7 @@ func WithImpersonationGatekeeper(handler http.Handler) http.Handler {
 		// If no impersonation is requested, just pass the request. This asks the
 		// same question the apiserver's impersonation filter asks, so a request it
 		// would treat as impersonating cannot slip past the checks below.
-		if !authentication.HasImpersonationHeaders(req.Header) {
+		if !impersonation.HasHeaders(req.Header) {
 			// in withScoping, we will check that this value is set. If not, the is some programming error.
 			ctx := req.Context()
 			ctx = context.WithValue(ctx, impersonationContextKey, false)
