@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package authentication
+package impersonation
 
 import (
 	"net/http"
@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestHasImpersonationHeaders(t *testing.T) {
+func TestHasHeaders(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -51,12 +51,12 @@ func TestHasImpersonationHeaders(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			require.Equal(t, tc.want, HasImpersonationHeaders(tc.header))
+			require.Equal(t, tc.want, HasHeaders(tc.header))
 		})
 	}
 }
 
-func TestScrubImpersonationHeaders(t *testing.T) {
+func TestScrubHeaders(t *testing.T) {
 	t.Parallel()
 
 	header := http.Header{
@@ -69,9 +69,9 @@ func TestScrubImpersonationHeaders(t *testing.T) {
 		"X-Remote-User":            {"alice"},
 	}
 
-	ScrubImpersonationHeaders(header)
+	ScrubHeaders(header)
 
-	require.False(t, HasImpersonationHeaders(header), "every impersonation header must be gone")
+	require.False(t, HasHeaders(header), "every impersonation header must be gone")
 	for _, k := range []string{"Impersonate-User", "Impersonate-Uid", "Impersonate-Group", "Impersonate-Extra-Scopes", "impersonate-extra-other"} {
 		require.Empty(t, header.Values(k), "header %q must be removed", k)
 	}
@@ -81,6 +81,6 @@ func TestScrubImpersonationHeaders(t *testing.T) {
 	require.Equal(t, []string{"alice"}, header.Values("X-Remote-User"))
 
 	// Idempotent, and safe on an empty header map.
-	ScrubImpersonationHeaders(header)
-	ScrubImpersonationHeaders(http.Header{})
+	ScrubHeaders(header)
+	ScrubHeaders(http.Header{})
 }

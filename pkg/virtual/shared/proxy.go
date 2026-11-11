@@ -27,7 +27,8 @@ import (
 
 	"k8s.io/klog/v2"
 
-	"github.com/kcp-dev/kcp/pkg/authentication"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/impersonation"
+
 	"github.com/kcp-dev/kcp/pkg/logging"
 )
 
@@ -40,7 +41,7 @@ func ServeProxy(writer http.ResponseWriter, request *http.Request, forwardedHost
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.Out.Header.Del("Authorization")
-			authentication.ScrubImpersonationHeaders(pr.Out.Header)
+			impersonation.ScrubHeaders(pr.Out.Header)
 			pr.Out.URL.Scheme = forwardedHost.Scheme
 			pr.Out.URL.Host = forwardedHost.Host
 		},

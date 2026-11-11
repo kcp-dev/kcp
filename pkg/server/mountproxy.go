@@ -36,8 +36,8 @@ import (
 	"k8s.io/klog/v2"
 
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/impersonation"
 
-	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/logging"
 	"github.com/kcp-dev/kcp/pkg/mounts"
 	"github.com/kcp-dev/kcp/pkg/proxy/authheaders"
@@ -223,7 +223,7 @@ func setMountProxyHeaders(header http.Header, u user.Info, hops int) {
 	header.Set(mounts.HopsHeader, strconv.Itoa(hops))
 
 	header.Del("Authorization")
-	authentication.ScrubImpersonationHeaders(header)
+	impersonation.ScrubHeaders(header)
 
 	if u == nil || u.GetName() == user.Anonymous {
 		authheaders.ClearAuthHeaders(header, authheaders.DefaultUserHeader, authheaders.DefaultGroupHeader, authheaders.DefaultExtraHeaderPrefix)

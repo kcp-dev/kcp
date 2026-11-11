@@ -40,8 +40,8 @@ import (
 	tenancyv1alpha1 "github.com/kcp-dev/sdk/apis/tenancy/v1alpha1"
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	tenancyv1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/tenancy/v1alpha1"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/impersonation"
 
-	"github.com/kcp-dev/kcp/pkg/authentication"
 	"github.com/kcp-dev/kcp/pkg/index"
 	indexrewriters "github.com/kcp-dev/kcp/pkg/index/rewriters"
 	"github.com/kcp-dev/kcp/pkg/logging"
@@ -190,7 +190,7 @@ func WithLocalProxy(
 			// Impersonation needs a logical cluster to authorize against, which a
 			// mount does not have. Reject it explicitly instead of letting the
 			// impersonation filters fail in less obvious ways.
-			if authentication.HasImpersonationHeaders(req.Header) {
+			if impersonation.HasHeaders(req.Header) {
 				responsewriters.ErrorNegotiated(
 					apierrors.NewForbidden(schema.GroupResource{}, "", errors.New("impersonation is not supported for mounted workspaces")),
 					errorCodecs, schema.GroupVersion{}, w, req,
