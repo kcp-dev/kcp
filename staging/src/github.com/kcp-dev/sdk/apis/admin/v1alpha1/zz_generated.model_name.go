@@ -22,6 +22,21 @@ limitations under the License.
 package v1alpha1
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportHistory) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.APIExportHistory"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportHistoryList) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.APIExportHistoryList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in APIExportHistoryStatus) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.APIExportHistoryStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in APIIdentity) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.APIIdentity"
 }
@@ -44,4 +59,9 @@ func (in ExportReference) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Holder) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.Holder"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ResourceHistory) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.admin.v1alpha1.ResourceHistory"
 }

@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog/v2"
 
+	"github.com/kcp-dev/sdk/apis/admin"
 	"github.com/kcp-dev/sdk/apis/apis"
 	"github.com/kcp-dev/sdk/apis/cache"
 	"github.com/kcp-dev/sdk/apis/core"
@@ -56,6 +57,7 @@ func Bootstrap(ctx context.Context, crdClient apiextensionsclient.Interface, dis
 		{Group: apis.GroupName, Resource: "apibindings"},
 		{Group: apis.GroupName, Resource: "apiresourceschemas"},
 		{Group: apis.GroupName, Resource: "apiexportendpointslices"},
+		{Group: admin.GroupName, Resource: "apiexporthistories"},
 		{Group: core.GroupName, Resource: "logicalclusters"},
 		{Group: apis.GroupName, Resource: "apiconversions"},
 		{Group: cache.GroupName, Resource: "clustercachedresources"},

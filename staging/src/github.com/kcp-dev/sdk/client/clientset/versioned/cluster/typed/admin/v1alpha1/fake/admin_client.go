@@ -40,6 +40,10 @@ func (c *AdminV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) ad
 	return &AdminV1alpha1Client{Fake: c.Fake, ClusterPath: clusterPath}
 }
 
+func (c *AdminV1alpha1ClusterClient) APIExportHistories() kcpadminv1alpha1.APIExportHistoryClusterInterface {
+	return newFakeAPIExportHistoryClusterClient(c)
+}
+
 func (c *AdminV1alpha1ClusterClient) APIIdentities() kcpadminv1alpha1.APIIdentityClusterInterface {
 	return newFakeAPIIdentityClusterClient(c)
 }
@@ -47,6 +51,10 @@ func (c *AdminV1alpha1ClusterClient) APIIdentities() kcpadminv1alpha1.APIIdentit
 type AdminV1alpha1Client struct {
 	*kcptesting.Fake
 	ClusterPath logicalcluster.Path
+}
+
+func (c *AdminV1alpha1Client) APIExportHistories() adminv1alpha1.APIExportHistoryInterface {
+	return newFakeAPIExportHistoryClient(c.Fake, c.ClusterPath)
 }
 
 func (c *AdminV1alpha1Client) APIIdentities() adminv1alpha1.APIIdentityInterface {

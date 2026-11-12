@@ -29,12 +29,17 @@ import (
 
 type AdminV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	APIExportHistoriesGetter
 	APIIdentitiesGetter
 }
 
 // AdminV1alpha1Client is used to interact with features provided by the admin.kcp.io group.
 type AdminV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *AdminV1alpha1Client) APIExportHistories() APIExportHistoryInterface {
+	return newAPIExportHistories(c)
 }
 
 func (c *AdminV1alpha1Client) APIIdentities() APIIdentityInterface {

@@ -68,6 +68,22 @@ func updateAttr(name string, obj runtime.Object, kind, resource string) admissio
 	)
 }
 
+func updateAttrWithOld(name string, obj, old runtime.Object, kind, resource string) admission.Attributes {
+	return admission.NewAttributesRecord(
+		helpers.ToUnstructuredOrDie(obj),
+		helpers.ToUnstructuredOrDie(old),
+		apisv1alpha2.Kind(kind).WithVersion("v1alpha2"),
+		"",
+		name,
+		apisv1alpha2.Resource(resource).WithVersion("v1alpha2"),
+		"",
+		admission.Update,
+		&metav1.UpdateOptions{},
+		false,
+		&user.DefaultInfo{},
+	)
+}
+
 func TestAdmission(t *testing.T) {
 	t.Parallel()
 	cases := map[string]struct {
