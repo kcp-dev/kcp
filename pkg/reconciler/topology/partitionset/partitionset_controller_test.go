@@ -92,6 +92,13 @@ func TestReconcile(t *testing.T) {
 			wantPartitionCount:    2,
 			wantCountCreated:      2,
 		},
+		"Existing partition kept with selector and dimension overlapping": {
+			withMatchLabelOverlap:  true,
+			existingValidPartition: true,
+			wantPartitionsReady:    true,
+			wantPartitionCount:     2,
+			wantCountCreated:       1,
+		},
 	}
 
 	for name, tc := range tests {
