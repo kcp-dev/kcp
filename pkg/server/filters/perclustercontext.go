@@ -45,10 +45,11 @@ func WithPerClusterContext(handler http.Handler, mgr *contextmanager.Manager[log
 		"/openapi",
 		// logical cluster objects must still be editable to lifecylce the lc.
 		"/apis/core.kcp.io/v1alpha1/logicalclusters",
-		// Skip adding contexts to requests with LogicalClusterDump,
-		// contexts for migrating LCs are cancelled and stay cancelled
-		// until they are migrated.
+		// Skip adding contexts to requests with LogicalClusterDump and
+		// LogicalClusterDigest, contexts for migrating LCs are cancelled
+		// and stay cancelled until they are migrated.
 		migratingworkspaces.HandlerPath,
+		migratingworkspaces.DigestHandlerPath,
 	}
 
 	return func(w http.ResponseWriter, req *http.Request) {

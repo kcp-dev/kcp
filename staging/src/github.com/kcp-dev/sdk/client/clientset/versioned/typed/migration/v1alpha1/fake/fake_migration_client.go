@@ -29,6 +29,10 @@ type FakeMigrationV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeMigrationV1alpha1) LogicalClusterDigests() v1alpha1.LogicalClusterDigestInterface {
+	return newFakeLogicalClusterDigests(c)
+}
+
 func (c *FakeMigrationV1alpha1) LogicalClusterDumps() v1alpha1.LogicalClusterDumpInterface {
 	return newFakeLogicalClusterDumps(c)
 }

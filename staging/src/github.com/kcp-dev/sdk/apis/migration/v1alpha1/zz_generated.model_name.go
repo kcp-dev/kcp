@@ -27,6 +27,26 @@ func (in EtcdEntry) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EtcdEntryDigest) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.EtcdEntryDigest"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LogicalClusterDigest) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.LogicalClusterDigest"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LogicalClusterDigestSpec) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.LogicalClusterDigestSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LogicalClusterDigestStatus) OpenAPIModelName() string {
+	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.LogicalClusterDigestStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in LogicalClusterDump) OpenAPIModelName() string {
 	return "com.github.kcp-dev.sdk.apis.migration.v1alpha1.LogicalClusterDump"
 }

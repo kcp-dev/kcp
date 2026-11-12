@@ -194,6 +194,11 @@ func (c *Controller) process(ctx context.Context, key string) (bool, error) {
 		return false, nil // nothing we can do here
 	}
 
+	if logicalCluster.Annotations["internal.kcp.io/migrating"] != "" {
+		logger.V(4).Info("logical cluster is migrating, skipping reconciliation")
+		return false, nil
+	}
+
 	old := logicalCluster
 	logicalCluster = logicalCluster.DeepCopy()
 

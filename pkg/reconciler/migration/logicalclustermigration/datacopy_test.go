@@ -32,6 +32,9 @@ import (
 	corev1alpha1 "github.com/kcp-dev/sdk/apis/core/v1alpha1"
 	migrationv1alpha1 "github.com/kcp-dev/sdk/apis/migration/v1alpha1"
 	corev1alpha1listers "github.com/kcp-dev/sdk/client/listers/core/v1alpha1"
+
+	kcpetcd "github.com/kcp-dev/kcp/pkg/etcd"
+	"github.com/kcp-dev/kcp/pkg/etcd/etcdtest"
 )
 
 // newTestController returns a Controller with just enough wired up to
@@ -210,4 +213,89 @@ type fakeLeaseGranter struct {
 func (f *fakeLeaseGranter) Grant(_ context.Context, ttl int64) (*clientv3.LeaseGrantResponse, error) {
 	f.granted = append(f.granted, ttl)
 	return &clientv3.LeaseGrantResponse{ID: clientv3.LeaseID(len(f.granted)), TTL: ttl}, nil
+}
+
+func TestVerifyDigestPage(t *testing.T) {
+	t.Parallel()
+
+	lc := logicalcluster.Name("consumer")
+	originKV := etcdtest.NewFakeKV(map[string]string{
+		"/origin/core/configmaps/consumer/default/a": "val-a",
+		"/origin/core/configmaps/consumer/default/b": "val-b",
+		"/origin/core/configmaps/consumer/default/d": "val-d",
+	})
+	originPage1, nextToken, err := kcpetcd.ScanEtcdDigests(t.Context(), originKV, nil, "/origin", lc, "", "", 2, nil)
+	require.NoError(t, err)
+	require.Len(t, originPage1, 2)
+	require.Equal(t, "core/configmaps/consumer/default/d", nextToken)
+
+	originPage2, nextToken2, err := kcpetcd.ScanEtcdDigests(t.Context(), originKV, nil, "/origin", lc, nextToken, "", 2, nil)
+	require.NoError(t, err)
+	require.Len(t, originPage2, 1)
+	require.Empty(t, nextToken2)
+
+	t.Run("matching pages succeed", func(t *testing.T) {
+		t.Parallel()
+		destKV := etcdtest.NewFakeKV(map[string]string{
+			"/dest/core/configmaps/consumer/default/a": "val-a",
+			"/dest/core/configmaps/consumer/default/b": "val-b",
+			"/dest/core/configmaps/consumer/default/d": "val-d",
+		})
+		require.NoError(t, verifyDigestPage(t.Context(), destKV, nil, "/dest", lc, "", nextToken, originPage1, nil))
+		require.NoError(t, verifyDigestPage(t.Context(), destKV, nil, "/dest", lc, nextToken, nextToken2, originPage2, nil))
+	})
+
+	t.Run("modified value fails with mismatch", func(t *testing.T) {
+		t.Parallel()
+		destKV := etcdtest.NewFakeKV(map[string]string{
+			"/dest/core/configmaps/consumer/default/a": "val-a",
+			"/dest/core/configmaps/consumer/default/b": "tampered",
+			"/dest/core/configmaps/consumer/default/d": "val-d",
+		})
+		err := verifyDigestPage(t.Context(), destKV, nil, "/dest", lc, "", nextToken, originPage1, nil)
+		var mismatch *verificationMismatchError
+		require.ErrorAs(t, err, &mismatch)
+		require.ErrorContains(t, err, `digest mismatch for key "core/configmaps/consumer/default/b"`)
+	})
+
+	t.Run("missing key on destination fails with mismatch", func(t *testing.T) {
+		t.Parallel()
+		destKV := etcdtest.NewFakeKV(map[string]string{
+			"/dest/core/configmaps/consumer/default/a": "val-a",
+			"/dest/core/configmaps/consumer/default/d": "val-d",
+		})
+		err := verifyDigestPage(t.Context(), destKV, nil, "/dest", lc, "", nextToken, originPage1, nil)
+		var mismatch *verificationMismatchError
+		require.ErrorAs(t, err, &mismatch)
+		require.ErrorContains(t, err, `missing destination key "core/configmaps/consumer/default/b"`)
+	})
+
+	t.Run("extra key on destination between page entries fails with mismatch", func(t *testing.T) {
+		t.Parallel()
+		destKV := etcdtest.NewFakeKV(map[string]string{
+			"/dest/core/configmaps/consumer/default/a": "val-a",
+			"/dest/core/configmaps/consumer/default/b": "val-b",
+			"/dest/core/configmaps/consumer/default/c": "extra",
+			"/dest/core/configmaps/consumer/default/d": "val-d",
+		})
+		err := verifyDigestPage(t.Context(), destKV, nil, "/dest", lc, "", nextToken, originPage1, nil)
+		var mismatch *verificationMismatchError
+		require.ErrorAs(t, err, &mismatch)
+		require.ErrorContains(t, err, `unexpected destination key "core/configmaps/consumer/default/c"`)
+	})
+
+	t.Run("extra key on destination at end of cluster fails with mismatch", func(t *testing.T) {
+		t.Parallel()
+		destKV := etcdtest.NewFakeKV(map[string]string{
+			"/dest/core/configmaps/consumer/default/a": "val-a",
+			"/dest/core/configmaps/consumer/default/b": "val-b",
+			"/dest/core/configmaps/consumer/default/d": "val-d",
+			"/dest/core/configmaps/consumer/default/z": "extra",
+		})
+		require.NoError(t, verifyDigestPage(t.Context(), destKV, nil, "/dest", lc, "", nextToken, originPage1, nil))
+		err := verifyDigestPage(t.Context(), destKV, nil, "/dest", lc, nextToken, nextToken2, originPage2, nil)
+		var mismatch *verificationMismatchError
+		require.ErrorAs(t, err, &mismatch)
+		require.ErrorContains(t, err, `unexpected destination key "core/configmaps/consumer/default/z"`)
+	})
 }
