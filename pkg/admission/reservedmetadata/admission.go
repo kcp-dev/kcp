@@ -152,6 +152,9 @@ var (
 		// kubeconfig Secret) on the consumer object; the suffix names the
 		// related resource, hence the prefix match
 		prefix(unreserved, "related-resources.syncagent.kcp.io/"),
+		// set by workspace users on a synced object to choose how api-syncagent
+		// deletes its copy in the service cluster
+		exact(unreserved, "syncagent.kcp.io/deletion-propagation-policy"),
 	}
 
 	labelRules = []rule{
