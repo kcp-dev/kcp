@@ -21,6 +21,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +34,8 @@ import (
 	"github.com/kcp-dev/logicalcluster/v3"
 	apisv1alpha1 "github.com/kcp-dev/sdk/apis/apis/v1alpha1"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
+	conditionsv1alpha1 "github.com/kcp-dev/sdk/apis/third_party/conditions/apis/conditions/v1alpha1"
+	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 
 	cacheclient "github.com/kcp-dev/kcp/pkg/cache/client"
 	"github.com/kcp-dev/kcp/pkg/cache/client/shard"
@@ -108,11 +111,13 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 			},
 		},
 		&replication{
-			shardName:                            c.shardName,
-			localDynamicClusterClient:            c.localDynamicClient,
-			globalDynamicClusterClient:           c.globalDynamicClient,
-			kcpCacheClient:                       c.kcpCacheClient,
-			dynRESTMapper:                        c.dynRESTMapper,
+			shardName:                  c.shardName,
+			localDynamicClusterClient:  c.localDynamicClient,
+			globalDynamicClusterClient: c.globalDynamicClient,
+			kcpCacheClient:             c.kcpCacheClient,
+			getKind: func(cluster logicalcluster.Name, gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+				return c.dynRESTMapper.ForCluster(cluster).KindFor(gvr)
+			},
 			localDiscoveringDynamicKcpInformers:  c.localDiscoveringDynamicKcpInformers,
 			globalDiscoveringDynamicKcpInformers: c.globalDiscoveringDynamicKcpInformers,
 			requeueSelf:                          c.enqueue,
@@ -122,6 +127,7 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 
 	var errs []error
 
+	before := clusterCachedResource.DeepCopy()
 	requeue := false
 	for _, r := range reconcilers {
 		var err error
@@ -139,7 +145,36 @@ func (c *Controller) reconcile(ctx context.Context, cluster logicalcluster.Name,
 		}
 	}
 
+	// We can't update status together with spec or metadata (committer panics),
+	// so leave it for the next round.
+	if equality.Semantic.DeepEqual(before.ObjectMeta, clusterCachedResource.ObjectMeta) &&
+		equality.Semantic.DeepEqual(before.Spec, clusterCachedResource.Spec) {
+		c.updateReplicationStatus(clusterCachedResource)
+	}
+
 	return requeue, utilerrors.NewAggregate(errs)
+}
+
+// updateReplicationStatus is done here and not in the replication reconciler, as
+// reconcilers before it can stop (e.g. CRD was deleted) and status would stay Ready.
+func (c *Controller) updateReplicationStatus(clusterCachedResource *cachev1alpha1.ClusterCachedResource) {
+	switch clusterCachedResource.Status.Phase {
+	case cachev1alpha1.ClusterCachedResourcePhaseDeleting, cachev1alpha1.ClusterCachedResourcePhaseDeleted:
+		return
+	}
+
+	controller := c.controllerRegistry.get(controllerNameFor(clusterCachedResource))
+	switch {
+	case controller != nil && controller.Started():
+		conditions.MarkTrue(clusterCachedResource, cachev1alpha1.ReplicationStarted)
+		clusterCachedResource.Status.Phase = cachev1alpha1.ClusterCachedResourcePhaseReady
+		return
+	case controller != nil:
+		conditions.MarkFalse(clusterCachedResource, cachev1alpha1.ReplicationStarted, "Syncing", conditionsv1alpha1.ConditionSeverityInfo, "Waiting for informers to sync")
+	default:
+		conditions.MarkFalse(clusterCachedResource, cachev1alpha1.ReplicationStarted, "NotRunning", conditionsv1alpha1.ConditionSeverityInfo, "Replication controller is not running")
+	}
+	clusterCachedResource.Status.Phase = cachev1alpha1.ClusterCachedResourcePhaseInitializing
 }
 
 func (c *Controller) listSelectedLocalResources(ctx context.Context, cluster logicalcluster.Name, clusterCachedResource *cachev1alpha1.ClusterCachedResource) (*unstructured.UnstructuredList, error) {

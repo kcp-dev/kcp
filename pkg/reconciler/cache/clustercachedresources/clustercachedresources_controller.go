@@ -25,6 +25,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -201,6 +203,28 @@ func (c *Controller) enqueue(obj interface{}) {
 	c.queue.Add(key)
 }
 
+// enqueueForGVR enqueues all ClusterCachedResources for gvr when its CRD comes back.
+// They might be in a long backoff from failing while the CRD was gone, so we reset it.
+func (c *Controller) enqueueForGVR(gvr schema.GroupVersionResource) {
+	clusterCachedResources, err := c.ClusterCachedResourceLister.List(labels.Everything())
+	if err != nil {
+		utilruntime.HandleError(err)
+		return
+	}
+	for _, clusterCachedResource := range clusterCachedResources {
+		if schema.GroupVersionResource(clusterCachedResource.Spec.GroupVersionResource) != gvr {
+			continue
+		}
+		key, err := kcpcache.MetaClusterNamespaceKeyFunc(clusterCachedResource)
+		if err != nil {
+			utilruntime.HandleError(err)
+			continue
+		}
+		c.queue.Forget(key)
+		c.queue.Add(key)
+	}
+}
+
 // Start starts the controller, which stops when ctx.Done() is closed.
 func (c *Controller) Start(ctx context.Context, numThreads int) {
 	defer utilruntime.HandleCrash()
@@ -210,6 +234,10 @@ func (c *Controller) Start(ctx context.Context, numThreads int) {
 	ctx = klog.NewContext(ctx, logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
+
+	c.localDiscoveringDynamicKcpInformers.AddGVRLifecycleHandler(ctx, informer.GVRLifecycleHandlerFuncs{
+		AddedFunc: c.enqueueForGVR,
+	})
 
 	for range numThreads {
 		go wait.Until(func() { c.startWorker(ctx) }, time.Second, ctx.Done())
@@ -330,4 +358,20 @@ func (c *controllerRegistry) unregister(name string) {
 	}
 	delete(c.controllers, name)
 	delete(c.cancels, name)
+}
+
+// unregisterIf unregisters the controller only if it is still registered under name.
+// Returns true if it was removed.
+func (c *controllerRegistry) unregisterIf(name string, controller *replicationcontroller.Controller) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.controllers[name] != controller {
+		return false
+	}
+	if c.cancels[name] != nil {
+		c.cancels[name]()
+	}
+	delete(c.controllers, name)
+	delete(c.cancels, name)
+	return true
 }

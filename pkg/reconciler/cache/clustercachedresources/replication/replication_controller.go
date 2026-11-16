@@ -18,7 +18,9 @@ package replication
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -80,8 +82,8 @@ func NewController(
 	replicated *ReplicatedGVR,
 	requeueSelf func(),
 	selection Selection,
-) (*Controller, error) {
-	c := &Controller{
+) *Controller {
+	return &Controller{
 		shardName: shardName,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -92,47 +94,29 @@ func NewController(
 		localDynamicClusterClient:       localDynamicClusterClient,
 		globalDynamicClusterClient:      globalDynamicClusterClient,
 		cacheApiExtensionsClusterClient: cacheApiExtensionsClusterClient,
+		cluster:                         cluster,
+		gvr:                             gvr,
 		replicated:                      replicated,
 		requeueSelf:                     requeueSelf,
-		onShutdownFuncs:                 make([]func(), 0),
 		selection:                       selection,
 	}
+}
 
-	localHandler, err := c.replicated.Local.AddEventHandler(cache.FilteringResourceEventHandler{
+func (c *Controller) handlerFor(source string) cache.ResourceEventHandler {
+	return cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {
-			return getClusterNameFromObj(obj) == cluster
+			return getClusterNameFromObj(obj) == c.cluster
 		},
 		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr, "local") },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, gvr, "local") },
-			DeleteFunc: func(obj interface{}) { c.enqueueObject(obj, gvr, "local") },
+			AddFunc:    func(obj interface{}) { c.enqueueObject(obj, c.gvr, source) },
+			UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, c.gvr, source) },
+			DeleteFunc: func(obj interface{}) { c.enqueueObject(obj, c.gvr, source) },
 		},
-	})
-	if err != nil {
-		return nil, err
 	}
-	c.onShutdownFuncs = append(c.onShutdownFuncs, func() {
-		_ = c.replicated.Local.RemoveEventHandler(localHandler)
-	})
+}
 
-	globalHandler, err := c.replicated.Global.AddEventHandler(cache.FilteringResourceEventHandler{
-		FilterFunc: func(obj interface{}) bool {
-			return getClusterNameFromObj(obj) == cluster
-		},
-		Handler: cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { c.enqueueObject(obj, gvr, "global") },
-			UpdateFunc: func(_, obj interface{}) { c.enqueueObject(obj, gvr, "global") },
-			DeleteFunc: func(obj interface{}) { c.enqueueObject(obj, gvr, "global") },
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	c.onShutdownFuncs = append(c.onShutdownFuncs, func() {
-		_ = c.replicated.Global.RemoveEventHandler(globalHandler)
-	})
-
-	return c, nil
+func (c *Controller) informersStopped() bool {
+	return c.replicated.Local.IsStopped() || c.replicated.Global.IsStopped()
 }
 
 func (c *Controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResource, source string) {
@@ -149,31 +133,60 @@ func (c *Controller) enqueueObject(obj interface{}, gvr schema.GroupVersionResou
 	c.queue.Add(gvrKey)
 }
 
-// Start starts the controller, which stops when ctx.Done() is closed.
+// Start starts the controller, which stops when ctx.Done() is closed or one of
+// the informers is stopped.
 func (c *Controller) Start(ctx context.Context, workers int) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
-	defer func() {
-		for _, cleanupFunc := range c.onShutdownFuncs {
-			cleanupFunc()
-		}
-	}()
 
 	logger := logging.WithReconciler(klog.FromContext(ctx), ControllerName)
 	ctx = klog.NewContext(cacheclient.WithShardInContext(ctx, shard.New(c.shardName)), logger)
 	logger.Info("Starting controller")
 	defer logger.Info("Shutting down controller")
 
+	localReg, err := c.replicated.Local.AddEventHandler(c.handlerFor("local"))
+	if err != nil {
+		logger.Error(err, "Failed to add event handler", "informer", "local")
+		return
+	}
+	defer func() { _ = c.replicated.Local.RemoveEventHandler(localReg) }()
+	globalReg, err := c.replicated.Global.AddEventHandler(c.handlerFor("global"))
+	if err != nil {
+		logger.Error(err, "Failed to add event handler", "informer", "global")
+		return
+	}
+	defer func() { _ = c.replicated.Global.RemoveEventHandler(globalReg) }()
+
+	// informers don't tell us when they stop, so we poll
+	if err := wait.PollUntilContextCancel(ctx, time.Second, true, func(context.Context) (bool, error) {
+		if c.informersStopped() {
+			return false, errors.New("informer stopped")
+		}
+		return localReg.HasSynced() && globalReg.HasSynced(), nil
+	}); err != nil {
+		if ctx.Err() == nil {
+			logger.Info("Informers did not sync", "reason", err)
+		}
+		return
+	}
+
 	for range workers {
 		go wait.UntilWithContext(ctx, c.startWorker, time.Second)
 	}
-	c.started = true
-	<-ctx.Done()
-	c.started = false
+	c.started.Store(true)
+	defer c.started.Store(false)
+	c.requeueSelf()
+
+	_ = wait.PollUntilContextCancel(ctx, time.Second, false, func(context.Context) (bool, error) {
+		return c.informersStopped(), nil
+	})
+	if ctx.Err() == nil {
+		logger.Info("Informer stopped")
+	}
 }
 
 func (c *Controller) Started() bool {
-	return c.started
+	return c.started.Load()
 }
 
 func (c *Controller) SetSelection(selection Selection) {
@@ -218,6 +231,8 @@ type Controller struct {
 	globalDynamicClusterClient      kcpdynamic.ClusterInterface
 	cacheApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
 
+	cluster    logicalcluster.Name
+	gvr        schema.GroupVersionResource
 	replicated *ReplicatedGVR
 
 	// requeueSelf is called when we want to trigger parent object reconciliation.
@@ -228,14 +243,12 @@ type Controller struct {
 	// 2. Object is replicated to cache by child controller.
 	// 3. requeueSelf is called to update parent object status.
 	requeueSelf func()
-	// onShutdownFuncs are cleanup functions that are called when the controller is stopped.
-	onShutdownFuncs []func()
 
 	// selection is which objects of the kind we replicate. It is set when the
 	// controller is created and can be changed by the parent controller.
 	selection Selection
 
-	started bool
+	started atomic.Bool
 	deleted bool
 }
 

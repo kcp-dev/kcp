@@ -21,19 +21,16 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 
 	kcpapiextensionsclientset "github.com/kcp-dev/client-go/apiextensions/client"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	"github.com/kcp-dev/logicalcluster/v3"
 	cachev1alpha1 "github.com/kcp-dev/sdk/apis/cache/v1alpha1"
-	"github.com/kcp-dev/sdk/apis/third_party/conditions/util/conditions"
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 
 	"github.com/kcp-dev/kcp/pkg/informer"
 	replicationcontroller "github.com/kcp-dev/kcp/pkg/reconciler/cache/clustercachedresources/replication"
-	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
 // replication starts the replication machinery for a published resource.
@@ -43,7 +40,7 @@ type replication struct {
 	localDynamicClusterClient            kcpdynamic.ClusterInterface
 	globalDynamicClusterClient           kcpdynamic.ClusterInterface
 	kcpCacheClient                       kcpclientset.ClusterInterface
-	dynRESTMapper                        *dynamicrestmapper.DynamicRESTMapper
+	getKind                              func(cluster logicalcluster.Name, gvr schema.GroupVersionResource) (schema.GroupVersionKind, error)
 	localDiscoveringDynamicKcpInformers  *informer.DiscoveringDynamicSharedInformerFactory
 	globalDiscoveringDynamicKcpInformers *informer.DiscoveringDynamicSharedInformerFactory
 	cacheApiExtensionsClusterClient      kcpapiextensionsclientset.ClusterInterface
@@ -65,7 +62,7 @@ func (r *replication) reconcile(ctx context.Context, clusterCachedResource *cach
 	selection := replicationcontroller.SelectionFor(clusterCachedResource)
 
 	clusterName := logicalcluster.From(clusterCachedResource)
-	controllerName := fmt.Sprintf("%s.%s.%s.%s.%s", clusterName, gvr.Version, gvr.Resource, gvr.Group, clusterCachedResource.Name)
+	controllerName := controllerNameFor(clusterCachedResource)
 	// TODO: Add locking here when multiple workers are supported.
 	controller := r.controllerRegistry.get(controllerName)
 	// We setup controller even if we are deleting. This is to ensure that we can purge the cache.
@@ -77,12 +74,21 @@ func (r *replication) reconcile(ctx context.Context, clusterCachedResource *cach
 			return reconcileStatusStopAndRequeue, nil
 		}
 
-		controllerCtx, cancel := context.WithCancel(ctx)
+		// Get kind first, so we don't create informers for resources which are not served.
+		replicatedKind, err := r.getKind(clusterName, gvr)
+		if err != nil {
+			logger.Error(err, "Failed to get Kind for resource", "resource", gvr)
+			return reconcileStatusStopAndRequeue, err
+		}
+		// The REST mapper can still have a CRD which the local factory already removed.
+		// ForResource would then create an informer the factory never stops.
+		if !r.servedLocally(gvr) {
+			return reconcileStatusStopAndRequeue, fmt.Errorf("resource %s is not served by local informers", gvr)
+		}
 
 		global, err := r.globalDiscoveringDynamicKcpInformers.ForResource(gvr)
 		if err != nil {
 			logger.Error(err, "Failed to get global informer for resource", "resource", gvr)
-			cancel()
 			return reconcileStatusStopAndRequeue, err
 		}
 
@@ -90,13 +96,6 @@ func (r *replication) reconcile(ctx context.Context, clusterCachedResource *cach
 		local, err := r.localDiscoveringDynamicKcpInformers.ForResource(gvr)
 		if err != nil {
 			logger.Error(err, "Failed to get local informer for resource", "resource", gvr)
-			cancel()
-			return reconcileStatusStopAndRequeue, err
-		}
-		replicatedKind, err := r.dynRESTMapper.ForCluster(clusterName).KindFor(gvr)
-		if err != nil {
-			logger.Error(err, "Failed to get Kind for resource", "resource", gvr)
-			cancel()
 			return reconcileStatusStopAndRequeue, err
 		}
 		replicated := &replicationcontroller.ReplicatedGVR{
@@ -105,12 +104,22 @@ func (r *replication) reconcile(ctx context.Context, clusterCachedResource *cach
 			Local:    local.Informer(),
 			Global:   global.Informer(),
 		}
+		if replicated.Local.IsStopped() || replicated.Global.IsStopped() {
+			return reconcileStatusStopAndRequeue, fmt.Errorf("informer for %s is stopped", gvr)
+		}
 		replicationcontroller.InstallIndexers(replicated)
+
+		// Run informers with the factories' stop channels, not ctx. ctx is cancelled when we
+		// lose the leader lease and a stopped informer can't be reused. The global factory
+		// has no worker, so global informers run until the process exits.
+		r.localDiscoveringDynamicKcpInformers.Start(nil)
+		r.globalDiscoveringDynamicKcpInformers.Start(nil)
+
 		requeueSelf := func() {
 			r.requeueSelf(clusterCachedResource)
 		}
 
-		c, err := replicationcontroller.NewController(
+		c := replicationcontroller.NewController(
 			r.shardName,
 			r.localDynamicClusterClient,
 			r.globalDynamicClusterClient,
@@ -122,31 +131,19 @@ func (r *replication) reconcile(ctx context.Context, clusterCachedResource *cach
 			requeueSelf,
 			selection,
 		)
-		if err != nil {
-			cancel()
-			return reconcileStatusContinue, err
-		}
 
-		go replicated.Local.Run(ctx.Done())
-		go replicated.Global.Run(ctx.Done())
-
+		controllerCtx, cancel := context.WithCancel(ctx)
 		r.controllerRegistry.register(controllerName, c, cancel)
-		if clusterCachedResource.Status.Phase != cachev1alpha1.ClusterCachedResourcePhaseDeleting {
-			conditions.MarkTrue(clusterCachedResource, cachev1alpha1.ReplicationStarted)
-			clusterCachedResource.Status.Phase = cachev1alpha1.ClusterCachedResourcePhaseReady
-		}
 
 		go func() {
-			defer cancel()
-
-			if !cache.WaitForCacheSync(controllerCtx.Done(), replicated.Local.HasSynced, replicated.Global.HasSynced) {
-				logger.Error(nil, "Informers failed to sync, removing controller", "controller", controllerName)
-				r.controllerRegistry.unregister(controllerName)
-				requeueSelf()
-				return
-			}
-
 			c.Start(controllerCtx, 1)
+			removed := r.controllerRegistry.unregisterIf(controllerName, c)
+			cancel()
+			// controller stopped by itself (e.g. CRD was deleted), recreate it
+			if removed && ctx.Err() == nil {
+				logger.Info("Replication controller stopped, recreating", "controller", controllerName)
+				requeueSelf()
+			}
 		}()
 
 		return reconcileStatusStopAndRequeue, nil // Once controller is started, we requeue to check if we need to delete it.
@@ -168,4 +165,21 @@ func (r *replication) reconcile(ctx context.Context, clusterCachedResource *cach
 	default:
 		return reconcileStatusContinue, nil
 	}
+}
+
+func (r *replication) servedLocally(gvr schema.GroupVersionResource) bool {
+	resources, err := r.localDiscoveringDynamicKcpInformers.ServerResourcesForGroupVersion(gvr.GroupVersion().String())
+	if err != nil {
+		return false
+	}
+	for _, resource := range resources.APIResources {
+		if resource.Name == gvr.Resource {
+			return true
+		}
+	}
+	return false
+}
+
+func controllerNameFor(ccr *cachev1alpha1.ClusterCachedResource) string {
+	return fmt.Sprintf("%s.%s.%s.%s.%s", logicalcluster.From(ccr), ccr.Spec.Version, ccr.Spec.Resource, ccr.Spec.Group, ccr.Name)
 }
