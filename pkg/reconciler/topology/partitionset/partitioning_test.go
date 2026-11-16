@@ -135,6 +135,12 @@ func TestPartition(t *testing.T) {
 	for _, v := range matchLabelsMap {
 		require.Equal(t, "prod", v["environment"], "Expected that all partitions have a label selector for environment = prod")
 	}
+
+	matchLabelsMap = partition(shards, []string{"region", "environment"}, map[string]string{"environment": "prod"})
+	require.Equal(t, map[string]map[string]string{
+		"+environment=prod+region=Asia":   {"environment": "prod", "region": "Asia"},
+		"+environment=prod+region=Europe": {"environment": "prod", "region": "Europe"},
+	}, matchLabelsMap, "Labels being both a dimension and in the shard selector should only be considered once")
 }
 
 func TestGeneratePartitionName(t *testing.T) {

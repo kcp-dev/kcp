@@ -196,12 +196,11 @@ func (c *controller) reconcile(ctx context.Context, partitionSet *topologyv1alph
 // so that Partitions not referring to any Shard would not get created.
 func partition(shards []*corev1alpha1.Shard, dimensions []string, shardSelectorLabels map[string]string) (matchLabelsMap map[string]map[string]string) {
 	matchLabelsMap = make(map[string]map[string]string)
-	l := make([]string, len(dimensions), len(dimensions)+len(shardSelectorLabels))
-	copy(l, dimensions)
-	for label := range shardSelectorLabels {
-		l = append(l, label)
-	}
-	sort.Strings(l) // Sorting for consistent comparison.
+	// A label can be both a dimension and part of the shard selector matchLabels.
+	// It must only be considered once, otherwise the generated key would not
+	// match the one computed from the matchLabels of existing Partitions.
+	// sets.List returns the labels sorted for consistent comparison.
+	l := sets.List(sets.KeySet(shardSelectorLabels).Insert(dimensions...))
 	for _, shard := range shards {
 		key := ""
 		selector := make(map[string]string)
