@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1alpha1
 
+// APIExportHistoryClusterListerExpansion allows custom methods to be added to
+// APIExportHistoryClusterLister.
+type APIExportHistoryClusterListerExpansion interface{}
+
+// APIExportHistoryListerExpansion allows custom methods to be added to
+// APIExportHistoryLister.
+type APIExportHistoryListerExpansion interface{}
+
 // APIIdentityClusterListerExpansion allows custom methods to be added to
 // APIIdentityClusterLister.
 type APIIdentityClusterListerExpansion interface{}
