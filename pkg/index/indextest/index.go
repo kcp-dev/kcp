@@ -63,11 +63,6 @@ func (f *Index) Lookup(path logicalcluster.Path) (index.Result, bool) {
 	}, true
 }
 
-// LookupURL is Lookup: the fake knows no mounts.
-func (f *Index) LookupURL(path logicalcluster.Path) (index.Result, bool) {
-	return f.Lookup(path)
-}
-
 // BaseURL returns the base URL of the shard.
 func (f *Index) BaseURL(shardName string) (string, bool) {
 	url, ok := f.Shards[shardName]
