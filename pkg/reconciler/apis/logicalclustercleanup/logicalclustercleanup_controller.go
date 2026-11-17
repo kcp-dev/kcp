@@ -226,6 +226,11 @@ func (c *controller) process(ctx context.Context, key string) error {
 
 	logger := logging.WithObject(klog.FromContext(ctx), lc)
 
+	if lc.Annotations["internal.kcp.io/migrating"] != "" {
+		logger.V(4).Info("logical cluster is migrating, skipping cleanup reconciliation")
+		return nil
+	}
+
 	// decode existing annotation.
 	rbs := make(apibindingreconciler.ResourceBindingsAnnotation)
 	annValue, found := lc.Annotations[apibindingreconciler.ResourceBindingsAnnotationKey]

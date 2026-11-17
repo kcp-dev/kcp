@@ -83,15 +83,19 @@ func TestMigratingDisconnectsWildcardWatchesBeforeCopy(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "move", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
 		Spec:       migrationv1alpha1.LogicalClusterMigrationSpec{LogicalCluster: "consumer"},
 	}
-	var deleted []logicalcluster.Path
+	var cancelled, deleted []logicalcluster.Path
 	copyError := errors.New("copy failed")
 	c := &Controller{
 		migratingLogicalClusters: NewMigratingLogicalClusters(),
 		ddsif:                    newEmptyDDSIF(),
+		cancelLogicalClusterConnections: func(path logicalcluster.Path, reason error) {
+			cancelled = append(cancelled, path)
+		},
 		deleteLogicalClusterContext: func(path logicalcluster.Path, reason error) {
 			deleted = append(deleted, path)
 		},
 		copyPageFromOrigin: func(context.Context, logicalcluster.Name, string, string) (int64, string, error) {
+			require.Equal(t, []logicalcluster.Path{logicalcluster.NewPath("consumer")}, cancelled, "cancel cluster context before writing any copied data")
 			require.Equal(t, []logicalcluster.Path{logicalcluster.Wildcard}, deleted, "disconnect before writing any copied data")
 			return 0, "", copyError
 		},
@@ -118,7 +122,7 @@ func TestApplyDumpPageResult_requeuesWhileContinueTokenPresent(t *testing.T) {
 	require.Nil(t, conditions.Get(migration, migrationv1alpha1.LCMigrationDataCopied))
 }
 
-func TestApplyDumpPageResult_transitionsToOriginCleanupWhenDone(t *testing.T) {
+func TestApplyDumpPageResult_transitionsToVerifyingWhenDone(t *testing.T) {
 	t.Parallel()
 
 	migration := &migrationv1alpha1.LogicalClusterMigration{}
@@ -129,7 +133,7 @@ func TestApplyDumpPageResult_transitionsToOriginCleanupWhenDone(t *testing.T) {
 	require.False(t, requeue)
 	require.Equal(t, int64(42), migration.Status.EntriesCopied)
 	require.Empty(t, migration.Status.DumpContinue)
-	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseOriginCleanup, migration.Status.Phase)
+	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseVerifying, migration.Status.Phase)
 
 	cond := conditions.Get(migration, migrationv1alpha1.LCMigrationDataCopied)
 	require.NotNil(t, cond)
@@ -146,7 +150,7 @@ func TestApplyDumpPageResult_accumulatesEntriesCopiedAcrossMultiplePages(t *test
 	require.False(t, applyDumpPageResult(migration, 5, ""))
 
 	require.Equal(t, int64(30), migration.Status.EntriesCopied)
-	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseOriginCleanup, migration.Status.Phase)
+	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseVerifying, migration.Status.Phase)
 }
 
 // TestApplyDumpPageResult_clearsStaleCopyFailedConditionOnLaterSuccess covers
@@ -193,7 +197,115 @@ func TestApplyDumpPageResult_resumesAfterSimulatedRestart(t *testing.T) {
 	require.False(t, requeue)
 	require.Equal(t, int64(50), restarted.Status.EntriesCopied, "entries from before and after the restart must both be counted")
 	require.Empty(t, restarted.Status.DumpContinue)
-	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseOriginCleanup, restarted.Status.Phase)
+	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseVerifying, restarted.Status.Phase)
+}
+
+func TestReconcileVerifying_paginatesAndTransitionsToOriginCleanup(t *testing.T) {
+	t.Parallel()
+
+	migration := &migrationv1alpha1.LogicalClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{Name: "move", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
+		Spec:       migrationv1alpha1.LogicalClusterMigrationSpec{LogicalCluster: "consumer", DestinationShard: "destination"},
+		Status:     migrationv1alpha1.LogicalClusterMigrationStatus{OriginShard: "origin", Phase: migrationv1alpha1.LogicalClusterMigrationPhaseVerifying},
+	}
+
+	tokens := []string{"page-2", ""}
+	var seenTokens []string
+	c := &Controller{
+		shardName:                       "destination",
+		migratingLogicalClusters:        NewMigratingLogicalClusters(),
+		ddsif:                           newEmptyDDSIF(),
+		cancelLogicalClusterConnections: func(logicalcluster.Path, error) {},
+		deleteLogicalClusterContext:     func(logicalcluster.Path, error) {},
+		verifyPageFromOrigin: func(_ context.Context, _ logicalcluster.Name, _, token string) (string, error) {
+			seenTokens = append(seenTokens, token)
+			next := tokens[0]
+			tokens = tokens[1:]
+			return next, nil
+		},
+	}
+
+	requeue, err := c.reconcileVerifying(t.Context(), migration)
+	require.NoError(t, err)
+	require.True(t, requeue)
+	require.Equal(t, "page-2", migration.Status.DumpContinue)
+	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseVerifying, migration.Status.Phase)
+	require.Nil(t, conditions.Get(migration, migrationv1alpha1.LCMigrationDataVerified))
+
+	requeue, err = c.reconcileVerifying(t.Context(), migration)
+	require.NoError(t, err)
+	require.False(t, requeue)
+	require.Empty(t, migration.Status.DumpContinue)
+	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseOriginCleanup, migration.Status.Phase)
+	require.True(t, conditions.IsTrue(migration, migrationv1alpha1.LCMigrationDataVerified))
+	require.Equal(t, []string{"", "page-2"}, seenTokens)
+}
+
+func TestReconcileVerifying_transientErrorMarksConditionAndRetries(t *testing.T) {
+	t.Parallel()
+
+	migration := &migrationv1alpha1.LogicalClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{Name: "move", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
+		Spec:       migrationv1alpha1.LogicalClusterMigrationSpec{LogicalCluster: "consumer", DestinationShard: "destination"},
+		Status:     migrationv1alpha1.LogicalClusterMigrationStatus{OriginShard: "origin", Phase: migrationv1alpha1.LogicalClusterMigrationPhaseVerifying, DumpContinue: "resume-token"},
+	}
+
+	transientErr := errors.New("origin temporarily unreachable")
+	c := &Controller{
+		shardName:                       "destination",
+		migratingLogicalClusters:        NewMigratingLogicalClusters(),
+		ddsif:                           newEmptyDDSIF(),
+		cancelLogicalClusterConnections: func(logicalcluster.Path, error) {},
+		deleteLogicalClusterContext:     func(logicalcluster.Path, error) {},
+		verifyPageFromOrigin: func(context.Context, logicalcluster.Name, string, string) (string, error) {
+			return "", transientErr
+		},
+	}
+
+	requeue, err := c.reconcileVerifying(t.Context(), migration)
+	require.ErrorIs(t, err, transientErr)
+	require.True(t, requeue)
+	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseVerifying, migration.Status.Phase)
+	require.Equal(t, "resume-token", migration.Status.DumpContinue)
+	cond := conditions.Get(migration, migrationv1alpha1.LCMigrationDataVerified)
+	require.NotNil(t, cond)
+	require.Equal(t, "VerifyFailed", cond.Reason)
+}
+
+func TestReconcileVerifying_mismatchCancelsMigration(t *testing.T) {
+	t.Parallel()
+
+	migration := &migrationv1alpha1.LogicalClusterMigration{
+		ObjectMeta: metav1.ObjectMeta{Name: "move", Annotations: map[string]string{logicalcluster.AnnotationKey: "org"}},
+		Spec:       migrationv1alpha1.LogicalClusterMigrationSpec{LogicalCluster: "consumer", DestinationShard: "destination"},
+		Status:     migrationv1alpha1.LogicalClusterMigrationStatus{OriginShard: "origin", Phase: migrationv1alpha1.LogicalClusterMigrationPhaseVerifying, DumpContinue: "page-2"},
+	}
+
+	c := &Controller{
+		shardName:                       "destination",
+		migratingLogicalClusters:        NewMigratingLogicalClusters(),
+		ddsif:                           newEmptyDDSIF(),
+		cancelLogicalClusterConnections: func(logicalcluster.Path, error) {},
+		deleteLogicalClusterContext:     func(logicalcluster.Path, error) {},
+		verifyPageFromOrigin: func(context.Context, logicalcluster.Name, string, string) (string, error) {
+			return "", &verificationMismatchError{reason: `digest mismatch for key "core/configmaps/consumer/default/cm"`}
+		},
+	}
+
+	requeue, err := c.reconcileVerifying(t.Context(), migration)
+	require.NoError(t, err)
+	require.True(t, requeue)
+	require.Empty(t, migration.Status.DumpContinue)
+	require.Equal(t, migrationv1alpha1.LogicalClusterMigrationPhaseCancellationCleanup, migration.Status.Phase)
+
+	verifiedCond := conditions.Get(migration, migrationv1alpha1.LCMigrationDataVerified)
+	require.NotNil(t, verifiedCond)
+	require.Equal(t, "VerificationFailed", verifiedCond.Reason)
+	require.Contains(t, verifiedCond.Message, "digest mismatch")
+
+	cancelledCond := conditions.Get(migration, migrationv1alpha1.LCMigrationCancelled)
+	require.NotNil(t, cancelledCond)
+	require.Equal(t, "VerificationFailed", cancelledCond.Reason)
 }
 
 func TestAddFinalizer(t *testing.T) {

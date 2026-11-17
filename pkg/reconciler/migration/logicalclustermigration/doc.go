@@ -40,6 +40,12 @@ limitations under the License.
 //   - Copies over all objects from the origin shard and writes them
 //     directly to the etcd
 //
+// Destination shard (reconcileVerifying):
+//
+//   - Fetches key/hash digests from the origin shard and verifies them
+//     against the local etcd data
+//   - On mismatch, cancels the migration (CancellationCleanup -> CancellationFinalize)
+//
 // Origin shard (reconcileOriginCleanup):
 //
 //   - Purges all objects, including the LC from etcd
@@ -60,9 +66,9 @@ limitations under the License.
 //
 //   - Restores access on the origin (CancellationFinalize)
 //
-// Cancellation during Migrating:
+// Cancellation during Migrating or Verifying:
 //
-//   - Deletes the destination's partial copy (CancellationCleanup)
+//   - Deletes the destination's copy (CancellationCleanup)
 //   - Restores access on the origin (CancellationFinalize)
 //
 // Cancellation during OriginCleanup or DestinationFinalize:
