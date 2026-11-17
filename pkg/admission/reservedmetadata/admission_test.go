@@ -131,10 +131,11 @@ func TestAnnotationReservation(t *testing.T) {
 		{key: apisv1alpha2.StatusPermissionClaimsV1Alpha1Annotation, reservation: unreserved},
 		{key: apisv1alpha2.StatusAppliedClaimsV1Alpha1Annotation, reservation: unreserved},
 
-		// api-syncagent keys, set with the agent's own credentials
+		// api-syncagent keys, set by the agent or by users of synced objects
 		{key: "syncagent.kcp.io/agent-name", reservation: unreserved},
 		{key: "syncagent.kcp.io/source-generation", reservation: unreserved},
 		{key: "related-resources.syncagent.kcp.io/kubeconfig-secret.0", reservation: unreserved},
+		{key: "syncagent.kcp.io/deletion-propagation-policy", reservation: unreserved},
 		{key: "syncagent.kcp.io/some-future-annotation", reservation: systemReserved},
 
 		// non kcp.io domains are always unreserved
