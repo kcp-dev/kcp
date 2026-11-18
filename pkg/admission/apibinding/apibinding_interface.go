@@ -26,10 +26,8 @@ import (
 type apiBinding interface {
 	BindingReference() bindingReference
 	Labels() map[string]string
-	SetLabels(labels map[string]string)
 	Validate() field.ErrorList
 	ValidateUpdate(oldBinding apiBinding) field.ErrorList
-	ToUnstructured() (map[string]interface{}, error)
 }
 
 type bindingReference interface {
