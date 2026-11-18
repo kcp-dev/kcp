@@ -179,6 +179,9 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 			} else {
 				apiBinding := existingBinding.DeepCopy()
 				apiBinding.Spec = apiBindingSpec
+				// deletionPolicy is server-defaulted and not managed here; keep the stored
+				// value so the patch does not reset it to null on every reconcile.
+				apiBinding.Spec.DeletionPolicy = existingBinding.Spec.DeletionPolicy
 				oldResource := &apiBindingResource{ObjectMeta: existingBinding.ObjectMeta, Spec: &existingBinding.Spec, Status: &existingBinding.Status}
 				newResource := &apiBindingResource{ObjectMeta: apiBinding.ObjectMeta, Spec: &apiBinding.Spec, Status: &existingBinding.Status}
 				if err := c.commitApiBinding(ctx, oldResource, newResource); err != nil {
