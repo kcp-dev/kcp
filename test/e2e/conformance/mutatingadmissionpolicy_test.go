@@ -409,14 +409,18 @@ func TestMutatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 	require.Equal(t, "good", good.Spec.Intent)
 }
 
-// TODO: MutatingAdmissionPolicy with Params now also works in multi-shard setups,
-// see https://github.com/kcp-dev/kcp/issues/4110. Merge the two tests below with
-// the regular ones above.
+// TODO: Currently MutatingAdmissionPolicy with Params only works with single shard, in the same way ValidatingAdmissionPolicy with Params does.
+// see https://github.com/kcp-dev/kcp/issues/4110 for more infos. Once policies with Params
+// are supported in multi-shard setups, merge this test with the regular one above.
 func TestMutatingAdmissionPolicyInWorkspaceWithParams(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
+
+	if len(server.ShardNames()) > 1 {
+		t.Skip("MAP with Params is currently only supported with single shard setups, see code comments")
+	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -556,6 +560,10 @@ func TestMutatingAdmissionPolicyCrossWorkspaceAPIBindingWithParams(t *testing.T)
 	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
+
+	if len(server.ShardNames()) > 1 {
+		t.Skip("MAP with Params is currently only supported with single shard setups, see code comments")
+	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)

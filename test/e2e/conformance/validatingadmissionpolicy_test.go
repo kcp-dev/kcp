@@ -415,14 +415,19 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBinding(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TODO: ValidatingAdmissionPolicy with Params now also works in multi-shard setups,
-// see https://github.com/kcp-dev/kcp/issues/4110. Merge the two tests below with
-// the regular ones above; See 7f9ccf6217434531cf32438608be879391adfff8.
+// TODO: Currently ValidatingAdmissionPolicy with Params only works with single shard.
+// see https://github.com/kcp-dev/kcp/issues/4110 for more infos. Once VAPs with Params
+// are supported in multi-shard setups, merge the two tests with the regular ones above;
+// See 7f9ccf6217434531cf32438608be879391adfff8.
 func TestValidatingAdmissionPolicyInWorkspaceWithParams(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
+
+	if len(server.ShardNames()) > 1 {
+		t.Skip("VAP with Params is currently only supported with single shard setups, see code comments")
+	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
@@ -576,6 +581,10 @@ func TestValidatingAdmissionPolicyCrossWorkspaceAPIBindingWithParams(t *testing.
 	framework.Suite(t, framework.ParallelSuite)
 
 	server := kcptesting.SharedKcpServer(t)
+
+	if len(server.ShardNames()) > 1 {
+		t.Skip("VAP with Params is currently only supported with single shard setups, see code comments")
+	}
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	t.Cleanup(cancelFunc)
