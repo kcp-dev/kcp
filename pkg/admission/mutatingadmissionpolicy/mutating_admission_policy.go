@@ -21,12 +21,14 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"golang.org/x/sync/singleflight"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/initializer"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/generic"
@@ -36,9 +38,11 @@ import (
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/features"
+	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/component-base/featuregate"
 	"k8s.io/klog/v2"
@@ -63,6 +67,10 @@ import (
 const PluginName = "KCPMutatingAdmissionPolicy"
 
 const systemBoundCRDsClusterName = logicalcluster.Name("system:bound-crds")
+
+// paramsRESTMapperResetPeriod is how often the discovery of a policy cluster hosted on another shard is
+// invalidated. It is the period after which kube-apiserver refreshes the REST mapper of its admission plugins.
+const paramsRESTMapperResetPeriod = 30 * time.Second
 
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName,
@@ -94,6 +102,8 @@ type KubeMutatingAdmissionPolicy struct {
 	logicalClusterInformer          corev1alpha1informers.LogicalClusterClusterInformer
 	kubeClusterClient               kcpkubernetesclientset.ClusterInterface
 	dynamicClusterClient            kcpdynamic.ClusterInterface
+	shardKubeClusterClient          kcpkubernetesclientset.ClusterInterface
+	shardDynamicClusterClient       kcpdynamic.ClusterInterface
 	localKubeSharedInformerFactory  kcpkubernetesinformers.SharedInformerFactory
 	globalKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 	serverDone                      <-chan struct{}
@@ -123,6 +133,7 @@ var _ = initializers.WantsKubeInformers(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsKcpInformers(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsServerShutdownChannel(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicClusterClient(&KubeMutatingAdmissionPolicy{})
+var _ = initializers.WantsShardClusterClients(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicRESTMapper(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsClusterContextManager(&KubeMutatingAdmissionPolicy{})
 var _ = initializer.WantsAuthorizer(&KubeMutatingAdmissionPolicy{})
@@ -177,6 +188,11 @@ func (k *KubeMutatingAdmissionPolicy) SetServerShutdownChannel(ch <-chan struct{
 
 func (k *KubeMutatingAdmissionPolicy) SetDynamicClusterClient(c kcpdynamic.ClusterInterface) {
 	k.dynamicClusterClient = c
+}
+
+func (k *KubeMutatingAdmissionPolicy) SetShardClusterClients(kubeClusterClient kcpkubernetesclientset.ClusterInterface, dynamicClusterClient kcpdynamic.ClusterInterface) {
+	k.shardKubeClusterClient = kubeClusterClient
+	k.shardDynamicClusterClient = dynamicClusterClient
 }
 
 func (k *KubeMutatingAdmissionPolicy) SetDynamicRESTMapper(dynRESTMapper *dynamicrestmapper.DynamicRESTMapper) {
@@ -361,9 +377,9 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 	plugin.SetNamespaceInformer(k.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(targetClusterName))
 	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(targetClusterName.Path()))
 
-	plugin.SetRESTMapper(k.dynamicRESTMapper.ForCluster(policyClusterName))
-
-	plugin.SetDynamicClient(k.dynamicClusterClient.Cluster(policyClusterName.Path()))
+	paramsDynamicClient, paramsRESTMapper := k.paramsClientAndRESTMapper(ctx, policyClusterName, targetClusterName)
+	plugin.SetRESTMapper(paramsRESTMapper)
+	plugin.SetDynamicClient(paramsDynamicClient)
 	plugin.SetDrainedNotification(ctx.Done())
 	plugin.SetUnconditionalAuthorizer(k.authorizer)
 	plugin.SetClusterName(policyClusterName)
@@ -376,6 +392,39 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 	k.delegates[key] = delegate
 
 	return delegate, nil
+}
+
+// paramsClientAndRESTMapper returns the client used to read policy params, which live in the policy cluster,
+// and the REST mapper used to resolve the paramKind of a policy to a resource in the policy cluster.
+//
+// With APIExports the policy cluster can be hosted on a different shard than the cluster of the object
+// being mutated. Neither the shard-local client nor the shard-local REST mapper know about the content of
+// the policy cluster in that case. The params are read directly from the shard hosting the policy cluster
+// instead, with the privileges of this shard, like Kubernetes reads params with the privileges of the API server.
+func (k *KubeMutatingAdmissionPolicy) paramsClientAndRESTMapper(ctx context.Context, policyClusterName, targetClusterName logicalcluster.Name) (dynamic.Interface, meta.RESTMapper) {
+	localRESTMapper := k.dynamicRESTMapper.ForCluster(policyClusterName)
+
+	hostedLocally := policyClusterName == targetClusterName
+	if !hostedLocally {
+		_, err := k.logicalClusterInformer.Lister().Cluster(policyClusterName).Get(corev1alpha1.LogicalClusterName)
+		hostedLocally = err == nil
+	}
+	if hostedLocally {
+		return k.dynamicClusterClient.Cluster(policyClusterName.Path()), localRESTMapper
+	}
+
+	// A paramKind can be any resource served in the policy cluster, so it is discovered there, with the
+	// same REST mapper and refresh period kube-apiserver uses for its admission plugins. The discovery
+	// is only fetched when a mapping is requested after a reset.
+	discoveryClient := memory.NewMemCacheClient(k.shardKubeClusterClient.Cluster(policyClusterName.Path()).Discovery())
+	discoveryRESTMapper := restmapper.NewDeferredDiscoveryRESTMapper(discoveryClient)
+	go wait.Until(discoveryRESTMapper.Reset, paramsRESTMapperResetPeriod, ctx.Done())
+
+	// Built-in types are the same in every logical cluster on every shard and known to the shard-local
+	// REST mapper. Only a paramKind which is not built-in, like a CRD, needs the discovery.
+	restMapper := meta.FirstHitRESTMapper{MultiRESTMapper: meta.MultiRESTMapper{localRESTMapper, discoveryRESTMapper}}
+
+	return k.shardDynamicClusterClient.Cluster(policyClusterName.Path()), restMapper
 }
 
 func (k *KubeMutatingAdmissionPolicy) logicalClusterDeleted(clusterName logicalcluster.Name) {

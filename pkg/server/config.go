@@ -93,6 +93,7 @@ import (
 	kcpserveroptions "github.com/kcp-dev/kcp/pkg/server/options"
 	"github.com/kcp-dev/kcp/pkg/server/options/batteries"
 	"github.com/kcp-dev/kcp/pkg/server/virtualresources"
+	"github.com/kcp-dev/kcp/pkg/shardclient"
 
 	_ "net/http/pprof"
 )
@@ -142,6 +143,10 @@ type ExtraConfig struct {
 	BootstrapApiExtensionsClusterClient kcpapiextensionsclientset.ClusterInterface
 
 	CacheDynamicClient kcpdynamic.ClusterInterface
+
+	// clients connecting directly to the shard hosting the requested logical cluster, with the privileges of this shard
+	ShardKubeClusterClient    kcpkubernetesclientset.ClusterInterface
+	ShardDynamicClusterClient kcpdynamic.ClusterInterface
 
 	LogicalClusterAdminConfig         *rest.Config // client config connecting directly to shards, skipping the front proxy
 	ExternalLogicalClusterAdminConfig *rest.Config // client config connecting to the front proxy
@@ -413,6 +418,39 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 
 	// Setup dynamic client
 	c.DynamicClusterClient, err = kcpdynamic.NewForConfig(c.GenericConfig.LoopbackClientConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Without a shard client certificate, e.g. in a single shard setup, there are no other shards
+	// this shard could authenticate against, and the loopback config reaches all logical clusters.
+	shardClientConfig := rest.CopyConfig(c.GenericConfig.LoopbackClientConfig)
+	if opts.Extra.ShardClientCertFile != "" && opts.Extra.ShardClientKeyFile != "" {
+		// The loopback bearer token and server name are only valid on this shard. Other shards are
+		// reached at their base URL, authenticating with the shard client certificate against a CA
+		// that trusts the shard serving certificates.
+		shardCAFile := opts.Extra.ShardVirtualWorkspaceCAFile
+		if shardCAFile == "" {
+			shardCAFile = opts.Controllers.SAController.RootCAFile
+		}
+		shardClientConfig.BearerToken = ""
+		shardClientConfig.BearerTokenFile = ""
+		shardClientConfig.TLSClientConfig = rest.TLSClientConfig{
+			CAFile:   shardCAFile,
+			CertFile: opts.Extra.ShardClientCertFile,
+			KeyFile:  opts.Extra.ShardClientKeyFile,
+		}
+		shardClientConfig = shardclient.WithDirectRouting(shardClientConfig, shardclient.BaseURLFromCache(
+			c.CacheKcpSharedInformerFactory.Core().V1alpha1().LogicalClusters().Lister(),
+			c.CacheKcpSharedInformerFactory.Core().V1alpha1().Shards().Lister(),
+		))
+	}
+	shardClientConfig = rest.AddUserAgent(shardClientConfig, "kcp-shard-to-shard")
+	c.ShardKubeClusterClient, err = kcpkubernetesclientset.NewForConfig(shardClientConfig)
+	if err != nil {
+		return nil, err
+	}
+	c.ShardDynamicClusterClient, err = kcpdynamic.NewForConfig(shardClientConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -707,6 +745,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		kcpadmissioninitializers.NewKubeQuotaConfigurationInitializer(quotaConfiguration),
 		kcpadmissioninitializers.NewServerShutdownInitializer(c.quotaAdmissionStopCh),
 		kcpadmissioninitializers.NewDynamicClusterClientInitializer(c.DynamicClusterClient),
+		kcpadmissioninitializers.NewShardClusterClientsInitializer(c.ShardKubeClusterClient, c.ShardDynamicClusterClient),
 		kcpadmissioninitializers.NewDynamicRESTMapperInitializer(c.DynamicRESTMapper),
 		kcpadmissioninitializers.NewClusterContextManagerInitializer(c.ClusterContextManager),
 	}

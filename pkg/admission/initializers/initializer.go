@@ -187,6 +187,26 @@ func (i *dynamicClusterClientInitializer) Initialize(plugin admission.Interface)
 	}
 }
 
+type shardClusterClientsInitializer struct {
+	shardKubeClusterClient    kcpkubernetesclientset.ClusterInterface
+	shardDynamicClusterClient kcpdynamic.ClusterInterface
+}
+
+// NewShardClusterClientsInitializer returns an admission plugin initializer that injects cluster clients
+// which connect directly to the shard hosting the requested logical cluster.
+func NewShardClusterClientsInitializer(shardKubeClusterClient kcpkubernetesclientset.ClusterInterface, shardDynamicClusterClient kcpdynamic.ClusterInterface) *shardClusterClientsInitializer {
+	return &shardClusterClientsInitializer{
+		shardKubeClusterClient:    shardKubeClusterClient,
+		shardDynamicClusterClient: shardDynamicClusterClient,
+	}
+}
+
+func (i *shardClusterClientsInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsShardClusterClients); ok {
+		wants.SetShardClusterClients(i.shardKubeClusterClient, i.shardDynamicClusterClient)
+	}
+}
+
 type dynamicRESTMapperInitializer struct {
 	dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper
 }
