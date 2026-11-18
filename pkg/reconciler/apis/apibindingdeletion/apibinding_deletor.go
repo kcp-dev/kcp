@@ -73,7 +73,7 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha2.
 				// Do not delete; count remaining instances so the finalizer is
 				// held until a successor adopts them. A resource with zero
 				// instances has nothing to hand over and does not block.
-				for _, version := range resource.StorageVersions {
+				for _, version := range c.deletionVersions(logger, apibinding, resource) {
 					gvr := schema.GroupVersionResource{Group: resource.Group, Resource: resource.Resource, Version: version}
 					if projection.Includes(gvr) {
 						continue
@@ -94,7 +94,7 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha2.
 			}
 		}
 
-		for _, version := range resource.StorageVersions {
+		for _, version := range c.deletionVersions(logger, apibinding, resource) {
 			gvr := schema.GroupVersionResource{
 				Group:    resource.Group,
 				Resource: resource.Resource,
@@ -131,6 +131,42 @@ func (c *Controller) deleteAllCRs(ctx context.Context, apibinding *apisv1alpha2.
 	}
 
 	return totalResourceRemaining, nil
+}
+
+// deletionVersions returns the versions through which instances of a bound
+// resource are listed and deleted. status.boundResources[].storageVersions only
+// ever grows and can contain versions the bound APIResourceSchema no longer
+// serves; requesting those returns 404 and blocks deletion forever
+// (kcp-dev/kcp#4466). One served version of the bound schema is used instead,
+// preferring the storage version. It returns all instances by conversion,
+// including those stored at an older version the schema still declares. A
+// version removed from the schema is no problem once no instances are stored at
+// it anymore. If the schema cannot be resolved, the recorded storage versions
+// are used.
+func (c *Controller) deletionVersions(logger klog.Logger, apibinding *apisv1alpha2.APIBinding, resource apisv1alpha2.BoundAPIResource) []string {
+	if len(resource.StorageVersions) == 0 || apibinding.Status.APIExportClusterName == "" || resource.Schema.Name == "" {
+		return resource.StorageVersions
+	}
+	sch, err := c.getAPIResourceSchema(logicalcluster.Name(apibinding.Status.APIExportClusterName), resource.Schema.Name)
+	if err != nil || string(sch.UID) != resource.Schema.UID {
+		logger.V(4).Info("cannot resolve bound APIResourceSchema, using recorded storage versions",
+			"schema", resource.Schema.Name, "uid", resource.Schema.UID, "storageVersions", resource.StorageVersions, "err", err)
+		return resource.StorageVersions
+	}
+	var served []string
+	for _, v := range sch.Spec.Versions {
+		if !v.Served {
+			continue
+		}
+		if v.Storage {
+			return []string{v.Name}
+		}
+		served = append(served, v.Name)
+	}
+	if len(served) == 0 {
+		return resource.StorageVersions
+	}
+	return served[:1]
 }
 
 func (c *Controller) deleteAllCR(ctx context.Context, clusterName logicalcluster.Name, gvr schema.GroupVersionResource) (gvrDeletionMetadata, error) {
