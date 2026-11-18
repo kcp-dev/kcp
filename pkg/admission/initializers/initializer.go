@@ -187,6 +187,24 @@ func (i *dynamicClusterClientInitializer) Initialize(plugin admission.Interface)
 	}
 }
 
+type externalClusterClientsInitializer struct {
+	externalKubeClusterClient    kcpkubernetesclientset.ClusterInterface
+	externalDynamicClusterClient kcpdynamic.ClusterInterface
+}
+
+func NewExternalClusterClientsInitializer(externalKubeClusterClient kcpkubernetesclientset.ClusterInterface, externalDynamicClusterClient kcpdynamic.ClusterInterface) *externalClusterClientsInitializer {
+	return &externalClusterClientsInitializer{
+		externalKubeClusterClient:    externalKubeClusterClient,
+		externalDynamicClusterClient: externalDynamicClusterClient,
+	}
+}
+
+func (i *externalClusterClientsInitializer) Initialize(plugin admission.Interface) {
+	if wants, ok := plugin.(WantsExternalClusterClients); ok {
+		wants.SetExternalClusterClients(i.externalKubeClusterClient, i.externalDynamicClusterClient)
+	}
+}
+
 type dynamicRESTMapperInitializer struct {
 	dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper
 }

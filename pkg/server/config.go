@@ -143,6 +143,10 @@ type ExtraConfig struct {
 
 	CacheDynamicClient kcpdynamic.ClusterInterface
 
+	// clients reaching logical clusters on any shard
+	ExternalKubeClusterClient    kcpkubernetesclientset.ClusterInterface
+	ExternalDynamicClusterClient kcpdynamic.ClusterInterface
+
 	LogicalClusterAdminConfig         *rest.Config // client config connecting directly to shards, skipping the front proxy
 	ExternalLogicalClusterAdminConfig *rest.Config // client config connecting to the front proxy
 
@@ -417,7 +421,20 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		return nil, err
 	}
 
-	if err := opts.Authorization.ApplyTo(ctx, c.GenericConfig, c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory, c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory); err != nil {
+	policyParamsConfig := rest.AddUserAgent(rest.CopyConfig(c.ExternalLogicalClusterAdminConfig), "kcp-admission-policy-params")
+	c.ExternalKubeClusterClient, err = kcpkubernetesclientset.NewForConfig(policyParamsConfig)
+	if err != nil {
+		return nil, err
+	}
+	c.ExternalDynamicClusterClient, err = kcpdynamic.NewForConfig(policyParamsConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// DynamicRESTMapper is initialized here, but it starts to be populated only once its controller starts.
+	c.DynamicRESTMapper = dynamicrestmapper.NewDynamicRESTMapper()
+
+	if err := opts.Authorization.ApplyTo(ctx, c.GenericConfig, c.KubeSharedInformerFactory, c.CacheKubeSharedInformerFactory, c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory, c.DynamicRESTMapper); err != nil {
 		return nil, err
 	}
 	var userToken string
@@ -692,9 +709,6 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	c.ExtraConfig.MigratingLogicalClusters = logicalclustermigration.NewMigratingLogicalClusters()
 	c.ExtraConfig.ObjectCountRegistry = objectcount.NewRegistry(opts.Extra.LogicalClusterTotalObjectLimit)
 
-	// DynamicRESTMapper is initialized here, but it starts to be populated only once its controller starts.
-	c.DynamicRESTMapper = dynamicrestmapper.NewDynamicRESTMapper()
-
 	admissionPluginInitializers := []admission.PluginInitializer{ //nolint:prealloc
 		kcpadmissioninitializers.NewKcpInformersInitializer(c.KcpSharedInformerFactory, c.CacheKcpSharedInformerFactory),
 		kcpadmissioninitializers.NewObjectCountRegistryInitializer(c.ObjectCountRegistry),
@@ -707,6 +721,7 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 		kcpadmissioninitializers.NewKubeQuotaConfigurationInitializer(quotaConfiguration),
 		kcpadmissioninitializers.NewServerShutdownInitializer(c.quotaAdmissionStopCh),
 		kcpadmissioninitializers.NewDynamicClusterClientInitializer(c.DynamicClusterClient),
+		kcpadmissioninitializers.NewExternalClusterClientsInitializer(c.ExternalKubeClusterClient, c.ExternalDynamicClusterClient),
 		kcpadmissioninitializers.NewDynamicRESTMapperInitializer(c.DynamicRESTMapper),
 		kcpadmissioninitializers.NewClusterContextManagerInitializer(c.ClusterContextManager),
 	}

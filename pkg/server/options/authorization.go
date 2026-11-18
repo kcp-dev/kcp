@@ -23,12 +23,14 @@ import (
 	"github.com/spf13/pflag"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/apiserver/pkg/authorization/authorizerfactory"
 	"k8s.io/apiserver/pkg/authorization/path"
 	"k8s.io/apiserver/pkg/authorization/union"
+	genericfeatures "k8s.io/apiserver/pkg/features"
 	"k8s.io/apiserver/pkg/informerfactoryhack"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/egressselector"
@@ -41,6 +43,8 @@ import (
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 
 	authz "github.com/kcp-dev/kcp/pkg/authorization"
+	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
+	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
 )
 
 type Authorization struct {
@@ -175,7 +179,7 @@ func (s *Authorization) AddFlags(fs *pflag.FlagSet) {
 		"The duration to cache 'unauthorized' responses from the webhook authorizer.")
 }
 
-func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Config, kubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory) error {
+func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Config, kubeInformers, globalKubeInformers kcpkubernetesinformers.SharedInformerFactory, kcpInformers, globalKcpInformers kcpinformers.SharedInformerFactory, dynamicRESTMapper *dynamicrestmapper.DynamicRESTMapper) error {
 	// authorizers are sorted into four distinct groups:
 	// 1. bypass: These _must_ be consulted first and if they Allow
 	//       access MUST be allowed, as they e.g. let system identities
@@ -240,6 +244,19 @@ func (s *Authorization) ApplyTo(ctx context.Context, config *genericapiserver.Co
 		},
 		// Allow the synthetic intializing and terminating pre-authorized requests through.
 		union.NamedAuthorizer{AuthorizerName: "bypass-lifecyclegroups", Authorizer: authz.NewLifecycleGroupsAuthorizer(getLogicalCluster)},
+		// Shards read the params of admission policies in the logical clusters of APIExports, which
+		// can be hosted on other shards, with the privileges of the system - like Kubernetes does.
+		union.NamedAuthorizer{
+			AuthorizerName: "bypass-admissionpolicyparams",
+			Authorizer: authz.NewDecorator("bypass-admissionpolicyparams", authz.NewAdmissionPolicyParamsAuthorizer(
+				kubeInformers,
+				kcpInformers,
+				func(clusterName logicalcluster.Name) meta.RESTMapper {
+					return dynamicRESTMapper.ForCluster(clusterName)
+				},
+				kcpfeatures.DefaultFeatureGate.Enabled(genericfeatures.MutatingAdmissionPolicy),
+			)).AddAuditLogging().AddAnonymization(),
+		},
 	)
 
 	// pre-gates run before any grant

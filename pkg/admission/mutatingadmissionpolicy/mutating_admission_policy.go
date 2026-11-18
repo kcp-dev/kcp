@@ -55,6 +55,7 @@ import (
 	"github.com/kcp-dev/kcp/pkg/admission/clusterannotation"
 	"github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/admission/kubequota"
+	"github.com/kcp-dev/kcp/pkg/admission/policyparams"
 	"github.com/kcp-dev/kcp/pkg/contextmanager"
 	kcpfeatures "github.com/kcp-dev/kcp/pkg/features"
 	"github.com/kcp-dev/kcp/pkg/reconciler/dynamicrestmapper"
@@ -94,6 +95,8 @@ type KubeMutatingAdmissionPolicy struct {
 	logicalClusterInformer          corev1alpha1informers.LogicalClusterClusterInformer
 	kubeClusterClient               kcpkubernetesclientset.ClusterInterface
 	dynamicClusterClient            kcpdynamic.ClusterInterface
+	externalDynamicClusterClient    kcpdynamic.ClusterInterface
+	externalParamKinds              *policyparams.KindResolver
 	localKubeSharedInformerFactory  kcpkubernetesinformers.SharedInformerFactory
 	globalKubeSharedInformerFactory kcpkubernetesinformers.SharedInformerFactory
 	serverDone                      <-chan struct{}
@@ -123,6 +126,7 @@ var _ = initializers.WantsKubeInformers(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsKcpInformers(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsServerShutdownChannel(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicClusterClient(&KubeMutatingAdmissionPolicy{})
+var _ = initializers.WantsExternalClusterClients(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsDynamicRESTMapper(&KubeMutatingAdmissionPolicy{})
 var _ = initializers.WantsClusterContextManager(&KubeMutatingAdmissionPolicy{})
 var _ = initializer.WantsAuthorizer(&KubeMutatingAdmissionPolicy{})
@@ -177,6 +181,11 @@ func (k *KubeMutatingAdmissionPolicy) SetServerShutdownChannel(ch <-chan struct{
 
 func (k *KubeMutatingAdmissionPolicy) SetDynamicClusterClient(c kcpdynamic.ClusterInterface) {
 	k.dynamicClusterClient = c
+}
+
+func (k *KubeMutatingAdmissionPolicy) SetExternalClusterClients(kubeClusterClient kcpkubernetesclientset.ClusterInterface, dynamicClusterClient kcpdynamic.ClusterInterface) {
+	k.externalDynamicClusterClient = dynamicClusterClient
+	k.externalParamKinds = policyparams.NewKindResolverForClient(kubeClusterClient)
 }
 
 func (k *KubeMutatingAdmissionPolicy) SetDynamicRESTMapper(dynRESTMapper *dynamicrestmapper.DynamicRESTMapper) {
@@ -361,9 +370,9 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 	plugin.SetNamespaceInformer(k.localKubeSharedInformerFactory.Core().V1().Namespaces().Cluster(targetClusterName))
 	plugin.SetExternalKubeClientSet(k.kubeClusterClient.Cluster(targetClusterName.Path()))
 
-	plugin.SetRESTMapper(k.dynamicRESTMapper.ForCluster(policyClusterName))
-
-	plugin.SetDynamicClient(k.dynamicClusterClient.Cluster(policyClusterName.Path()))
+	paramsDynamicClient, paramsRESTMapper := k.paramsClientAndRESTMapper(policyClusterName, targetClusterName)
+	plugin.SetRESTMapper(paramsRESTMapper)
+	plugin.SetDynamicClient(paramsDynamicClient)
 	plugin.SetDrainedNotification(ctx.Done())
 	plugin.SetUnconditionalAuthorizer(k.authorizer)
 	plugin.SetClusterName(policyClusterName)
@@ -376,6 +385,25 @@ func (k *KubeMutatingAdmissionPolicy) getOrCreateDelegate(policyClusterName, tar
 	k.delegates[key] = delegate
 
 	return delegate, nil
+}
+
+// paramsClientAndRESTMapper returns the client used to read policy params, which live in the policy cluster,
+// and the REST mapper used to resolve the paramKind of a policy to a resource in the policy cluster.
+// Required because policy params can live on a different shard.
+func (k *KubeMutatingAdmissionPolicy) paramsClientAndRESTMapper(policyClusterName, targetClusterName logicalcluster.Name) (dynamic.Interface, meta.RESTMapper) {
+	localRESTMapper := k.dynamicRESTMapper.ForCluster(policyClusterName)
+
+	hostedLocally := policyClusterName == targetClusterName
+	if !hostedLocally {
+		_, err := k.logicalClusterInformer.Lister().Cluster(policyClusterName).Get(corev1alpha1.LogicalClusterName)
+		hostedLocally = err == nil
+	}
+	if hostedLocally {
+		return k.dynamicClusterClient.Cluster(policyClusterName.Path()), localRESTMapper
+	}
+
+	// the shard-local REST mapper only knows the built-in types of a logical cluster on another shard, everything else is discovered there.
+	return k.externalDynamicClusterClient.Cluster(policyClusterName.Path()), k.externalParamKinds.RESTMapper(policyClusterName, localRESTMapper)
 }
 
 func (k *KubeMutatingAdmissionPolicy) logicalClusterDeleted(clusterName logicalcluster.Name) {
