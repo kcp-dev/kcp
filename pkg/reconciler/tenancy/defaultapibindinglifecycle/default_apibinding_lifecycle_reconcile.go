@@ -188,7 +188,6 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 					errors = append(errors, err)
 					continue
 				}
-				logger.V(2).Info("updated APIBinding")
 			}
 		}
 	}
