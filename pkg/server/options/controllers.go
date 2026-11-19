@@ -41,6 +41,13 @@ type Controllers struct {
 	LeaderElectionName      string
 
 	SAController kcmoptions.SAControllerOptions
+
+	// ConcurrentGarbageCollectorSyncs is the number of workers of the
+	// garbage collector controller.
+	ConcurrentGarbageCollectorSyncs int
+	// ConcurrentResourceQuotaSyncs is the number of workers of the
+	// resource quota controller.
+	ConcurrentResourceQuotaSyncs int
 }
 
 func NewControllers() *Controllers {
@@ -57,6 +64,9 @@ func NewControllers() *Controllers {
 		LeaderElectionName:      "kcp-controllers",
 
 		SAController: *kcmDefaults.SAController,
+
+		ConcurrentGarbageCollectorSyncs: 4,
+		ConcurrentResourceQuotaSyncs:    4,
 	}
 }
 
@@ -69,6 +79,9 @@ func (c *Controllers) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&c.EnableLeaderElection, "enable-leader-election", c.EnableLeaderElection, "Enable a leader election for kcp controllers running in the system:admin workspace")
 	fs.StringVar(&c.LeaderElectionNamespace, "leader-election-namespace", c.LeaderElectionNamespace, "Namespace in system:admin workspace to use for leader election")
 	fs.StringVar(&c.LeaderElectionName, "leader-election-name", c.LeaderElectionName, "Name of the lease to use for leader election")
+
+	fs.IntVar(&c.ConcurrentGarbageCollectorSyncs, "concurrent-gc-syncs", c.ConcurrentGarbageCollectorSyncs, "The number of garbage collector workers that are allowed to sync concurrently.")
+	fs.IntVar(&c.ConcurrentResourceQuotaSyncs, "concurrent-resource-quota-syncs", c.ConcurrentResourceQuotaSyncs, "The number of resource quota controller workers that are allowed to sync concurrently.")
 
 	c.SAController.AddFlags(fs)
 }
@@ -104,6 +117,13 @@ func (c *Controllers) Complete(rootDir string) error {
 
 func (c *Controllers) Validate() []error {
 	var errs []error
+
+	if c.ConcurrentGarbageCollectorSyncs < 1 {
+		errs = append(errs, fmt.Errorf("--concurrent-gc-syncs must be at least 1, got %d", c.ConcurrentGarbageCollectorSyncs))
+	}
+	if c.ConcurrentResourceQuotaSyncs < 1 {
+		errs = append(errs, fmt.Errorf("--concurrent-resource-quota-syncs must be at least 1, got %d", c.ConcurrentResourceQuotaSyncs))
+	}
 
 	if saErrs := c.SAController.Validate(); saErrs != nil {
 		errs = append(errs, saErrs...)
