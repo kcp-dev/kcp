@@ -18,6 +18,7 @@ package logicalcluster
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -208,7 +209,7 @@ func TestPhaseReconcileInactive(t *testing.T) {
 		}
 	})
 
-	t.Run("inactive cancels the logical cluster and terminates wildcard connections once", func(t *testing.T) {
+	t.Run("inactive cancels the logical cluster and leaves wildcard connections open", func(t *testing.T) {
 		t.Parallel()
 		mgr := contextmanager.New[logicalcluster.Path](context.Background())
 		r := &phaseReconciler{clusterContextManager: mgr}
@@ -225,17 +226,30 @@ func TestPhaseReconcileInactive(t *testing.T) {
 			t.Errorf("logical cluster context is live while the logical cluster is inactive")
 		}
 		requireDone(t, lcCtx, "existing logical cluster connection was not terminated")
-		requireDone(t, wildcardCtx, "existing wildcard connection was not terminated")
+		requireNotDone(t, wildcardCtx, "wildcard connection was terminated")
 
-		// New wildcard requests must not be blocked while the logical
-		// cluster is inactive, and further reconciles must not terminate
-		// them again.
+		// Further reconciles must not terminate wildcard connections either.
+		reconcilePhase(t, r, newLogicalClusterInPhase(clusterName, corev1alpha1.LogicalClusterPhaseInactive, true))
+		requireNotDone(t, wildcardCtx, "wildcard connection was terminated by a subsequent reconcile")
 		if mgr.IsCancelled(logicalcluster.Wildcard) {
 			t.Errorf("wildcard context is cancelled while the logical cluster is inactive")
 		}
-		newWildcardCtx := newContext(t, mgr, logicalcluster.Wildcard)
-		reconcilePhase(t, r, newLogicalClusterInPhase(clusterName, corev1alpha1.LogicalClusterPhaseInactive, true))
-		requireNotDone(t, newWildcardCtx, "wildcard connection was terminated again by a subsequent reconcile")
+	})
+
+	t.Run("marking many logical clusters inactive leaves wildcard connections open", func(t *testing.T) {
+		t.Parallel()
+		mgr := contextmanager.New[logicalcluster.Path](context.Background())
+		r := &phaseReconciler{clusterContextManager: mgr}
+		wildcardCtx := newContext(t, mgr, logicalcluster.Wildcard)
+
+		for i := range 10 {
+			name := fmt.Sprintf("tenant-%d", i)
+			lcCtx := newContext(t, mgr, logicalcluster.NewPath(name))
+			reconcilePhase(t, r, newLogicalClusterInPhase(name, corev1alpha1.LogicalClusterPhaseInactive, true))
+			requireDone(t, lcCtx, fmt.Sprintf("connection to logical cluster %s was not terminated", name))
+		}
+
+		requireNotDone(t, wildcardCtx, "wildcard connection was terminated")
 	})
 
 	t.Run("reactivation drops the cancelled logical cluster context", func(t *testing.T) {
