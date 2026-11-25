@@ -272,7 +272,7 @@ func TestWithExportWorkspaceFromPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			req := withExportWorkspaceFromPath(httptest.NewRequest(http.MethodGet, tt.path, nil), idx)
+			req := withExportWorkspaceFromPath(httptest.NewRequestWithContext(t.Context(), http.MethodGet, tt.path, http.NoBody), idx)
 			got, ok := ExportWorkspaceFrom(req.Context())
 			switch {
 			case tt.expected == nil && ok:

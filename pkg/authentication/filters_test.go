@@ -111,7 +111,7 @@ func TestWithWorkspaceAuthResolverAPIExport(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			req := httptest.NewRequest(http.MethodGet, "/services/apiexport/exportcluster/my.export/clusters/*/apis", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/services/apiexport/exportcluster/my.export/clusters/*/apis", http.NoBody)
 			ctx := req.Context()
 			if tt.export != nil {
 				ctx = proxy.WithExportWorkspace(ctx, *tt.export)
@@ -194,7 +194,7 @@ func TestAPIExportWorkspaceAuthenticator(t *testing.T) {
 			if tt.vwName != "" {
 				ctx = virtualcontext.WithVirtualWorkspaceName(ctx, tt.vwName)
 			}
-			req := httptest.NewRequest(http.MethodGet, "/clusters/*/apis", nil).WithContext(ctx)
+			req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clusters/*/apis", http.NoBody)
 
 			resp, authenticated, err := NewAPIExportWorkspaceAuthenticator(clusterIndex, authIndex).AuthenticateRequest(req)
 			if err != nil {
