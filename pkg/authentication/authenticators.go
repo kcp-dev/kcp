@@ -19,12 +19,17 @@ package authentication
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/group"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/klog/v2"
+
+	"github.com/kcp-dev/logicalcluster/v3"
+	virtualcontext "github.com/kcp-dev/virtual-workspace-framework/pkg/context"
+	dynamiccontext "github.com/kcp-dev/virtual-workspace-framework/pkg/dynamic/context"
 
 	"github.com/kcp-dev/kcp/pkg/index"
 )
@@ -100,5 +105,45 @@ func withClusterScope(delegate authenticator.Request) authenticator.Request {
 		}
 
 		return response, authenticated, ok
+	})
+}
+
+// withClusterScopeFor scopes the user to the given cluster, which may differ from
+// the cluster in the request path (e.g. the export of an APIExport virtual workspace).
+func withClusterScopeFor(delegate authenticator.Request, cluster logicalcluster.Name) authenticator.Request {
+	scoped := withClusterScope(delegate)
+	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
+		return scoped.AuthenticateRequest(req.WithContext(request.WithCluster(req.Context(), request.Cluster{Name: cluster})))
+	})
+}
+
+// apiExportVirtualWorkspaceName matches the name of the APIExport virtual workspace.
+const apiExportVirtualWorkspaceName = "apiexport"
+
+// NewAPIExportWorkspaceAuthenticator authenticates APIExport virtual workspace requests
+// with the authenticator of the export's workspace. It has no opinion in all other cases.
+func NewAPIExportWorkspaceAuthenticator(clusterIndex *index.State, authIndex AuthenticatorIndex) authenticator.Request {
+	return authenticator.RequestFunc(func(req *http.Request) (*authenticator.Response, bool, error) {
+		if name, ok := virtualcontext.VirtualWorkspaceNameFrom(req.Context()); !ok || name != apiExportVirtualWorkspaceName {
+			return nil, false, nil
+		}
+		// The API domain key of the APIExport virtual workspace is "<export cluster>/<export name>".
+		exportCluster, _, ok := strings.Cut(string(dynamiccontext.APIDomainKeyFrom(req.Context())), "/")
+		if !ok || exportCluster == "" {
+			return nil, false, nil
+		}
+
+		result, found := clusterIndex.Lookup(logicalcluster.NewPath(exportCluster))
+		if !found || result.Type.Empty() {
+			return nil, false, nil
+		}
+
+		reqAuthenticator, ok := authIndex.Lookup(result.Type)
+		if !ok {
+			return nil, false, nil
+		}
+
+		reqAuthenticator = group.NewAuthenticatedGroupAdder(reqAuthenticator)
+		return withClusterScopeFor(reqAuthenticator, result.Cluster).AuthenticateRequest(req)
 	})
 }

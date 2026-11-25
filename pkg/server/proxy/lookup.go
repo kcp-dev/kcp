@@ -167,6 +167,8 @@ func newMappingHandler(delegate http.Handler, idx index.Index) http.HandlerFunc 
 		// no {cluster} placeholder. The entire "clusters/root:orgs:bob/apis/..." is captured
 		// as {trail...}, so req.PathValue("cluster") returns empty. In this case, we need to
 		// parse the cluster from the URL path using extractClusterFromPath.
+		req = withExportWorkspaceFromPath(req, idx)
+
 		clusterName := req.PathValue("cluster")
 
 		// If no cluster from path pattern, try to extract from URL path.
@@ -207,6 +209,39 @@ func extractClusterFromPath(path string) string {
 		return rest
 	}
 	return rest[:endIdx]
+}
+
+// apiExportVirtualWorkspacePrefix is the prefix of APIExport virtual workspace URLs:
+// /services/apiexport/<export cluster>/<export name>/clusters/<cluster>/...
+const apiExportVirtualWorkspacePrefix = "/services/apiexport/"
+
+// extractExportClusterFromPath returns the export cluster of an APIExport virtual
+// workspace URL, or "" for any other URL.
+func extractExportClusterFromPath(path string) string {
+	rest, ok := strings.CutPrefix(path, apiExportVirtualWorkspacePrefix)
+	if !ok {
+		return ""
+	}
+	cluster, _, _ := strings.Cut(rest, "/")
+	return cluster
+}
+
+// withExportWorkspaceFromPath records the workspace that owns an APIExport virtual
+// workspace URL. It never rejects a request; unknown clusters are ignored.
+func withExportWorkspaceFromPath(req *http.Request, idx index.Index) *http.Request {
+	exportCluster := extractExportClusterFromPath(req.URL.Path)
+	if exportCluster == "" {
+		return req
+	}
+	path := logicalcluster.NewPath(exportCluster)
+	if !path.IsValid() {
+		return req
+	}
+	result, found := idx.LookupURL(path)
+	if !found || result.ErrorCode != 0 || result.Type.Empty() {
+		return req
+	}
+	return req.WithContext(WithExportWorkspace(req.Context(), ExportWorkspace{Cluster: result.Cluster, Type: result.Type}))
 }
 
 func resolveClusterName(w http.ResponseWriter, req *http.Request, idx index.Index, clusterName string) (*http.Request, *index.Result) {
@@ -251,7 +286,23 @@ const (
 	shardNameContextKey
 	shardNameHolderContextKey
 	workspaceTypeContextKey
+	exportWorkspaceContextKey
 )
+
+// ExportWorkspace is the workspace that owns an APIExport virtual workspace URL.
+type ExportWorkspace struct {
+	Cluster logicalcluster.Name
+	Type    logicalcluster.Path
+}
+
+func WithExportWorkspace(parent context.Context, ws ExportWorkspace) context.Context {
+	return context.WithValue(parent, exportWorkspaceContextKey, ws)
+}
+
+func ExportWorkspaceFrom(ctx context.Context) (ExportWorkspace, bool) {
+	ws, ok := ctx.Value(exportWorkspaceContextKey).(ExportWorkspace)
+	return ws, ok
+}
 
 func WithShardURL(parent context.Context, shardURL *url.URL) context.Context {
 	return context.WithValue(parent, shardContextKey, shardURL)
