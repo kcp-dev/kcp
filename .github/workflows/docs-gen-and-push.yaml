@@ -32,7 +32,7 @@ jobs:
       - run: git fetch origin gh-pages
       - run: git fetch origin '+refs/tags/v*:refs/tags/v*' --no-tags
 
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # tag=v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # tag=v7.1.0
         with:
           go-version: v1.26.10
           cache: true
@@ -41,7 +41,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # tag=v10.3.3
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # tag=v10.4.0
         with:
           version: "0.12.23"
           enable-cache: true
