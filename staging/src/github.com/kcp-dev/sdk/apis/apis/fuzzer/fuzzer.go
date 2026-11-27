@@ -54,6 +54,28 @@ func Funcs(codecs runtimeserializer.CodecFactory) []any {
 			r.LatestResourceSchemas = []string{
 				nonEmptyString(c.String) + "." + nonEmptyString(c.String) + "." + nonEmptyString(c.String),
 			}
+
+			// v1alpha1 requires exactly one of All and ResourceSelector on every claim and the
+			// conversion from v1alpha2 always produces such claims, so only fuzz valid ones.
+			r.PermissionClaims = nil
+			for range c.Intn(5) {
+				pc := v1alpha1.PermissionClaim{
+					GroupResource: v1alpha1.GroupResource{
+						Group:    nonEmptyString(c.String),
+						Resource: nonEmptyString(c.String),
+					},
+					IdentityHash: nonEmptyString(c.String),
+					All:          c.Bool(),
+				}
+
+				if !pc.All {
+					for range c.Intn(5) + 1 {
+						pc.ResourceSelector = append(pc.ResourceSelector, v1alpha1.ResourceSelector{Name: nonEmptyString(c.String), Namespace: nonEmptyString(c.String)})
+					}
+				}
+
+				r.PermissionClaims = append(r.PermissionClaims, pc)
+			}
 		},
 		func(r *v1alpha2.APIExportSpec, c randfill.Continue) {
 			c.FillNoCustom(r)

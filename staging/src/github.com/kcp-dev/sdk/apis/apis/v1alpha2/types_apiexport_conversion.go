@@ -98,6 +98,17 @@ func Convert_v1alpha2_APIExport_To_v1alpha1_APIExport(in *APIExport, out *apisv1
 		}
 	}
 
+	// v1alpha1 requires every PermissionClaim to have exactly one of All and ResourceSelector set. v1alpha2 has
+	// neither field, so claims that were not restored from the annotation above (e.g. because the APIExport was
+	// created or edited as v1alpha2) would be invalid. A v1alpha2 claim is not narrowed on the APIExport, consumers
+	// choose a selector per APIBinding and DefaultSelector (a label selector) only seeds that choice. It has no
+	// ResourceSelector equivalent, so these claims are claims on All.
+	for i, pc := range out.Spec.PermissionClaims {
+		if !pc.All && len(pc.ResourceSelector) == 0 {
+			out.Spec.PermissionClaims[i].All = true
+		}
+	}
+
 	return Convert_v1alpha2_APIExportStatus_To_v1alpha1_APIExportStatus(&in.Status, &out.Status, s)
 }
 
