@@ -22,6 +22,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
@@ -78,8 +79,8 @@ func TestInactiveLogicalClusterBlocksRequests(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
-	// The test requires a separate server as marking a cluster inactive
-	// breaks wildcard watches which may affect other tests.
+	// A separate server keeps a regression in the handling of inactive
+	// logical clusters from affecting other tests.
 	server := kcptesting.PrivateKcpServer(t)
 	cfg := server.BaseConfig(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
@@ -123,8 +124,8 @@ func TestInactiveLogicalClusterTerminatesClusterScopedWatch(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
-	// The test requires a separate server as marking a cluster inactive
-	// breaks wildcard watches which may affect other tests.
+	// A separate server keeps a regression in the handling of inactive
+	// logical clusters from affecting other tests.
 	server := kcptesting.PrivateKcpServer(t)
 	cfg := server.BaseConfig(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
@@ -159,17 +160,30 @@ func TestInactiveLogicalClusterTerminatesClusterScopedWatch(t *testing.T) {
 	}, wait.ForeverTestTimeout, time.Millisecond*100)
 }
 
-// TestInactiveLogicalClusterTerminatesWildcardWatch does the same check
-// as TestInactiveLogicalClusterTerminatesClusterScopedWatch but for
-// a wildcard watch.
-func TestInactiveLogicalClusterTerminatesWildcardWatch(t *testing.T) {
+// TestInactiveLogicalClustersKeepWildcardWatchOpen marks several logical
+// clusters inactive one after another, as a bulk suspension of tenants
+// would, and verifies that an open wildcard watch survives and keeps
+// delivering events from logical clusters that are still active.
+//
+// Wildcard requests are not blocked for inactive logical clusters, so
+// terminating them would only make every wildcard client on the shard
+// reconnect once per inactivated logical cluster, see
+// https://github.com/kcp-dev/kcp/issues/4398.
+func TestInactiveLogicalClustersKeepWildcardWatchOpen(t *testing.T) {
 	t.Parallel()
 	framework.Suite(t, framework.SerialSuite)
 
-	// The test requires a separate server as marking a cluster inactive
-	// breaks wildcard watches which may affect other tests.
+	// A separate server keeps a regression from resetting the wildcard
+	// watches of other tests.
 	server := kcptesting.PrivateKcpServer(t)
 	orgPath, _ := kcptesting.NewWorkspaceFixture(t, server, core.RootCluster.Path(), kcptesting.WithType(core.RootCluster.Path(), "organization"))
+	activePath, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+	const inactiveCount = 3
+	inactivePaths := make([]logicalcluster.Path, 0, inactiveCount)
+	for range inactiveCount {
+		path, _ := kcptesting.NewWorkspaceFixture(t, server, orgPath)
+		inactivePaths = append(inactivePaths, path)
+	}
 
 	// we need system identity here for toggling inactive annotation
 	systemCfg := server.RootShardSystemMasterBaseConfig(t)
@@ -177,20 +191,63 @@ func TestInactiveLogicalClusterTerminatesWildcardWatch(t *testing.T) {
 	kcpClient, err := kcpclientset.NewForConfig(systemCfg)
 	require.NoError(t, err)
 
-	wildcardKubeClient, err := kcpkubernetesclientset.NewForConfig(systemCfg)
+	kubeClient, err := kcpkubernetesclientset.NewForConfig(systemCfg)
 	require.NoError(t, err)
 
-	t.Log("Opening wildcard watch on ConfigMaps before marking inactive")
-	watcher, err := wildcardKubeClient.CoreV1().ConfigMaps().Watch(t.Context(), v1.ListOptions{})
+	// The label selector limits the wildcard watch to the probes created
+	// by this test.
+	const probeLabel = "inactive-wildcard-watch-test"
+	selector := probeLabel + "=true"
+	createProbe := func(name string) {
+		t.Helper()
+		_, err := kubeClient.Cluster(activePath).CoreV1().ConfigMaps("default").Create(t.Context(), &corev1.ConfigMap{
+			ObjectMeta: v1.ObjectMeta{
+				Name:   name,
+				Labels: map[string]string{probeLabel: "true"},
+			},
+		}, v1.CreateOptions{})
+		require.NoError(t, err)
+	}
+
+	t.Log("Opening wildcard watch on ConfigMaps before marking logical clusters inactive")
+	list, err := kubeClient.CoreV1().ConfigMaps().List(t.Context(), v1.ListOptions{LabelSelector: selector})
+	require.NoError(t, err)
+	watcher, err := kubeClient.CoreV1().ConfigMaps().Watch(t.Context(), v1.ListOptions{ResourceVersion: list.ResourceVersion, LabelSelector: selector})
 	require.NoError(t, err)
 	t.Cleanup(watcher.Stop)
 
-	t.Log("Mark logical cluster inactive")
-	setInactiveAnnotation(t, kcpClient, orgPath, true)
+	expectProbe := func(name string) {
+		t.Helper()
+		select {
+		case event, ok := <-watcher.ResultChan():
+			require.True(t, ok, "wildcard watch was terminated")
+			require.Equal(t, watch.Added, event.Type)
+			cm, ok := event.Object.(*corev1.ConfigMap)
+			require.True(t, ok, "unexpected object %T", event.Object)
+			require.Equal(t, name, cm.Name)
+		case <-time.After(wait.ForeverTestTimeout):
+			t.Fatalf("wildcard watch did not deliver the creation of ConfigMap %s", name)
+		}
+	}
 
-	t.Log("Verify that the open wildcard watch is terminated")
-	drainAndExpectClose(t, watcher)
+	// An actual event proves the watch is established.
+	createProbe("probe-before")
+	expectProbe("probe-before")
 
-	t.Log("Remove inactive annotation again to leave the shared server clean")
-	setInactiveAnnotation(t, kcpClient, orgPath, false)
+	for _, path := range inactivePaths {
+		// The watch on the logical cluster itself is terminated by the
+		// same reconcile that used to terminate wildcard watches, so its
+		// closure shows that the inactivation has been fully processed.
+		clusterWatcher, err := kubeClient.Cluster(path).CoreV1().ConfigMaps("default").Watch(t.Context(), v1.ListOptions{})
+		require.NoError(t, err)
+		t.Cleanup(clusterWatcher.Stop)
+
+		t.Logf("Mark logical cluster %s inactive", path)
+		setInactiveAnnotation(t, kcpClient, path, true)
+		drainAndExpectClose(t, clusterWatcher)
+	}
+
+	t.Log("Verify that the wildcard watch is still open and delivers events from active logical clusters")
+	createProbe("probe-after")
+	expectProbe("probe-after")
 }

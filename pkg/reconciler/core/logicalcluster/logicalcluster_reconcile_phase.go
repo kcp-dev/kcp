@@ -78,10 +78,10 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1
 		if corev1alpha1.IsLogicalClusterInactive(workspace.Annotations) {
 			// Connections are cancelled only once the Inactive phase has been
 			// persisted, see below. Cancelling here would leak the cancelled
-			// contexts if the status update fails, e.g. because the annotation
+			// context if the status update fails, e.g. because the annotation
 			// was removed in the meantime: the next reconcile would find the
-			// logical cluster Ready and never drop them, failing every request
-			// to this logical cluster and every wildcard request on the shard.
+			// logical cluster Ready and never drop it, failing every request
+			// to this logical cluster.
 			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseInactive
 		}
 	case corev1alpha1.LogicalClusterPhaseInactive:
@@ -90,13 +90,14 @@ func (r *phaseReconciler) reconcile(ctx context.Context, workspace *corev1alpha1
 			if !r.clusterContextManager.IsCancelled(lcPath) {
 				// Cancel active connections for this LC and keep its context
 				// cancelled until it is reactivated.
-				reason := fmt.Errorf("logical cluster %s inactive", lcPath)
-				r.clusterContextManager.Cancel(lcPath, reason)
-				// Terminate wildcard connections too, as they may watch objects
-				// in this LC. The wildcard entry is deleted rather than
-				// cancelled so that new wildcard requests are not blocked for
-				// as long as this LC is inactive.
-				r.clusterContextManager.Delete(logicalcluster.Wildcard, reason)
+				//
+				// Wildcard connections are deliberately left open. Wildcard
+				// requests are not blocked for inactive logical clusters, so
+				// terminating them would hide nothing: clients reconnect and
+				// receive the same objects again. It would only reset every
+				// wildcard watch on the shard, once per logical cluster
+				// marked inactive.
+				r.clusterContextManager.Cancel(lcPath, fmt.Errorf("logical cluster %s inactive", lcPath))
 			}
 		} else {
 			workspace.Status.Phase = corev1alpha1.LogicalClusterPhaseReady
