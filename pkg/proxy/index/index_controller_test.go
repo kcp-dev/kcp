@@ -74,18 +74,24 @@ func TestOnShardUpdateBaseURLChange(t *testing.T) {
 	c.onShardAdd(ctx, shardObj("alpha", "https://old"))
 	c.state.UpsertLogicalCluster("alpha", logicalClusterObj("myws"))
 
-	result, found := c.state.LookupURL(logicalcluster.NewPath("myws"))
+	result, found := c.state.Lookup(logicalcluster.NewPath("myws"))
 	require.True(t, found, "precondition failed")
-	require.Equal(t, "https://old/clusters/myws", result.URL, "precondition failed")
+	require.Equal(t, "alpha", result.Shard, "precondition failed")
+	baseURL, found := c.state.BaseURL(result.Shard)
+	require.True(t, found, "precondition failed")
+	require.Equal(t, "https://old", baseURL, "precondition failed")
 
 	c.onShardUpdate(ctx, shardObj("alpha", "https://old"), shardObj("alpha", "https://new"))
 	// the per-shard informers repopulate the logical clusters after the
 	// restart triggered by the update; simulate that.
 	c.state.UpsertLogicalCluster("alpha", logicalClusterObj("myws"))
 
-	result, found = c.state.LookupURL(logicalcluster.NewPath("myws"))
+	result, found = c.state.Lookup(logicalcluster.NewPath("myws"))
+	require.True(t, found, "workspaces on the shard are unroutable after a baseURL change")
+	require.Equal(t, "alpha", result.Shard)
+	baseURL, found = c.state.BaseURL(result.Shard)
 	require.True(t, found, "shard base URL was lost after a baseURL change; workspaces on the shard are unroutable")
-	require.Equal(t, "https://new/clusters/myws", result.URL, "expected the new base URL to be used")
+	require.Equal(t, "https://new", baseURL, "expected the new base URL to be used")
 }
 
 func TestOnShardUpdateSameBaseURLIsNoop(t *testing.T) {
@@ -98,9 +104,12 @@ func TestOnShardUpdateSameBaseURLIsNoop(t *testing.T) {
 
 	c.onShardUpdate(ctx, shardObj("alpha", "https://url"), shardObj("alpha", "https://url"))
 
-	result, found := c.state.LookupURL(logicalcluster.NewPath("myws"))
+	result, found := c.state.Lookup(logicalcluster.NewPath("myws"))
 	require.True(t, found, "expected state to be untouched")
-	require.Equal(t, "https://url/clusters/myws", result.URL, "expected state to be untouched")
+	require.Equal(t, "alpha", result.Shard, "expected state to be untouched")
+	baseURL, found := c.state.BaseURL(result.Shard)
+	require.True(t, found, "expected state to be untouched")
+	require.Equal(t, "https://url", baseURL, "expected state to be untouched")
 }
 
 func TestOnShardDelete(t *testing.T) {
@@ -113,7 +122,7 @@ func TestOnShardDelete(t *testing.T) {
 
 	c.onShardDelete(shardObj("alpha", "https://url"))
 
-	_, found := c.state.LookupURL(logicalcluster.NewPath("myws"))
+	_, found := c.state.Lookup(logicalcluster.NewPath("myws"))
 	require.False(t, found, "expected the shard's clusters to be unroutable after delete")
 }
 

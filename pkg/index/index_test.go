@@ -624,33 +624,6 @@ func TestUpsertLogicalCluster(t *testing.T) {
 	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "amber", "34", "", true)
 }
 
-// Since LookupURL uses Lookup method the following test is just a smoke tests.
-func TestLookupURL(t *testing.T) {
-	t.Parallel()
-	target := New(nil)
-
-	target.UpsertShard("root", "https://root.io")
-	target.UpsertWorkspace("root", newWorkspace("org", "root", "34"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
-	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
-
-	r, found := target.LookupURL(logicalcluster.NewPath("root:org"))
-	if !found {
-		t.Fatalf("expected to find a URL for %q path", "root:org")
-	}
-	if r.URL != "https://root.io/clusters/34" {
-		t.Fatalf("unexpected url. returned = %v, expected = %v for %q path", r.URL, "https://root.io/clusters/34", "root:org")
-	}
-
-	r, found = target.LookupURL(logicalcluster.NewPath("root:org:rh"))
-	if found {
-		t.Fatalf("didn't expected to find a URL for %q path", "root:org:rh")
-	}
-	if len(r.URL) > 0 {
-		t.Fatalf("unexpected url = %v returned for %q path", r.URL, "root:org:rh")
-	}
-}
-
 func TestUpsertShard(t *testing.T) {
 	t.Parallel()
 	target := New(nil)
@@ -660,21 +633,25 @@ func TestUpsertShard(t *testing.T) {
 	target.UpsertLogicalCluster("root", newLogicalCluster("root"))
 	target.UpsertLogicalCluster("root", newLogicalCluster("34"))
 
-	r, found := target.LookupURL(logicalcluster.NewPath("root:org"))
+	r, found := target.Lookup(logicalcluster.NewPath("root:org"))
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+	baseURL, found := target.BaseURL(r.Shard)
 	if !found {
-		t.Fatalf("expected to find a URL for %q path", "root:org")
+		t.Fatalf("expected to find a base URL for shard %q", r.Shard)
 	}
-	if r.URL != "https://root.io/clusters/34" {
-		t.Fatalf("unexpected url = %v returned, expected = %v for %q path", r.URL, "https://root.io/clusters/34", "root:org")
+	if baseURL != "https://root.io" {
+		t.Fatalf("unexpected base url = %v returned, expected = %v for shard %q", baseURL, "https://root.io", r.Shard)
 	}
 
 	target.UpsertShard("root", "https://new-root.io")
-	r, found = target.LookupURL(logicalcluster.NewPath("root:org"))
+	r, found = target.Lookup(logicalcluster.NewPath("root:org"))
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), r.Shard, r.Cluster, r.URL, found, "root", "34", "", true)
+	baseURL, found = target.BaseURL(r.Shard)
 	if !found {
-		t.Fatalf("expected to find a URL for %q path", "root:org")
+		t.Fatalf("expected to find a base URL for shard %q", r.Shard)
 	}
-	if r.URL != "https://new-root.io/clusters/34" {
-		t.Fatalf("unexpected url = %v returned, expected = %v for %q path", r.URL, "https://new-root.io/clusters/34", "root:org")
+	if baseURL != "https://new-root.io" {
+		t.Fatalf("unexpected base url = %v returned, expected = %v for shard %q", baseURL, "https://new-root.io", r.Shard)
 	}
 }
 
@@ -886,9 +863,6 @@ func TestLookupMountRequiresAcceptableURL(t *testing.T) {
 		if r, found := target.Lookup(logicalcluster.NewPath("root:org:mount")); found {
 			t.Errorf("mount with URL %q must not be routable, got %+v", insecure, r)
 		}
-		if r, found := target.LookupURL(logicalcluster.NewPath("root:org:mount")); found {
-			t.Errorf("mount with URL %q must not be routable, got %+v", insecure, r)
-		}
 	}
 
 	target.UpsertWorkspace("root", withURL(withPhase(newWorkspaceWithMount("mount", "34", "", ref), "Ready"), "https://kcp.dev.local/services/custom-url/proxy"))
@@ -904,7 +878,7 @@ func TestLookupMountRequiresAcceptableURL(t *testing.T) {
 	}
 }
 
-func TestLookupURLRoutesMountsToParentShard(t *testing.T) {
+func TestLookupMountReturnsParentShard(t *testing.T) {
 	t.Parallel()
 	target := New(nil)
 
@@ -921,17 +895,20 @@ func TestLookupURLRoutesMountsToParentShard(t *testing.T) {
 	// to the shard hosting the parent workspace, where it is authenticated and
 	// audited before the shard's mount proxy forwards it to the target. The shard
 	// resolves the mount relative to the parent's logical cluster name.
-	r, found := target.LookupURL(logicalcluster.NewPath("root:org:mount"))
+	r, found := target.Lookup(logicalcluster.NewPath("root:org:mount"))
 	if !found {
-		t.Fatal("expected to find a URL for the mount")
+		t.Fatal("expected to find the mount")
 	}
-	if r.URL != "https://beta.io/clusters/34:mount" {
-		t.Fatalf("unexpected url = %v, expected = %v", r.URL, "https://beta.io/clusters/34:mount")
+	if !r.IsMount() {
+		t.Fatalf("expected a mount result, got %+v", r)
 	}
 	if r.Shard != "beta" {
 		t.Fatalf("unexpected shard = %v, expected = %v", r.Shard, "beta")
 	}
-	if r.Cluster != "" {
-		t.Fatalf("unexpected cluster = %v for a mount", r.Cluster)
+	if r.URL != "https://kcp.dev.local/services/custom-url/proxy" {
+		t.Fatalf("unexpected url = %v, expected = %v", r.URL, "https://kcp.dev.local/services/custom-url/proxy")
 	}
+
+	parent, found := target.Lookup(logicalcluster.NewPath("root:org"))
+	validateLookupOutput(t, logicalcluster.NewPath("root:org"), parent.Shard, parent.Cluster, parent.URL, found, "beta", "34", "", true)
 }

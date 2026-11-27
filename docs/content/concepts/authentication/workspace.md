@@ -45,7 +45,7 @@ To enable the front-proxy to perform per-workspace authentication, even for virt
 !!! note
     Since in kcp you configure a _prefix_, but Go's URL matching matches the entire URL, technically a path like `/foo` in the mapping config would only ever match the literal `GET /foo` request. Because of this, kcp will actually take every path mapping and add it twice to the mux: once the original mapping (`/foo`) and once as `/foo/{trail...}` to enable matching requests like `GET /foo/bar`.
 
-There is currently only 1 placeholder that has meaning: `{cluster}`. If a URL matches a path mapping that contains a `{cluster}` placeholder, and that value is not empty, then the front-proxy will be enable per-workspace authentication (if the feature is enabled, of course) for this request.
+There is currently only 1 placeholder that has meaning: `{cluster}`. If a URL matches a path mapping that contains a `{cluster}` placeholder, and that value is not empty, then the front-proxy will be enable per-workspace authentication (if the feature is enabled, of course) for this request. Without a `{cluster}` placeholder the front-proxy falls back to the first `/clusters/<cluster>/` segment in the request path, if any.
 
 Here is an example for a path mapping that configures such a special virtual workspace:
 
