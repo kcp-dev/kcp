@@ -52,6 +52,10 @@ import (
 func ForKind(kind schema.GroupVersionKind) interface{} {
 	switch kind {
 	// Group=admin.kcp.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithKind("APIExportHistory"):
+		return &adminv1alpha1.APIExportHistoryApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("APIExportHistoryStatus"):
+		return &adminv1alpha1.APIExportHistoryStatusApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("APIIdentity"):
 		return &adminv1alpha1.APIIdentityApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("APIIdentityStatus"):
@@ -60,6 +64,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &adminv1alpha1.ExportReferenceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Holder"):
 		return &adminv1alpha1.HolderApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("ResourceHistory"):
+		return &adminv1alpha1.ResourceHistoryApplyConfiguration{}
 
 		// Group=apis.kcp.io, Version=v1alpha1
 	case apisv1alpha1.SchemeGroupVersion.WithKind("AcceptablePermissionClaim"):

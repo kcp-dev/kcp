@@ -48,7 +48,7 @@ done
 (
   ${KCP_APIGEN_GEN} --input-dir "${REPO_ROOT}"/config/crds --output-dir "${REPO_ROOT}"/config/root-phase0 \
   --ignore-export-schemas cachedobjects.cache.kcp.io \
-  --ignore-schemas apiidentities.admin.kcp.io
+  --ignore-schemas apiidentities.admin.kcp.io,apiexporthistories.admin.kcp.io
 )
 
 
