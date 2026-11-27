@@ -25,6 +25,7 @@ import (
 
 	"github.com/kcp-dev/logicalcluster/v3"
 
+	"github.com/kcp-dev/kcp/pkg/index"
 	"github.com/kcp-dev/kcp/pkg/index/indextest"
 )
 
@@ -210,6 +211,76 @@ func TestExtractClusterFromPath(t *testing.T) {
 			result := extractClusterFromPath(tt.path)
 			if result != tt.expected {
 				t.Errorf("extractClusterFromPath(%q) = %q, want %q", tt.path, result, tt.expected)
+			}
+		})
+	}
+}
+
+// typedIndex adds workspace types to the fake index.
+type typedIndex struct {
+	*indextest.Index
+	types map[logicalcluster.Name]logicalcluster.Path
+}
+
+func (f *typedIndex) LookupURL(path logicalcluster.Path) (index.Result, bool) {
+	result, found := f.Index.LookupURL(path)
+	result.Type = f.types[result.Cluster]
+	return result, found
+}
+
+func TestExtractExportClusterFromPath(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"/services/apiexport/1jmw2uc5r9oi3e6t/wildwest.platform-mesh.io/clusters/*/apis":        "1jmw2uc5r9oi3e6t",
+		"/services/apiexport/1jmw2uc5r9oi3e6t/wildwest.platform-mesh.io/clusters/25expuptw/api": "1jmw2uc5r9oi3e6t",
+		"/services/marketplace/clusters/root:orgs:bob/apis":                                     "",
+		"/clusters/root:orgs:bob/api":                                                           "",
+	}
+	for path, expected := range tests {
+		if result := extractExportClusterFromPath(path); result != expected {
+			t.Errorf("extractExportClusterFromPath(%q) = %q, want %q", path, result, expected)
+		}
+	}
+}
+
+func TestWithExportWorkspaceFromPath(t *testing.T) {
+	t.Parallel()
+
+	idx := &typedIndex{
+		Index: &indextest.Index{
+			Clusters: map[logicalcluster.Name]string{"exportcluster": "root", "plaincluster": "root"},
+			Shards:   map[string]string{"root": "https://root"},
+		},
+		types: map[logicalcluster.Name]logicalcluster.Path{"exportcluster": logicalcluster.NewPath("root:provider-x")},
+	}
+
+	tests := []struct {
+		name     string
+		path     string
+		expected *ExportWorkspace
+	}{
+		{
+			name:     "known export cluster",
+			path:     "/services/apiexport/exportcluster/my.export/clusters/*/apis",
+			expected: &ExportWorkspace{Cluster: "exportcluster", Type: logicalcluster.NewPath("root:provider-x")},
+		},
+		{name: "unknown export cluster is ignored", path: "/services/apiexport/unknown/my.export/clusters/*/apis"},
+		{name: "export cluster without type is ignored", path: "/services/apiexport/plaincluster/my.export/clusters/*/apis"},
+		{name: "other URL is ignored", path: "/services/marketplace/clusters/exportcluster/apis"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			req := withExportWorkspaceFromPath(httptest.NewRequestWithContext(t.Context(), http.MethodGet, tt.path, http.NoBody), idx)
+			got, ok := ExportWorkspaceFrom(req.Context())
+			switch {
+			case tt.expected == nil && ok:
+				t.Errorf("expected no export workspace, got %+v", got)
+			case tt.expected != nil && !ok:
+				t.Errorf("expected export workspace %+v, got none", *tt.expected)
+			case tt.expected != nil && (got.Cluster != tt.expected.Cluster || got.Type.String() != tt.expected.Type.String()):
+				t.Errorf("expected export workspace %+v, got %+v", *tt.expected, got)
 			}
 		})
 	}

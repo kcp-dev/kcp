@@ -32,6 +32,18 @@ import (
 // options.
 func WithWorkspaceAuthResolver(handler http.Handler, authIndex AuthenticatorIndex) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// APIExport virtual workspace URLs belong to the export's workspace. Use its
+		// authenticator if it has one; otherwise keep the behavior below unchanged.
+		if export, ok := proxy.ExportWorkspaceFrom(req.Context()); ok {
+			if authn, ok := authIndex.Lookup(export.Type); ok {
+				authn = group.NewAuthenticatedGroupAdder(authn)
+				authn = withClusterScopeFor(authn, export.Cluster)
+				req = req.WithContext(WithWorkspaceAuthenticator(req.Context(), authn))
+				handler.ServeHTTP(w, req)
+				return
+			}
+		}
+
 		wsType := proxy.WorkspaceTypeFrom(req.Context())
 		if wsType.Empty() {
 			handler.ServeHTTP(w, req)

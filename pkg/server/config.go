@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
 	authenticatorunion "k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/endpoints/filters"
 	"k8s.io/apiserver/pkg/informerfactoryhack"
@@ -128,7 +129,10 @@ type ExtraConfig struct {
 
 	// authentication
 	kcpAdminToken, shardAdminToken, userToken string
-	shardAdminTokenHash                       []byte
+
+	// virtualWorkspaceAuthenticator is added to the authenticator of the in-process virtual workspaces.
+	virtualWorkspaceAuthenticator authenticator.Request
+	shardAdminTokenHash           []byte
 
 	// clients
 	DynamicClusterClient                kcpdynamic.ClusterInterface
@@ -207,6 +211,11 @@ type CompletedConfig struct {
 func (c *Config) Complete() (CompletedConfig, error) {
 	miniAggregator := c.MiniAggregator.Complete()
 
+	virtualAuthentication := miniAggregator.GenericConfig.Authentication
+	if c.virtualWorkspaceAuthenticator != nil && virtualAuthentication.Authenticator != nil {
+		virtualAuthentication.Authenticator = authenticatorunion.New(virtualAuthentication.Authenticator, c.virtualWorkspaceAuthenticator)
+	}
+
 	return CompletedConfig{&completedConfig{
 		Options: c.Options,
 
@@ -218,7 +227,7 @@ func (c *Config) Complete() (CompletedConfig, error) {
 		AggregatingCRDVersionDiscovery: c.AggregatingCRDVersionDiscovery.Complete(),
 		VirtualResources:               c.VirtualResources.Complete(),
 		OptionalVirtual: c.OptionalVirtual.Complete(
-			miniAggregator.GenericConfig.Authentication,
+			virtualAuthentication,
 			miniAggregator.GenericConfig.AuditPolicyRuleEvaluator,
 			miniAggregator.GenericConfig.AuditBackend,
 			c.GenericConfig.ExternalAddress,
@@ -526,6 +535,8 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 			localWSTIndexer, cacheWSTIndexer,
 			informer.NewScopedGetterWithFallback[*tenancyv1alpha1.WorkspaceAuthenticationConfiguration, tenancyv1alpha1listers.WorkspaceAuthenticationConfigurationLister](wacLister, cacheWACLister),
 		)
+
+		c.ExtraConfig.virtualWorkspaceAuthenticator = authentication.NewAPIExportWorkspaceAuthenticator(clusterIndex, authIndex)
 	}
 
 	c.ExtraConfig.ClusterContextManager = contextmanager.New[logicalcluster.Path](ctx)
