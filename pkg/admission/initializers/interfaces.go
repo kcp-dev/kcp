@@ -78,6 +78,13 @@ type WantsDynamicClusterClient interface {
 	SetDynamicClusterClient(clusterInterface kcpdynamic.ClusterInterface)
 }
 
+// WantsShardClusterClients is an interface that should be implemented by admission plugins that need cluster clients
+// which connect directly to the shard hosting the requested logical cluster, with the privileges of this shard,
+// as opposed to the clients of WantsKubeClusterClient and WantsDynamicClusterClient which only reach this shard.
+type WantsShardClusterClients interface {
+	SetShardClusterClients(kubeClusterClient kcpkubernetesclientset.ClusterInterface, dynamicClusterClient kcpdynamic.ClusterInterface)
+}
+
 // WantsDynamicRESTMapper is an interface that should be implemented by admission plugins that need the DynamicRESTMapper.
 type WantsDynamicRESTMapper interface {
 	SetDynamicRESTMapper(dynRESTMapper *dynamicrestmapper.DynamicRESTMapper)
