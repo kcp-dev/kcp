@@ -1767,8 +1767,8 @@ func (s *Server) installKubeQuotaController(
 	const (
 		quotaResyncPeriod   = 5 * time.Minute
 		replenishmentPeriod = 12 * time.Hour
-		workers             = 4
 	)
+	workers := s.Options.Controllers.ConcurrentResourceQuotaSyncs
 
 	c, err := kubequota.NewController(
 		kubeClusterClient,
@@ -1919,11 +1919,10 @@ func (s *Server) installGarbageCollectorController(ctx context.Context, config *
 		return err
 	}
 
-	// TODO: make it configurable
 	// TODO(ntnn): would be great to scale workers by number of
 	// workspaces, e.g. start with 2 and then scale logarithmically with
 	// a configurable maximum.
-	const workers = 4
+	workers := s.Options.Controllers.ConcurrentGarbageCollectorSyncs
 
 	c, err := garbagecollector.NewController(
 		kubeClusterClient,
