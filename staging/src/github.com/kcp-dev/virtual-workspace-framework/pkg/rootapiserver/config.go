@@ -23,6 +23,7 @@ import (
 
 	corev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/core/v1alpha1"
 	"github.com/kcp-dev/virtual-workspace-framework/framework"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/longrunning"
 )
 
 // NamedVirtualWorkspace is a virtual workspace served at a path pattern.
@@ -88,6 +89,10 @@ func NewConfig(recommendedConfig *genericapiserver.RecommendedConfig) (*Config, 
 		Host: "loopback-config-not-wired-for-now",
 	}
 	recommendedConfig.EffectiveVersion = compatibility.DefaultBuildEffectiveVersion()
+
+	// A virtual workspace serves custom subresources too, and a stream on one
+	// must outlive the request timeout here as it does on the shard.
+	recommendedConfig.LongRunningFunc = longrunning.WithStreamingCustomSubresources(recommendedConfig.LongRunningFunc)
 
 	ret := &Config{
 		Generic: recommendedConfig,

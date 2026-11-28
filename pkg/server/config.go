@@ -71,6 +71,7 @@ import (
 	kcpclientset "github.com/kcp-dev/sdk/client/clientset/versioned/cluster"
 	kcpinformers "github.com/kcp-dev/sdk/client/informers/externalversions"
 	tenancyv1alpha1listers "github.com/kcp-dev/sdk/client/listers/tenancy/v1alpha1"
+	"github.com/kcp-dev/virtual-workspace-framework/pkg/longrunning"
 
 	kcpadmissioninitializers "github.com/kcp-dev/kcp/pkg/admission/initializers"
 	"github.com/kcp-dev/kcp/pkg/authentication"
@@ -284,6 +285,11 @@ func NewConfig(ctx context.Context, opts kcpserveroptions.CompletedOptions) (*Co
 	if err != nil {
 		return nil, err
 	}
+
+	// A custom subresource can carry a stream under any name, which the stock
+	// check, knowing only exec, attach and the like, would cut off at the
+	// request timeout.
+	c.GenericConfig.LongRunningFunc = longrunning.WithStreamingCustomSubresources(c.GenericConfig.LongRunningFunc)
 
 	// break connections on the tcp layer. Setting the client timeout would
 	// also apply to watches, which we don't want.
