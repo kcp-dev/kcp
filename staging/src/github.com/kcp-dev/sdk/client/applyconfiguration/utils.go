@@ -60,6 +60,14 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		return &adminv1alpha1.ExportReferenceApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("Holder"):
 		return &adminv1alpha1.HolderApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PermissionClaimPolicy"):
+		return &adminv1alpha1.PermissionClaimPolicyApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PermissionClaimPolicySpec"):
+		return &adminv1alpha1.PermissionClaimPolicySpecApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PermissionClaimPolicySubject"):
+		return &adminv1alpha1.PermissionClaimPolicySubjectApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("PermissionClaimRule"):
+		return &adminv1alpha1.PermissionClaimRuleApplyConfiguration{}
 
 		// Group=apis.kcp.io, Version=v1alpha1
 	case apisv1alpha1.SchemeGroupVersion.WithKind("AcceptablePermissionClaim"):

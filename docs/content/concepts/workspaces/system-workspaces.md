@@ -36,6 +36,7 @@ The following system workspaces exist:
 | `system:bound-crds` | Storage for CRDs dynamically created from APIBindings |
 | `system:shard` | Holds API bindings for root APIs required by every shard |
 | `system:cached-crds` | Used by the cache server to manage CRDs for cached resources |
+| `system:global-admin` | Cache-server-only. Holds installation-wide objects owned by the Admin workspace, such as `PermissionClaimPolicy`. Not a real logical cluster on any shard. |
 
 ## `system:admin`
 

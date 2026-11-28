@@ -33,6 +33,7 @@ import (
 type AdminV1alpha1ClusterInterface interface {
 	AdminV1alpha1ClusterScoper
 	APIIdentitiesClusterGetter
+	PermissionClaimPoliciesClusterGetter
 }
 
 type AdminV1alpha1ClusterScoper interface {
@@ -53,6 +54,10 @@ func (c *AdminV1alpha1ClusterClient) Cluster(clusterPath logicalcluster.Path) kc
 
 func (c *AdminV1alpha1ClusterClient) APIIdentities() APIIdentityClusterInterface {
 	return &aPIIdentitiesClusterInterface{clientCache: c.clientCache}
+}
+
+func (c *AdminV1alpha1ClusterClient) PermissionClaimPolicies() PermissionClaimPolicyClusterInterface {
+	return &permissionClaimPoliciesClusterInterface{clientCache: c.clientCache}
 }
 
 // NewForConfig creates a new AdminV1alpha1ClusterClient for the given config.

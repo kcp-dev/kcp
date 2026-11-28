@@ -38,7 +38,7 @@ func forward(t *testing.T, req *http.Request) http.Header {
 	t.Helper()
 
 	handler, err := newVirtualResourceHandler(klog.Background(), &rest.Config{Host: "https://vw.example.com"},
-		"https://vw.example.com/services/ephemeral/cluster/export", "cluster", 0)
+		"https://vw.example.com/services/ephemeral/cluster/export", "cluster", 0, false)
 	require.NoError(t, err)
 
 	proxy, ok := handler.(*httputil.ReverseProxy)

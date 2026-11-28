@@ -25,6 +25,8 @@ import (
 type ClusterInterface interface {
 	// APIIdentities returns a APIIdentityClusterInformer.
 	APIIdentities() APIIdentityClusterInformer
+	// PermissionClaimPolicies returns a PermissionClaimPolicyClusterInformer.
+	PermissionClaimPolicies() PermissionClaimPolicyClusterInformer
 }
 
 type version struct {
@@ -42,9 +44,16 @@ func (v *version) APIIdentities() APIIdentityClusterInformer {
 	return &aPIIdentityClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
+// PermissionClaimPolicies returns a PermissionClaimPolicyClusterInformer.
+func (v *version) PermissionClaimPolicies() PermissionClaimPolicyClusterInformer {
+	return &permissionClaimPolicyClusterInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
 type Interface interface {
 	// APIIdentities returns a APIIdentityInformer.
 	APIIdentities() APIIdentityInformer
+	// PermissionClaimPolicies returns a PermissionClaimPolicyInformer.
+	PermissionClaimPolicies() PermissionClaimPolicyInformer
 }
 
 type scopedVersion struct {
@@ -61,4 +70,9 @@ func NewScoped(f kcpinternalinterfaces.SharedScopedInformerFactory, namespace st
 // APIIdentities returns a APIIdentityInformer.
 func (v *scopedVersion) APIIdentities() APIIdentityInformer {
 	return &aPIIdentityScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// PermissionClaimPolicies returns a PermissionClaimPolicyInformer.
+func (v *scopedVersion) PermissionClaimPolicies() PermissionClaimPolicyInformer {
+	return &permissionClaimPolicyScopedInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

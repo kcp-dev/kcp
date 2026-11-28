@@ -65,6 +65,11 @@ func (c *Controller) ensureBoundCRDs(ctx context.Context, lcName logicalcluster.
 		}
 
 		for _, resource := range apiExport.Spec.Resources {
+			// A custom subresource has no bound CRD of its own to migrate.
+			if resource.IsSubresource() {
+				continue
+			}
+
 			schema, err := c.getAPIResourceSchema(logicalcluster.From(apiExport), resource.Schema)
 			if err != nil {
 				return fmt.Errorf("failed to get APIResourceSchema %s in %s: %w", resource.Schema, exportPath, err)

@@ -24,6 +24,16 @@ package v1alpha2
 // ResourceSchema defines the resource schemas that are exposed with this APIExport.
 type ResourceSchemaApplyConfiguration struct {
 	// Name is the name of the resource.
+	//
+	// A custom subresource is declared as its own entry, named
+	// "<resource>/<subresource>" in the style of an RBAC rule, e.g.
+	// "virtualmachines/ssh". Such an entry must use virtual storage, and the
+	// resource it names must be exported by this APIExport too. It is independent of
+	// how that resource is stored: a resource kept in a CRD may carry subresources
+	// that are not.
+	//
+	// status and scale are never declared this way. They belong to the object's
+	// shape and are declared on the APIResourceSchema.
 	Name *string `json:"name,omitempty"`
 	// Group is the API group of the resource. Empty string represents the core group.
 	Group *string `json:"group,omitempty"`

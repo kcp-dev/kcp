@@ -42,6 +42,12 @@ type APIDefinition interface {
 	// GetSubResourceStorage provides the REST storage required to serve the given sub-resource.
 	GetSubResourceStorage(subresource string) rest.Storage
 
+	// GetSubResourceNames lists every sub-resource this definition serves, in
+	// lexicographical order. Discovery needs the whole set, which cannot be
+	// recovered from GetSubResourceStorage alone, and a stable order keeps the
+	// discovery document from changing between identical builds.
+	GetSubResourceNames() []string
+
 	// GetRequestScope provides the handlers.RequestScope required to serve the resource.
 	GetRequestScope() *handlers.RequestScope
 

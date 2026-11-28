@@ -248,6 +248,14 @@ const (
 	// AnnotationSchemaStorageKey is the annotation key for identifying schema storage of an exported resource.
 	// This data is synthetic; it is not stored in etcd and instead is only applied when retrieving CRs for the CRD.
 	AnnotationSchemaStorageKey = "apis.kcp.io/schema-storage"
+	// AnnotationSubresourcesKey identifies the APIExport that declares custom
+	// subresources for an exported resource, as "<logical cluster>|<export name>".
+	//
+	// A resource with CRD storage carries no schema-storage annotation, so without
+	// this there is no way back from a bound CRD to the export that declares its
+	// subresources. This data is synthetic; it is not stored in etcd and instead is
+	// only applied when retrieving CRs for the CRD.
+	AnnotationSubresourcesKey = "apis.kcp.io/subresources"
 )
 
 // BoundAPIResource describes a bound GroupVersionResource through an APIResourceSchema of an APIExport..

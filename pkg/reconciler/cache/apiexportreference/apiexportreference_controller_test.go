@@ -197,6 +197,7 @@ func TestDesired(t *testing.T) {
 	require.Equal(t, "sheriffs", *got.Spec.Resource)
 	require.Equal(t, []string{"one"}, got.Spec.Names)
 	require.Nil(t, got.Spec.Identity, "identity is not this controller's to manage")
+
 }
 
 func TestWantedFor(t *testing.T) {

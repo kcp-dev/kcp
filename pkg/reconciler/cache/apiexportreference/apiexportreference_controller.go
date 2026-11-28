@@ -147,6 +147,13 @@ type controller struct {
 	deleteResource     func(ctx context.Context, cluster logicalcluster.Name, name string) error
 }
 
+// AnnotationReferencedBy names the APIExport whose virtual-storage reference a
+// ClusterCachedResource stands for. Together with cache.kcp.io/resource-kind,
+// which the clustercachedresources controller already sets, it is enough to
+// match a reference to the object that resolved it -- from any shard, because
+// ClusterCachedResources are replicated.
+const AnnotationReferencedBy = "cache.kcp.io/referenced-by"
+
 // reference is one object an APIExport points at. It names a kind, because
 // that is what the APIExport carries; resolving it to a resource needs a
 // RESTMapper.
@@ -240,7 +247,7 @@ func desired(export *apisv1alpha2.APIExport, ref resolved) *cachev1alpha1apply.C
 			WithName(export.Name).
 			WithUID(export.UID)).
 		WithAnnotations(map[string]string{
-			"cache.kcp.io/referenced-by": export.Name,
+			AnnotationReferencedBy: export.Name,
 		}).
 		WithSpec(cachev1alpha1apply.ClusterCachedResourceSpec().
 			WithGroup(ref.gvr.Group).

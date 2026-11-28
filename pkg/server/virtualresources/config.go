@@ -27,6 +27,7 @@ import (
 	kcpapiextensionsv1informers "github.com/kcp-dev/client-go/apiextensions/informers/apiextensions/v1"
 	kcpdynamic "github.com/kcp-dev/client-go/dynamic"
 	apisv1alpha2informers "github.com/kcp-dev/sdk/client/informers/externalversions/apis/v1alpha2"
+	cachev1alpha1informers "github.com/kcp-dev/sdk/client/informers/externalversions/cache/v1alpha1"
 )
 
 type Config struct {
@@ -46,6 +47,12 @@ type ExtraConfig struct {
 	APIBindingInformer      apisv1alpha2informers.APIBindingClusterInformer
 	LocalAPIExportInformer  apisv1alpha2informers.APIExportClusterInformer
 	GlobalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer
+
+	// ClusterCachedResources carry the resolved group/version/resource of every
+	// object an APIExport references. They are replicated, so the global one
+	// answers for APIExports this shard does not serve.
+	LocalClusterCachedResourceInformer  cachev1alpha1informers.ClusterCachedResourceClusterInformer
+	GlobalClusterCachedResourceInformer cachev1alpha1informers.ClusterCachedResourceClusterInformer
 }
 
 type completedConfig struct {
@@ -94,6 +101,8 @@ func NewConfig(
 	apiBindingInformer apisv1alpha2informers.APIBindingClusterInformer,
 	localAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
 	globalAPIExportInformer apisv1alpha2informers.APIExportClusterInformer,
+	localClusterCachedResourceInformer cachev1alpha1informers.ClusterCachedResourceClusterInformer,
+	globalClusterCachedResourceInformer cachev1alpha1informers.ClusterCachedResourceClusterInformer,
 ) (*Config, error) {
 	rest.AddUserAgent(vwClientConfig, "kcp-virtual-resources-apiserver")
 	cfg.SkipOpenAPIInstallation = true
@@ -112,6 +121,9 @@ func NewConfig(
 			APIBindingInformer:      apiBindingInformer,
 			LocalAPIExportInformer:  localAPIExportInformer,
 			GlobalAPIExportInformer: globalAPIExportInformer,
+
+			LocalClusterCachedResourceInformer:  localClusterCachedResourceInformer,
+			GlobalClusterCachedResourceInformer: globalClusterCachedResourceInformer,
 		},
 	}
 
