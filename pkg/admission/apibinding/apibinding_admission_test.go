@@ -29,6 +29,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -262,6 +263,226 @@ func TestAdmit(t *testing.T) {
 			} else {
 				require.Equal(t, tc.expectedObject, tc.attr.GetObject())
 			}
+		})
+	}
+}
+
+func TestAdmitPreservesDefaultedFields(t *testing.T) {
+	t.Parallel()
+
+	exportLabelKey := apisv1alpha1.InternalAPIBindingExportLabelKey
+	binding := func(version, exportPath string, labels map[string]interface{}) *unstructured.Unstructured {
+		metadata := map[string]interface{}{
+			"name":        "test",
+			"annotations": map[string]interface{}{logicalcluster.AnnotationKey: "root-org-ws"},
+		}
+		if labels != nil {
+			metadata["labels"] = labels
+		}
+		export := map[string]interface{}{"name": "someExport"}
+		if exportPath != "" {
+			export["path"] = exportPath
+		}
+		claim := map[string]interface{}{
+			"group":        "",
+			"resource":     "configmaps",
+			"identityHash": "",
+			"state":        "Accepted",
+		}
+		spec := map[string]interface{}{
+			"reference":        map[string]interface{}{"export": export},
+			"permissionClaims": []interface{}{claim},
+		}
+		if version == "v1alpha2" {
+			claim["verbs"] = []interface{}{"get"}
+			claim["selector"] = map[string]interface{}{"matchAll": true}
+			spec["deletionPolicy"] = "Delete"
+		} else {
+			claim["all"] = true
+		}
+		return &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "apis.kcp.io/" + version,
+			"kind":       "APIBinding",
+			"metadata":   metadata,
+			"spec":       spec,
+		}}
+	}
+	localLabel := map[string]interface{}{exportLabelKey: toSha224Base62("root-org-ws:someExport")}
+
+	type testCase struct {
+		name     string
+		op       admission.Operation
+		obj, old *unstructured.Unstructured
+		expected *unstructured.Unstructured
+	}
+	tests := make([]testCase, 0, 6)
+	for _, version := range []string{"v1alpha2", "v1alpha1"} {
+		tests = append(tests,
+			testCase{
+				name:     version + " Create: only the export label is added",
+				op:       admission.Create,
+				obj:      binding(version, "", nil),
+				expected: binding(version, "", localLabel),
+			},
+			testCase{
+				name:     version + " Update: unchanged object is left untouched",
+				op:       admission.Update,
+				obj:      binding(version, "", localLabel),
+				old:      binding(version, "", localLabel),
+				expected: binding(version, "", localLabel),
+			},
+			testCase{
+				name: version + " Update: changed reference only updates the export label",
+				op:   admission.Update,
+				obj: binding(version, "", map[string]interface{}{
+					exportLabelKey: toSha224Base62("root-aunt:someExport"),
+					"unrelated":    "keep",
+				}),
+				old: binding(version, "root:aunt", map[string]interface{}{
+					exportLabelKey: toSha224Base62("root-aunt:someExport"),
+					"unrelated":    "keep",
+				}),
+				expected: binding(version, "", map[string]interface{}{
+					exportLabelKey: toSha224Base62("root-org-ws:someExport"),
+					"unrelated":    "keep",
+				}),
+			},
+		)
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			o := &apiBindingAdmission{
+				Handler: admission.NewHandler(admission.Create, admission.Update),
+				getAPIExport: func(path logicalcluster.Path, name string) (*apisv1alpha2.APIExport, error) {
+					return nil, apierrors.NewNotFound(apisv1alpha2.Resource("apiexports"), name)
+				},
+			}
+			var old runtime.Object
+			if tc.old != nil {
+				old = tc.old
+			}
+			version := tc.obj.GroupVersionKind().Version
+			attr := admission.NewAttributesRecord(
+				tc.obj,
+				old,
+				apisv1alpha2.Kind("APIBinding").WithVersion(version),
+				"",
+				tc.obj.GetName(),
+				apisv1alpha2.Resource("apibindings").WithVersion(version),
+				"",
+				tc.op,
+				&metav1.CreateOptions{},
+				false,
+				&user.DefaultInfo{},
+			)
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.Name("root-org-ws")})
+
+			require.NoError(t, o.Admit(ctx, attr, nil))
+			require.Equal(t, tc.expected, attr.GetObject())
+		})
+	}
+}
+
+func TestAdmitSetsMatchAllOnSubresourceClaims(t *testing.T) {
+	t.Parallel()
+
+	binding := func(subresourceSelector map[string]interface{}, labels map[string]interface{}) *unstructured.Unstructured {
+		subresourceClaim := map[string]interface{}{
+			"group":        "",
+			"resource":     "serviceaccounts/token",
+			"identityHash": "",
+			"verbs":        []interface{}{"create"},
+			"state":        "Accepted",
+		}
+		if subresourceSelector != nil {
+			subresourceClaim["selector"] = subresourceSelector
+		}
+		metadata := map[string]interface{}{
+			"name":        "test",
+			"annotations": map[string]interface{}{logicalcluster.AnnotationKey: "root-org-ws"},
+		}
+		if labels != nil {
+			metadata["labels"] = labels
+		}
+		return &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "apis.kcp.io/v1alpha2",
+			"kind":       "APIBinding",
+			"metadata":   metadata,
+			"spec": map[string]interface{}{
+				"reference": map[string]interface{}{"export": map[string]interface{}{"name": "someExport"}},
+				"permissionClaims": []interface{}{
+					map[string]interface{}{
+						"group":        "",
+						"resource":     "serviceaccounts",
+						"identityHash": "",
+						"verbs":        []interface{}{"get"},
+						"selector":     map[string]interface{}{"matchLabels": map[string]interface{}{"a": "b"}},
+						"state":        "Accepted",
+					},
+					subresourceClaim,
+				},
+				"deletionPolicy": "Delete",
+			},
+		}}
+	}
+	localLabel := map[string]interface{}{apisv1alpha1.InternalAPIBindingExportLabelKey: toSha224Base62("root-org-ws:someExport")}
+
+	tests := []struct {
+		name     string
+		op       admission.Operation
+		obj, old *unstructured.Unstructured
+		expected *unstructured.Unstructured
+	}{
+		{
+			name:     "Create: missing selector",
+			op:       admission.Create,
+			obj:      binding(nil, nil),
+			expected: binding(map[string]interface{}{"matchAll": true}, localLabel),
+		},
+		{
+			name:     "Create: empty selector",
+			op:       admission.Create,
+			obj:      binding(map[string]interface{}{}, nil),
+			expected: binding(map[string]interface{}{"matchAll": true}, localLabel),
+		},
+		{
+			name:     "Update: other selector keys are kept",
+			op:       admission.Update,
+			obj:      binding(map[string]interface{}{"matchLabels": map[string]interface{}{"c": "d"}}, localLabel),
+			old:      binding(map[string]interface{}{"matchAll": true}, localLabel),
+			expected: binding(map[string]interface{}{"matchLabels": map[string]interface{}{"c": "d"}, "matchAll": true}, localLabel),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			o := &apiBindingAdmission{
+				Handler: admission.NewHandler(admission.Create, admission.Update),
+			}
+			var old runtime.Object
+			if tc.old != nil {
+				old = tc.old
+			}
+			attr := admission.NewAttributesRecord(
+				tc.obj,
+				old,
+				apisv1alpha2.Kind("APIBinding").WithVersion("v1alpha2"),
+				"",
+				tc.obj.GetName(),
+				apisv1alpha2.Resource("apibindings").WithVersion("v1alpha2"),
+				"",
+				tc.op,
+				&metav1.CreateOptions{},
+				false,
+				&user.DefaultInfo{},
+			)
+			ctx := request.WithCluster(context.Background(), request.Cluster{Name: logicalcluster.Name("root-org-ws")})
+
+			require.NoError(t, o.Admit(ctx, attr, nil))
+			require.Equal(t, tc.expected, attr.GetObject())
 		})
 	}
 }

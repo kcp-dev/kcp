@@ -48,10 +48,6 @@ func (b apiBindingV1alpha2) Labels() map[string]string {
 	return b.binding.Labels
 }
 
-func (b *apiBindingV1alpha2) SetLabels(labels map[string]string) {
-	b.binding.Labels = labels
-}
-
 func (b apiBindingV1alpha2) Validate() field.ErrorList {
 	return apisv1alpha2.ValidateAPIBinding(b.binding)
 }
@@ -63,10 +59,6 @@ func (b apiBindingV1alpha2) ValidateUpdate(oldBinding apiBinding) field.ErrorLis
 	}
 
 	return apisv1alpha2.ValidateAPIBindingUpdate(old.binding, b.binding)
-}
-
-func (b apiBindingV1alpha2) ToUnstructured() (map[string]interface{}, error) {
-	return runtime.DefaultUnstructuredConverter.ToUnstructured(b.binding)
 }
 
 type bindingReferenceV1alpha2 struct {

@@ -126,12 +126,12 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 
 	var oldAPIBinding apiBinding
 	if a.GetOperation() == admission.Update {
-		u, ok := a.GetOldObject().(*unstructured.Unstructured)
+		oldU, ok := a.GetOldObject().(*unstructured.Unstructured)
 		if !ok {
 			return fmt.Errorf("unexpected type %T", a.GetObject())
 		}
 
-		oldAPIBinding, err = getAPIBinding(u, a.GetResource().Version)
+		oldAPIBinding, err = getAPIBinding(oldU, a.GetResource().Version)
 		if err != nil {
 			return fmt.Errorf("failed to convert unstructured to APIBinding: %w", err)
 		}
@@ -166,8 +166,9 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 			exportClusterName = logicalcluster.From(export)
 		}
 
-		// set labels
-		lbls := ab.Labels()
+		// set labels directly on the unstructured object: a typed round-trip
+		// would drop defaulted zero values of omitempty fields and bump generation.
+		lbls := u.GetLabels()
 		if lbls == nil {
 			lbls = map[string]string{}
 		}
@@ -175,26 +176,30 @@ func (o *apiBindingAdmission) Admit(ctx context.Context, a admission.Attributes,
 			exportClusterName,
 			exportName,
 		)
-		ab.SetLabels(lbls)
+		u.SetLabels(lbls)
 	}
 
 	// subresource claims have no selector, set a matchAll so users
 	// don't have to repeat it for every subresource
-	if v2, ok := ab.(*apiBindingV1alpha2); ok {
-		for i := range v2.binding.Spec.PermissionClaims {
-			pc := &v2.binding.Spec.PermissionClaims[i]
-			if strings.Contains(pc.Resource, "/") {
-				pc.Selector.MatchAll = true
+	if a.GetResource().GroupVersion() == apisv1alpha2.SchemeGroupVersion {
+		claims, _, _ := unstructured.NestedFieldNoCopy(u.Object, "spec", "permissionClaims")
+		cs, _ := claims.([]interface{})
+		for _, c := range cs {
+			claim, ok := c.(map[string]interface{})
+			if !ok {
+				continue
 			}
+			if resource, _ := claim["resource"].(string); !strings.Contains(resource, "/") {
+				continue
+			}
+			selector, _ := claim["selector"].(map[string]interface{})
+			if selector == nil {
+				selector = map[string]interface{}{}
+				claim["selector"] = selector
+			}
+			selector["matchAll"] = true
 		}
 	}
-
-	// write back
-	raw, err := ab.ToUnstructured()
-	if err != nil {
-		return err
-	}
-	u.Object = raw
 
 	return nil
 }
