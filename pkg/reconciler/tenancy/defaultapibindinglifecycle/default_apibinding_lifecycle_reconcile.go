@@ -42,6 +42,11 @@ import (
 func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalCluster *corev1alpha1.LogicalCluster) error {
 	logger := klog.FromContext(ctx)
 
+	// LogicalCluster deletion removes the APIBindings; recreating missing default
+	// bindings here would bring them back on every APIExport or WorkspaceType event.
+	// Existing bindings are still updated.
+	deleting := !logicalCluster.DeletionTimestamp.IsZero()
+
 	annotationValue, found := logicalCluster.Annotations[tenancyv1alpha1.LogicalClusterTypeAnnotationKey]
 	if !found {
 		return nil
@@ -166,6 +171,9 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 					errors = append(errors, err)
 					continue
 				}
+				if deleting {
+					continue
+				}
 				if _, err := c.createAPIBinding(ctx, clusterName.Path(), &apisv1alpha2.APIBinding{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: apiBindingName,
@@ -199,6 +207,10 @@ func (c *DefaultAPIBindingController) reconcile(ctx context.Context, logicalClus
 			return utilerrors.NewAggregate(errors)
 		}
 
+		return nil
+	}
+
+	if deleting {
 		return nil
 	}
 
